@@ -1,3 +1,4 @@
+// MainScreen.kt
 package com.mobitechs.parcelwala.ui.screens.main
 
 import androidx.compose.foundation.layout.*
@@ -9,9 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.ui.navigation.BottomNavItem
 import com.mobitechs.parcelwala.ui.screens.home.HomeScreen
@@ -24,16 +22,11 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     preferencesManager: PreferencesManager,
     onNavigateToLogin: () -> Unit,
+    onNavigateToLocationSearch: () -> Unit,
+    currentRoute: String = "home",
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
-    val navController = rememberNavController()
-
-    val bottomNavItems = listOf(
-        BottomNavItem.Home,
-        BottomNavItem.Bookings,
-        BottomNavItem.Profile
-    )
 
     Scaffold(
         bottomBar = {
@@ -41,7 +34,11 @@ fun MainScreen(
                 containerColor = AppTheme.colors.surface,
                 contentColor = AppTheme.colors.primary
             ) {
-                bottomNavItems.forEach { item ->
+                listOf(
+                    BottomNavItem.Home,
+                    BottomNavItem.Bookings,
+                    BottomNavItem.Profile
+                ).forEach { item ->
                     NavigationBarItem(
                         icon = {
                             Icon(
@@ -50,17 +47,8 @@ fun MainScreen(
                             )
                         },
                         label = { Text(item.title) },
-                        selected = selectedTab.route == item.route,
-                        onClick = {
-                            viewModel.selectTab(item)
-                            navController.navigate(item.route) {
-                                popUpTo(BottomNavItem.Home.route) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        selected = currentRoute == item.route,
+                        onClick = { viewModel.selectTab(item) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = AppTheme.colors.primary,
                             selectedTextColor = AppTheme.colors.primary,
@@ -73,29 +61,11 @@ fun MainScreen(
             }
         }
     ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(paddingValues)
-        ) {
-            composable(BottomNavItem.Home.route) {
-                HomeScreen(
-                    onNavigateToLocationSearch = {
-                        // TODO: Implement location search navigation
-                        // For now, do nothing or show a toast
-                    }
-                )
-            }
-
-            composable(BottomNavItem.Bookings.route) {
-                BookingsScreen()
-            }
-
-            composable(BottomNavItem.Profile.route) {
-                ProfileScreen(
-                    preferencesManager = preferencesManager,
-                    onNavigateToLogin = onNavigateToLogin
-                )
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (currentRoute) {
+                "home" -> HomeScreen(onNavigateToLocationSearch = onNavigateToLocationSearch)
+                "bookings" -> BookingsScreen()
+                "profile" -> ProfileScreen(preferencesManager, onNavigateToLogin)
             }
         }
     }
@@ -104,31 +74,23 @@ fun MainScreen(
 @Composable
 fun BookingsScreen() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Default.List,
                 contentDescription = null,
                 modifier = Modifier.size(100.dp),
                 tint = AppTheme.colors.primary
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             Text(
                 text = "My Bookings",
                 style = AppTheme.typography.headlineMedium,
                 color = AppTheme.colors.onBackground
             )
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = "Your booking history will appear here",
                 style = AppTheme.typography.bodyMedium,
@@ -190,12 +152,8 @@ fun ProfileScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)
         ) {
-            // Profile Header
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -212,21 +170,17 @@ fun ProfileScreen(
                         modifier = Modifier.size(80.dp),
                         tint = AppTheme.colors.primary
                     )
-
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
                         text = user?.fullName ?: "Guest User",
                         style = AppTheme.typography.headlineSmall,
                         color = AppTheme.colors.onPrimaryContainer
                     )
-
                     Text(
                         text = user?.phoneNumber ?: "",
                         style = AppTheme.typography.bodyMedium,
                         color = AppTheme.colors.onPrimaryContainer
                     )
-
                     user?.email?.let {
                         Text(
                             text = it,
@@ -236,10 +190,7 @@ fun ProfileScreen(
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(24.dp))
-
-            // Profile Options
             user?.let { userData ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),

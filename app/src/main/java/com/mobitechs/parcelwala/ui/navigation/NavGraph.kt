@@ -1,3 +1,4 @@
+// NavGraph.kt
 package com.mobitechs.parcelwala.ui.navigation
 
 import androidx.compose.runtime.Composable
@@ -26,7 +27,6 @@ fun NavGraph(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
-        // Splash Screen
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLogin = {
@@ -43,7 +43,6 @@ fun NavGraph(
             )
         }
 
-        // Login Screen
         composable(Screen.Login.route) {
             LoginScreen(
                 onNavigateToOtp = { phoneNumber ->
@@ -52,7 +51,6 @@ fun NavGraph(
             )
         }
 
-        // OTP Screen
         composable(
             route = Screen.Otp.route,
             arguments = listOf(
@@ -78,7 +76,6 @@ fun NavGraph(
             )
         }
 
-        // Complete Profile Screen
         composable(Screen.CompleteProfile.route) {
             CompleteProfileScreen(
                 onNavigateToHome = {
@@ -89,8 +86,6 @@ fun NavGraph(
             )
         }
 
-        // ✅ FIXED: Changed from Screen.Home.route to Screen.Main.route
-        // Main Screen (with bottom navigation)
         composable(Screen.Main.route) {
             MainScreen(
                 preferencesManager = preferencesManager,
@@ -98,11 +93,55 @@ fun NavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Main.route) { inclusive = true }
                     }
-                }
+                },
+                onNavigateToLocationSearch = {
+                    navController.navigate("location_search/pickup")
+                },
+                currentRoute = "home"
             )
         }
 
-        // Location Search
+        composable("home") {
+            MainScreen(
+                preferencesManager = preferencesManager,
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLocationSearch = {
+                    navController.navigate("location_search/pickup")
+                },
+                currentRoute = "home"
+            )
+        }
+
+        composable("bookings") {
+            MainScreen(
+                preferencesManager = preferencesManager,
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLocationSearch = {},
+                currentRoute = "bookings"
+            )
+        }
+
+        composable("profile") {
+            MainScreen(
+                preferencesManager = preferencesManager,
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLocationSearch = {},
+                currentRoute = "profile"
+            )
+        }
+
         composable(
             route = "location_search/{type}",
             arguments = listOf(
@@ -114,19 +153,15 @@ fun NavGraph(
             LocationSearchScreen(
                 locationType = locationType,
                 onAddressSelected = { selectedAddress ->
-                    // Save address to savedStateHandle for next screen
                     navController.currentBackStackEntry
                         ?.savedStateHandle
                         ?.set("selected_address", selectedAddress)
-
-                    // Navigate to address confirmation
                     navController.navigate("address_confirm/$locationType")
                 },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // Address Confirmation
         composable(
             route = "address_confirm/{type}",
             arguments = listOf(
@@ -134,8 +169,6 @@ fun NavGraph(
             )
         ) { backStackEntry ->
             val locationType = backStackEntry.arguments?.getString("type") ?: "pickup"
-
-            // Get address from previous screen's savedStateHandle
             val selectedAddress = navController.previousBackStackEntry
                 ?.savedStateHandle
                 ?.get<com.mobitechs.parcelwala.data.model.request.SavedAddress>("selected_address")
@@ -146,28 +179,20 @@ fun NavGraph(
                     locationType = locationType,
                     onConfirm = { confirmedAddress ->
                         if (locationType == "pickup") {
-                            // Save pickup address
                             navController.currentBackStackEntry
                                 ?.savedStateHandle
                                 ?.set("pickup_address", confirmedAddress)
-
-                            // Navigate to drop location search
                             navController.navigate("location_search/drop")
                         } else {
-                            // Save drop address
                             navController.currentBackStackEntry
                                 ?.savedStateHandle
                                 ?.set("drop_address", confirmedAddress)
-
-                            // Both addresses confirmed, navigate to booking summary
-                            // TODO: Implement booking summary screen
                             navController.popBackStack(Screen.Main.route, false)
                         }
                     },
                     onBack = { navController.popBackStack() }
                 )
             } else {
-                // If no address selected, go back
                 navController.popBackStack()
             }
         }
