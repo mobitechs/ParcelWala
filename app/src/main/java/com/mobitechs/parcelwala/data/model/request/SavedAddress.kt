@@ -11,7 +11,7 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class SavedAddress(
     @SerializedName("address_id")
-    val addressId: Int,
+    val addressId: String,
 
     @SerializedName("address_type")
     val addressType: String, // "home", "shop", "other"

@@ -1,6 +1,5 @@
 package com.mobitechs.parcelwala.ui.screens.booking
 
-// ui/screens/booking/LocationSearchScreen.kt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,11 +17,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
+import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
 
 /**
  * Location Search Screen
- * For selecting pickup or drop location
+ * For selecting pickup or drop location with Google Places autocomplete
  *
  * @param locationType "pickup" or "drop"
  * @param onAddressSelected Callback when address is selected
@@ -37,6 +38,13 @@ fun LocationSearchScreen(
     viewModel: LocationSearchViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // âœ… Request location permission
+    val permissionGranted = rememberLocationPermissionState { granted ->
+        if (granted) {
+            viewModel.getCurrentLocation()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -62,7 +70,7 @@ fun LocationSearchScreen(
                 .padding(paddingValues)
                 .background(Color.White)
         ) {
-            // Search bar
+            // Search bar with autocomplete
             SearchBar(
                 query = uiState.searchQuery,
                 onQueryChange = { viewModel.updateSearchQuery(it) },
@@ -71,39 +79,153 @@ fun LocationSearchScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Saved Addresses
-            if (uiState.savedAddresses.isNotEmpty()) {
-                SavedAddressesSection(
-                    addresses = uiState.savedAddresses,
-                    onAddressClick = { address ->
-                        viewModel.selectAddress(address)
-                        onAddressSelected(address)
+            // âœ… Autocomplete results
+            if (uiState.predictions.isNotEmpty() && uiState.searchQuery.isNotBlank()) {
+                AutocompleteResults(
+                    predictions = uiState.predictions,
+                    onPredictionClick = { prediction ->
+                        viewModel.selectPlace(prediction.placeId) { address ->
+                            onAddressSelected(address)
+                        }
                     }
                 )
-            }
+            } else {
+                // Show saved addresses and recent pickups when not searching
+                if (uiState.savedAddresses.isNotEmpty()) {
+                    SavedAddressesSection(
+                        addresses = uiState.savedAddresses,
+                        onAddressClick = { address ->
+                            viewModel.selectAddress(address)
+                            onAddressSelected(address)
+                        }
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Recent Pickups
-            if (uiState.recentPickups.isNotEmpty()) {
-                RecentPickupsSection(
-                    pickups = uiState.recentPickups,
-                    onPickupClick = { address ->
-                        viewModel.selectAddress(address)
-                        onAddressSelected(address)
-                    }
-                )
+                if (uiState.recentPickups.isNotEmpty()) {
+                    RecentPickupsSection(
+                        pickups = uiState.recentPickups,
+                        onPickupClick = { address ->
+                            viewModel.selectAddress(address)
+                            onAddressSelected(address)
+                        }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
             // Bottom actions
             BottomActions(
-                onUseCurrentLocation = { /* TODO: Get current location */ },
-                onLocateOnMap = { /* TODO: Open map picker */ }
+                onUseCurrentLocation = {
+                    if (permissionGranted.value) {
+                        viewModel.getCurrentLocation()
+                        // TODO: Navigate to result or show current location
+                    }
+                },
+                onLocateOnMap = {
+                    // TODO: Navigate to MapPickerScreen
+                }
+            )
+
+            // âœ… Loading indicator
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            // âœ… Error message
+            uiState.error?.let { error ->
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
+                    Text(error)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * âœ… Autocomplete results section
+ */
+@Composable
+private fun AutocompleteResults(
+    predictions: List<PlaceAutocomplete>,
+    onPredictionClick: (PlaceAutocomplete) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(predictions) { prediction ->
+            PredictionItem(
+                prediction = prediction,
+                onClick = { onPredictionClick(prediction) }
             )
         }
     }
+}
+
+/**
+ * âœ… Individual prediction item
+ */
+@Composable
+private fun PredictionItem(
+    prediction: PlaceAutocomplete,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Place,
+            contentDescription = "Location",
+            modifier = Modifier.size(24.dp),
+            tint = Color.Gray
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = prediction.primaryText,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            prediction.secondaryText?.let { secondary ->
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Select",
+            tint = Color.Gray,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+
+    Divider(color = Color.LightGray, thickness = 0.5.dp)
 }
 
 /**
@@ -140,12 +262,14 @@ private fun SearchBar(
             )
         },
         trailingIcon = {
-            IconButton(onClick = { /* TODO: Voice search */ }) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Voice search",
-                    tint = Color(0xFF2196F3)
-                )
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Clear",
+                        tint = Color.Gray
+                    )
+                }
             }
         },
         colors = OutlinedTextFieldDefaults.colors(
@@ -195,7 +319,7 @@ private fun SavedAddressesSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        addresses.take(1).forEach { address ->
+        addresses.take(2).forEach { address ->
             AddressItem(
                 address = address,
                 onClick = { onAddressClick(address) }
@@ -224,13 +348,11 @@ private fun RecentPickupsSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        LazyColumn {
-            items(pickups) { pickup ->
-                AddressItem(
-                    address = pickup,
-                    onClick = { onPickupClick(pickup) }
-                )
-            }
+        pickups.take(3).forEach { pickup ->
+            AddressItem(
+                address = pickup,
+                onClick = { onPickupClick(pickup) }
+            )
         }
     }
 }
@@ -307,38 +429,38 @@ private fun BottomActions(
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Button(
+        OutlinedButton(
             onClick = onUseCurrentLocation,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = Color(0xFF2196F3)
-            ),
-            shape = RoundedCornerShape(12.dp)
+            )
         ) {
             Icon(
                 imageVector = Icons.Default.MyLocation,
-                contentDescription = "Current location"
+                contentDescription = "Current location",
+                modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Use current location")
+            Text("Current location")
         }
 
-        Button(
+        OutlinedButton(
             onClick = onLocateOnMap,
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = Color(0xFF2196F3)
-            ),
-            shape = RoundedCornerShape(12.dp)
+            )
         ) {
             Icon(
                 imageVector = Icons.Default.Place,
-                contentDescription = "Map"
+                contentDescription = "Map",
+                modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Locate on the Map")
+            Text("On Map")
         }
     }
 }

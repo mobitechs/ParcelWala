@@ -117,7 +117,7 @@ class AddressConfirmViewModel @Inject constructor(
 
         // Create SavedAddress object
         val savedAddress = SavedAddress(
-            addressId = 0,
+            addressId = "0",
             addressType = state.saveAs,
             label = state.saveLabel.ifEmpty { state.saveAs.capitalize() },
             address = state.address,

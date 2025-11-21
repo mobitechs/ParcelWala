@@ -82,7 +82,8 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(500)
-                emit(NetworkResult.Success(address.copy(addressId = (100..999).random())))
+                var randomNo =(100..999).random()
+                emit(NetworkResult.Success(address.copy(addressId = randomNo    .toString())))
             } else {
                 val response = apiService.saveAddress(address)
                 if (response.success && response.data != null) {

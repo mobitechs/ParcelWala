@@ -22,6 +22,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "BASE_URL", "\"https://api.yourapp.com/v1/\"")
+
+        // Load API key from local.properties
+        val properties = org.jetbrains.kotlin.konan.properties.Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+
+        val mapsApiKey = properties.getProperty("MAPS_API_KEY", "")
+
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
+
+
+
     }
 
     buildTypes {
@@ -100,6 +116,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.1.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
 
+
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
@@ -111,6 +128,12 @@ dependencies {
 
     // Material Icons Extended
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // Google Maps & Places
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.libraries.places:places:3.5.0")
+    implementation("com.google.android.gms:play-services-location:21.1.0")
 
     // Testing
     testImplementation(libs.junit)

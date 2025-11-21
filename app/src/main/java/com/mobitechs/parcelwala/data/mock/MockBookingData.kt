@@ -96,7 +96,7 @@ object MockBookingData {
     fun getSavedAddresses(): List<SavedAddress> {
         return listOf(
             SavedAddress(
-                addressId = 1,
+                addressId = "1",
                 addressType = "home",
                 label = "Home",
                 address = "Narayan Smruti, Star Colony, Gandhi Nagar, Dombivli, Maharashtra 421201",
@@ -108,7 +108,7 @@ object MockBookingData {
                 isDefault = true
             ),
             SavedAddress(
-                addressId = 2,
+                addressId = "2",
                 addressType = "shop",
                 label = "Shop",
                 address = "2R3H+76P, Lower Parel, Mumbai, Maharashtra 400013",
@@ -120,7 +120,7 @@ object MockBookingData {
                 isDefault = false
             ),
             SavedAddress(
-                addressId = 3,
+                addressId = "3",
                 addressType = "other",
                 label = "Office - BNP Paribas",
                 address = "BNP Paribas India Solutions Private Limited, NIRLON KNOWLEDGE PARK, Pahadi Road, Goregaon, Prarthana 9594017823",
