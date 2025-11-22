@@ -14,29 +14,20 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.RectangularBounds
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.mobitechs.parcelwala.data.model.response.Location
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.data.model.response.PlaceDetails
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/**
- * Location Service
- * Handles location, geocoding, and Places API operations
- *
- * ✅ UPDATED FOR PLACES API V3 (SDK 3.5.0+)
- */
-@Singleton
-class LocationService @Inject constructor(
-    @ApplicationContext private val context: Context
+class LocationService(
+    private val context: Context
 ) {
 
     private val fusedLocationClient: FusedLocationProviderClient =
@@ -46,14 +37,15 @@ class LocationService @Inject constructor(
 
     private val geocoder: Geocoder = Geocoder(context, Locale.getDefault())
 
-    // Session token for autocomplete (reuse for cost optimization)
     private var sessionToken: AutocompleteSessionToken = AutocompleteSessionToken.newInstance()
 
-    /**
-     * Get current location
-     */
+    companion object {
+        // Maharashtra bounds
+        private val MAHARASHTRA_SOUTHWEST = LatLng(15.6024, 72.6369)
+        private val MAHARASHTRA_NORTHEAST = LatLng(22.0278, 80.9089)
+    }
+
     suspend fun getCurrentLocation(): Location? {
-        // Check permissions
         if (!hasLocationPermission()) {
             throw SecurityException("Location permission not granted")
         }
@@ -90,9 +82,6 @@ class LocationService @Inject constructor(
         }
     }
 
-    /**
-     * Search places with autocomplete
-     */
     suspend fun searchPlaces(
         query: String,
         biasLocation: LatLng? = null
@@ -100,15 +89,17 @@ class LocationService @Inject constructor(
         if (query.isBlank()) return emptyList()
 
         return suspendCancellableCoroutine { continuation ->
-            // Build request
             val requestBuilder = FindAutocompletePredictionsRequest.builder()
                 .setSessionToken(sessionToken)
                 .setQuery(query)
+                .setCountries(listOf("IN"))
 
-            // Add location bias if available
-            biasLocation?.let {
-                requestBuilder.setOrigin(it)
-            }
+            // Use RectangularBounds for Maharashtra bias
+            val bounds = RectangularBounds.newInstance(
+                MAHARASHTRA_SOUTHWEST,
+                MAHARASHTRA_NORTHEAST
+            )
+            requestBuilder.setLocationBias(bounds)
 
             val request = requestBuilder.build()
 
@@ -130,14 +121,8 @@ class LocationService @Inject constructor(
         }
     }
 
-    /**
-     * Get place details from place ID
-     *
-     * ✅ FIXED FOR PLACES API V3
-     */
     suspend fun getPlaceDetails(placeId: String): PlaceDetails? {
         return suspendCancellableCoroutine { continuation ->
-            // Specify fields to fetch - Using Places API v3 field names
             val placeFields = listOf(
                 Place.Field.ID,
                 Place.Field.NAME,
@@ -171,20 +156,15 @@ class LocationService @Inject constructor(
                         continuation.resume(null)
                     }
 
-                    // Reset session token after successful place details fetch
                     sessionToken = AutocompleteSessionToken.newInstance()
                 }
                 .addOnFailureListener { exception ->
                     continuation.resumeWithException(exception)
-                    // Reset session token on error
                     sessionToken = AutocompleteSessionToken.newInstance()
                 }
         }
     }
 
-    /**
-     * Reverse geocode coordinates to address
-     */
     suspend fun getAddressFromLocation(latitude: Double, longitude: Double): String? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -205,9 +185,6 @@ class LocationService @Inject constructor(
         }
     }
 
-    /**
-     * Check if location permission is granted
-     */
     private fun hasLocationPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
@@ -215,16 +192,13 @@ class LocationService @Inject constructor(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    /**
-     * Calculate distance between two points (Haversine formula)
-     */
     fun calculateDistance(
         lat1: Double,
         lon1: Double,
         lat2: Double,
         lon2: Double
     ): Double {
-        val earthRadius = 6371.0 // kilometers
+        val earthRadius = 6371.0
 
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)

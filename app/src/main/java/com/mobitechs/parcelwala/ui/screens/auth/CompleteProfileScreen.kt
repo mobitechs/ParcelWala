@@ -1,19 +1,29 @@
 package com.mobitechs.parcelwala.ui.screens.auth
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
 
+/**
+ * Complete Profile Screen with Reusable Components
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompleteProfileScreen(
@@ -27,14 +37,16 @@ fun CompleteProfileScreen(
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Handle profile completion success
+    val focusManager = LocalFocusManager.current
+
+    // Handle success
     LaunchedEffect(uiState.profileCompleted) {
         if (uiState.profileCompleted) {
             onNavigateToHome()
         }
     }
 
-    // Show error
+    // Show errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             errorMessage = error
@@ -46,27 +58,40 @@ fun CompleteProfileScreen(
     if (showError) {
         AlertDialog(
             onDismissRequest = { showError = false },
-            title = { Text("Error") },
-            text = { Text(errorMessage) },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = AppColors.Drop
+                )
+            },
+            title = { Text("Error", color = AppColors.TextPrimary) },
+            text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text("OK")
+                    Text("OK", color = AppColors.Primary)
                 }
-            }
+            },
+            containerColor = AppColors.Surface
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Complete Profile") },
-                navigationIcon = {
-                    IconButton(onClick = { /* Can't go back from here */ }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
+                title = {
+                    Text(
+                        text = "Complete Profile",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
-        }
+        },
+        containerColor = AppColors.Background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -77,9 +102,24 @@ fun CompleteProfileScreen(
         ) {
             Spacer(modifier = Modifier.height(40.dp))
 
+            // Icon
+            IconButtonWithBackground(
+                icon = Icons.Default.Person,
+                contentDescription = "Profile",
+                onClick = { },
+                size = 80.dp,
+                backgroundColor = AppColors.Primary.copy(alpha = 0.1f),
+                iconTint = AppColors.Primary
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Title
             Text(
                 text = "Let's Get Started",
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -87,80 +127,73 @@ fun CompleteProfileScreen(
             Text(
                 text = "Complete your profile to continue",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppColors.TextSecondary
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             // Full Name
-            OutlinedTextField(
+            NameInputField(
                 value = fullName,
                 onValueChange = { fullName = it },
+                label = "Full Name",
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Full Name *") },
-                placeholder = { Text("Enter your full name") },
-                singleLine = true,
-                isError = fullName.isNotEmpty() && fullName.length < 3
-            )
-
-            if (fullName.isNotEmpty() && fullName.length < 3) {
-                Text(
-                    text = "Name must be at least 3 characters",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp)
+                isError = fullName.isNotEmpty() && fullName.length < 3,
+                errorMessage = "Name must be at least 3 characters",
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
                 )
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Email (Optional)
-            OutlinedTextField(
+            AppTextField(
                 value = email,
                 onValueChange = { email = it },
+                label = "Email (Optional)",
+                placeholder = "Enter your email",
+                leadingIcon = Icons.Default.Email,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Email (Optional)") },
-                placeholder = { Text("Enter your email") },
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
                 ),
-                singleLine = true,
-                isError = email.isNotEmpty() && !isValidEmail(email)
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
+                isError = email.isNotEmpty() && !isValidEmail(email),
+                errorMessage = "Please enter a valid email"
             )
-
-            if (email.isNotEmpty() && !isValidEmail(email)) {
-                Text(
-                    text = "Please enter a valid email",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp)
-                )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Referral Code (Optional)
-            OutlinedTextField(
+            AppTextField(
                 value = referralCode,
                 onValueChange = {
                     if (it.length <= 8) {
                         referralCode = it.uppercase()
                     }
                 },
+                label = "Referral Code (Optional)",
+                placeholder = "Enter referral code",
+                leadingIcon = Icons.Default.CardGiftcard,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Referral Code (Optional)") },
-                placeholder = { Text("Enter referral code") },
-                singleLine = true
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                ),
+                maxLength = 8
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
             // Continue Button
-            Button(
+            PrimaryButton(
+                text = "Continue",
                 onClick = {
                     when {
                         fullName.isBlank() -> {
@@ -184,36 +217,40 @@ fun CompleteProfileScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = !uiState.isLoading
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text(
-                        text = "Continue",
-                        fontSize = 16.sp
-                    )
-                }
-            }
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading,
+                isLoading = uiState.isLoading,
+                icon = Icons.Default.Check
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Skip for now
+            // Skip Button
             TextButton(
                 onClick = { onNavigateToHome() }
             ) {
-                Text("Skip for now")
+                Text(
+                    text = "Skip for now",
+                    color = AppColors.TextSecondary,
+                    fontWeight = FontWeight.Medium
+                )
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Info Text
+            Text(
+                text = "You can update your profile anytime from settings",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextHint
+            )
         }
     }
 }
 
+/**
+ * Email Validation Helper
+ */
 private fun isValidEmail(email: String): Boolean {
     val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
     return email.matches(emailRegex)

@@ -1,84 +1,63 @@
 package com.mobitechs.parcelwala.ui.theme
 
-import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import androidx.compose.ui.graphics.Color
 
-// Light Color Scheme
+
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryOrange,
-    onPrimary = OnPrimaryWhite,
-    primaryContainer = PrimaryContainerLightOrange,
-    onPrimaryContainer = OnPrimaryContainerDarkBrown,
+    primary = Orange500,
+    onPrimary = Color.White,
+    primaryContainer = OrangeLight,
+    onPrimaryContainer = Orange700,
 
-    secondary = SecondaryNavy,
-    onSecondary = OnSecondaryWhite,
-    secondaryContainer = SecondaryContainerLightBlue,
-    onSecondaryContainer = OnSecondaryContainerDarkBlue,
+    secondary = Orange600,
+    onSecondary = Color.White,
+    secondaryContainer = OrangeLight,
+    onSecondaryContainer = Orange700,
 
-    tertiary = TertiaryWarmGray,
-    onTertiary = OnTertiaryWhite,
-    tertiaryContainer = TertiaryContainerCream,
-    onTertiaryContainer = OnTertiaryContainerDarkBrown,
+    tertiary = Green500,
+    onTertiary = Color.White,
 
-    background = BackgroundOffWhite,
-    onBackground = OnBackgroundDark,
+    error = Red500,
+    onError = Color.White,
 
-    surface = SurfaceOffWhite,
-    onSurface = OnSurfaceDark,
-    surfaceVariant = SurfaceVariantBeige,
-    onSurfaceVariant = OnSurfaceVariantBrown,
+    background = Gray50,
+    onBackground = Gray900,
 
-    error = ErrorRed,
-    onError = OnErrorWhite,
-    errorContainer = ErrorContainerLightRed,
-    onErrorContainer = OnErrorContainerDarkRed,
+    surface = Color.White,
+    onSurface = Gray900,
+    surfaceVariant = Gray100,
+    onSurfaceVariant = Gray700,
 
-    outline = OutlineBrown,
-    outlineVariant = OutlineVariantLightBrown,
-    scrim = ScrimBlack
+    outline = Gray300,
+    outlineVariant = Gray200
 )
 
 @Composable
 fun ParcelWalaTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Set to false to use custom colors
     content: @Composable () -> Unit
 ) {
-    val colorScheme = LightColorScheme
-
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-        }
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = LightColorScheme,
         typography = Typography,
         content = content
     )
 }
 
-// Custom theme accessor for easier usage
-object AppTheme {
-    val colors: ColorScheme
-        @Composable
-        get() = MaterialTheme.colorScheme
-
-    val typography: Typography
-        @Composable
-        get() = MaterialTheme.typography
-
-    val shapes: Shapes
-        @Composable
-        get() = MaterialTheme.shapes
+// Reusable Colors
+object AppColors {
+    val Primary = Orange500
+    val PrimaryDark = Orange600
+    val PrimaryLight = OrangeLight
+    val Pickup = Green500
+    val Drop = Red500
+    val TextPrimary = Gray900
+    val TextSecondary = Gray600
+    val TextHint = Gray400
+    val Border = Gray300
+    val Background = Gray50
+    val Surface = Color.White
+    val Divider = Gray200
 }

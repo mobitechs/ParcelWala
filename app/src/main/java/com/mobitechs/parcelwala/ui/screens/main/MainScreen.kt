@@ -1,4 +1,3 @@
-// MainScreen.kt
 package com.mobitechs.parcelwala.ui.screens.main
 
 import androidx.compose.foundation.layout.*
@@ -8,12 +7,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.local.PreferencesManager
+import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.navigation.BottomNavItem
 import com.mobitechs.parcelwala.ui.screens.home.HomeScreen
-import com.mobitechs.parcelwala.ui.theme.AppTheme
+import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -31,8 +33,8 @@ fun MainScreen(
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = AppTheme.colors.surface,
-                contentColor = AppTheme.colors.primary
+                containerColor = Color.White,
+                contentColor = AppColors.Primary
             ) {
                 listOf(
                     BottomNavItem.Home,
@@ -50,16 +52,17 @@ fun MainScreen(
                         selected = currentRoute == item.route,
                         onClick = { viewModel.selectTab(item) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = AppTheme.colors.primary,
-                            selectedTextColor = AppTheme.colors.primary,
-                            indicatorColor = AppTheme.colors.primaryContainer,
-                            unselectedIconColor = AppTheme.colors.onSurfaceVariant,
-                            unselectedTextColor = AppTheme.colors.onSurfaceVariant
+                            selectedIconColor = AppColors.Primary,
+                            selectedTextColor = AppColors.Primary,
+                            indicatorColor = AppColors.PrimaryLight,
+                            unselectedIconColor = AppColors.TextSecondary,
+                            unselectedTextColor = AppColors.TextSecondary
                         )
                     )
                 }
             }
-        }
+        },
+        containerColor = AppColors.Background
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             when (currentRoute) {
@@ -73,31 +76,14 @@ fun MainScreen(
 
 @Composable
 fun BookingsScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Default.List,
-                contentDescription = null,
-                modifier = Modifier.size(100.dp),
-                tint = AppTheme.colors.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "My Bookings",
-                style = AppTheme.typography.headlineMedium,
-                color = AppTheme.colors.onBackground
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Your booking history will appear here",
-                style = AppTheme.typography.bodyMedium,
-                color = AppTheme.colors.onSurfaceVariant
-            )
-        }
-    }
+    EmptyState(
+        icon = Icons.Default.List,
+        title = "My Bookings",
+        subtitle = "Your booking history will appear here",
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,8 +98,20 @@ fun ProfileScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Logout") },
-            text = { Text("Are you sure you want to logout?") },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = null,
+                    tint = AppColors.Drop
+                )
+            },
+            title = { Text("Logout", color = AppColors.TextPrimary) },
+            text = {
+                Text(
+                    "Are you sure you want to logout?",
+                    color = AppColors.TextSecondary
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -123,92 +121,120 @@ fun ProfileScreen(
                         onNavigateToLogin()
                     }
                 ) {
-                    Text("Logout")
+                    Text("Logout", color = AppColors.Drop)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = AppColors.Primary)
                 }
-            }
+            },
+            containerColor = AppColors.Surface
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile") },
+                title = {
+                    Text(
+                        "Profile",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 actions = {
                     IconButton(onClick = { showLogoutDialog = true }) {
-                        Icon(Icons.Default.ExitToApp, "Logout")
+                        Icon(
+                            Icons.Default.Logout,
+                            "Logout",
+                            tint = AppColors.Drop
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppTheme.colors.primary,
-                    titleContentColor = AppTheme.colors.onPrimary,
-                    actionIconContentColor = AppTheme.colors.onPrimary
+                    containerColor = Color.White
                 )
             )
-        }
+        },
+        containerColor = AppColors.Background
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = AppTheme.colors.primaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            // Profile Card
+            InfoCard(elevation = 4.dp) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = AppTheme.colors.primary
+                    IconButtonWithBackground(
+                        icon = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        onClick = { },
+                        size = 64.dp
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = user?.fullName ?: "Guest User",
-                        style = AppTheme.typography.headlineSmall,
-                        color = AppTheme.colors.onPrimaryContainer
-                    )
-                    Text(
-                        text = user?.phoneNumber ?: "",
-                        style = AppTheme.typography.bodyMedium,
-                        color = AppTheme.colors.onPrimaryContainer
-                    )
-                    user?.email?.let {
+
+                    Column {
                         Text(
-                            text = it,
-                            style = AppTheme.typography.bodySmall,
-                            color = AppTheme.colors.onPrimaryContainer
+                            text = user?.fullName ?: "Guest User",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.TextPrimary
                         )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            user?.let { userData ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = AppTheme.colors.surface
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        ProfileItem("Customer ID", userData.customerId.toString())
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-                        ProfileItem("Wallet Balance", "₹${userData.walletBalance}")
-                        userData.referralCode?.let {
-                            Divider(modifier = Modifier.padding(vertical = 8.dp))
-                            ProfileItem("Referral Code", it)
+                        Text(
+                            text = user?.phoneNumber ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppColors.TextSecondary
+                        )
+                        user?.email?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextHint
+                            )
                         }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            user?.let { userData ->
+                InfoCard {
+                    SectionHeader(text = "Account Details")
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    ProfileItem("Customer ID", userData.customerId.toString())
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = AppColors.Divider
+                    )
+                    ProfileItem("Wallet Balance", "₹${userData.walletBalance}")
+
+                    userData.referralCode?.let {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = AppColors.Divider
+                        )
+                        ProfileItem("Referral Code", it)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Logout Button
+            PrimaryButton(
+                text = "Logout",
+                onClick = { showLogoutDialog = true },
+                icon = Icons.Default.Logout,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -221,13 +247,14 @@ fun ProfileItem(label: String, value: String) {
     ) {
         Text(
             text = label,
-            style = AppTheme.typography.bodyMedium,
-            color = AppTheme.colors.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppColors.TextSecondary
         )
         Text(
             text = value,
-            style = AppTheme.typography.bodyMedium,
-            color = AppTheme.colors.onSurface
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = AppColors.TextPrimary
         )
     }
 }

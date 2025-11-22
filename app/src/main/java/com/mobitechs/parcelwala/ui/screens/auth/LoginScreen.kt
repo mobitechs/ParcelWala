@@ -2,21 +2,24 @@ package com.mobitechs.parcelwala.ui.screens.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
 
+/**
+ * Login Screen with Reusable Components
+ */
 @Composable
 fun LoginScreen(
     onNavigateToOtp: (String) -> Unit,
@@ -28,12 +31,14 @@ fun LoginScreen(
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
+    // Navigate to OTP when sent
     LaunchedEffect(uiState.otpSent) {
         if (uiState.otpSent) {
             onNavigateToOtp(phoneNumber)
         }
     }
 
+    // Show errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             errorMessage = error
@@ -42,163 +47,172 @@ fun LoginScreen(
         }
     }
 
+    // Error Dialog
     if (showError) {
         AlertDialog(
             onDismissRequest = { showError = false },
-            title = { Text("Error") },
-            text = { Text(errorMessage) },
+            icon = {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = AppColors.Drop
+                )
+            },
+            title = { Text("Error", color = AppColors.TextPrimary) },
+            text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text("OK")
+                    Text("OK", color = AppColors.Primary)
                 }
-            }
+            },
+            containerColor = AppColors.Surface
         )
     }
 
-    Scaffold { padding ->
-        Box(
+    Scaffold(
+        containerColor = AppColors.Background
+    ) { padding ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
-                // Logo
+            // Logo
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Image(
                     painter = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = "App Logo",
-                    modifier = Modifier.size(120.dp)
+                    modifier = Modifier.fillMaxSize()
                 )
+            }
 
-                Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-                // Title
-                Text(
-                    text = "Welcome to Parcel Wala",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
-                )
+            // Title
+            Text(
+                text = "Welcome to Parcel Wala",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary,
+                textAlign = TextAlign.Center
+            )
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
-                    text = "Enter your phone number to continue",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+            Text(
+                text = "Enter your phone number to continue",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.TextSecondary,
+                textAlign = TextAlign.Center
+            )
 
-                Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-                // Phone Number Input
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            // Phone Number Input
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Country Code
+                Surface(
+                    modifier = Modifier.width(80.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = AppColors.Surface,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        AppColors.Border
+                    )
                 ) {
-                    // Country Code
-                    OutlinedTextField(
-                        value = "+91",
-                        onValueChange = {},
-                        enabled = false,
-                        modifier = Modifier.width(80.dp),
-                        textStyle = MaterialTheme.typography.bodyLarge,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Phone Number
-                    OutlinedTextField(
-                        value = phoneNumber,
-                        onValueChange = {
-                            if (it.length <= 10 && it.all { char -> char.isDigit() }) {
-                                phoneNumber = it
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("Phone Number") },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Phone
-                        ),
-                        singleLine = true,
-                        placeholder = { Text("9876543210") },
-                        isError = phoneNumber.isNotEmpty() && phoneNumber.length != 10
-                    )
-                }
-
-                if (phoneNumber.isNotEmpty() && phoneNumber.length != 10) {
-                    Text(
-                        text = "Please enter a valid 10-digit phone number",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 88.dp, top = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Terms & Conditions Checkbox
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = termsAccepted,
-                        onCheckedChange = { termsAccepted = it }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "I agree to Terms & Conditions and Privacy Policy",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Send OTP Button
-                Button(
-                    onClick = {
-                        when {
-                            phoneNumber.length != 10 -> {
-                                errorMessage = "Please enter a valid phone number"
-                                showError = true
-                            }
-                            !termsAccepted -> {
-                                errorMessage = "Please accept Terms & Conditions"
-                                showError = true
-                            }
-                            else -> viewModel.sendOtp(phoneNumber)
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    enabled = !uiState.isLoading
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier.padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "Send OTP",
-                            fontSize = 16.sp
+                            text = "+91",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.TextPrimary
                         )
                     }
                 }
+
+                // Phone Number Field
+                PhoneNumberField(
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = "Phone Number",
+                    modifier = Modifier.weight(1f),
+                    isError = phoneNumber.isNotEmpty() && phoneNumber.length != 10,
+                    errorMessage = "Enter valid 10-digit number"
+                )
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Terms & Conditions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = termsAccepted,
+                    onCheckedChange = { termsAccepted = it },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = AppColors.Primary,
+                        uncheckedColor = AppColors.Border
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "I agree to Terms & Conditions and Privacy Policy",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Send OTP Button
+            PrimaryButton(
+                text = "Send OTP",
+                onClick = {
+                    when {
+                        phoneNumber.length != 10 -> {
+                            errorMessage = "Please enter a valid 10-digit phone number"
+                            showError = true
+                        }
+                        !termsAccepted -> {
+                            errorMessage = "Please accept Terms & Conditions to continue"
+                            showError = true
+                        }
+                        else -> viewModel.sendOtp(phoneNumber)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading,
+                isLoading = uiState.isLoading
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Footer Info
+            Text(
+                text = "By continuing, you agree to our Terms of Service and Privacy Policy",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextHint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }
