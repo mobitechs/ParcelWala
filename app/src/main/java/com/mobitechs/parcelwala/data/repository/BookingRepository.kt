@@ -221,4 +221,26 @@ class BookingRepository @Inject constructor(
             emit(NetworkResult.Error(e.message ?: "Network error"))
         }
     }
+
+    fun cancelBooking(bookingId: Int, reason: String): Flow<NetworkResult<Unit>> = flow {
+        emit(NetworkResult.Loading())
+
+        try {
+            if (USE_MOCK_DATA) {
+                delay(500)
+                emit(NetworkResult.Success(Unit))
+            } else {
+                val reasonMap = mapOf("reason" to reason)
+                val response = apiService.cancelBooking(bookingId, reasonMap)
+                if (response.success) {
+                    emit(NetworkResult.Success(Unit))
+                } else {
+                    emit(NetworkResult.Error(response.message ?: "Failed to cancel booking"))
+                }
+            }
+        } catch (e: Exception) {
+            emit(NetworkResult.Error(e.message ?: "Network error"))
+        }
+    }
+
 }

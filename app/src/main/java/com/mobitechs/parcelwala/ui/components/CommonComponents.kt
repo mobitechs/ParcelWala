@@ -187,16 +187,41 @@ fun SectionHeader(
 /**
  * Info Card - Generic white card
  */
+//@Composable
+//fun InfoCard(
+//    modifier: Modifier = Modifier,
+//    elevation: Dp = 2.dp,
+//    content: @Composable ColumnScope.() -> Unit
+//) {
+//    Card(
+//        modifier = modifier,
+//        shape = RoundedCornerShape(16.dp),
+//        colors = CardDefaults.cardColors(containerColor = Color.White),
+//        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+//    ) {
+//        Column(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(20.dp),
+//            content = content
+//        )
+//    }
+//}
+
+/**
+ * Info Card - Generic white card with customizable background
+ */
 @Composable
 fun InfoCard(
     modifier: Modifier = Modifier,
     elevation: Dp = 2.dp,
+    backgroundColor: Color = Color.White,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Column(
@@ -207,6 +232,7 @@ fun InfoCard(
         )
     }
 }
+
 
 /**
  * Labeled Icon - Small icon with text
