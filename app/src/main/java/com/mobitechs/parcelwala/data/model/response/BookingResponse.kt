@@ -13,63 +13,38 @@ data class BookingResponse(
     @SerializedName("booking_number")
     val bookingNumber: String,
 
-    @SerializedName("status")
-    val status: String, // pending, confirmed, driver_assigned, in_progress, completed, cancelled
-
-    @SerializedName("payment_status")
-    val paymentStatus: String, // pending, paid, refunded
-
     @SerializedName("vehicle_type")
-    val vehicleType: VehicleTypeResponse,
-
-    @SerializedName("driver")
-    val driver: DriverInfo?,
+    val vehicleType: String,
 
     @SerializedName("pickup_address")
     val pickupAddress: String,
 
-    @SerializedName("pickup_latitude")
-    val pickupLatitude: Double,
-
-    @SerializedName("pickup_longitude")
-    val pickupLongitude: Double,
-
-    @SerializedName("pickup_contact_name")
-    val pickupContactName: String,
-
-    @SerializedName("pickup_contact_phone")
-    val pickupContactPhone: String,
-
     @SerializedName("drop_address")
     val dropAddress: String,
 
-    @SerializedName("drop_latitude")
-    val dropLatitude: Double,
+    @SerializedName("status")
+    val status: String,
 
-    @SerializedName("drop_longitude")
-    val dropLongitude: Double,
+    @SerializedName("fare")
+    val fare: Int,  // Changed from Double to Int
 
-    @SerializedName("drop_contact_name")
-    val dropContactName: String,
-
-    @SerializedName("drop_contact_phone")
-    val dropContactPhone: String,
-
-    @SerializedName("total_fare")
-    val totalFare: Double,
-
-    @SerializedName("distance_km")
-    val distanceKm: Double,
-
-    @SerializedName("estimated_duration_minutes")
-    val estimatedDurationMinutes: Int,
+    @SerializedName("distance")
+    val distance: Double,  // Keep as Double for accuracy
 
     @SerializedName("created_at")
     val createdAt: String,
 
-    @SerializedName("updated_at")
-    val updatedAt: String
+    @SerializedName("driver_name")
+    val driverName: String? = null,
+
+    @SerializedName("driver_phone")
+    val driverPhone: String? = null,
+
+    @SerializedName("vehicle_number")
+    val vehicleNumber: String? = null
 )
+
+
 
 /**
  * Driver information
@@ -116,42 +91,98 @@ data class FareCalculationResponse(
 
 data class FareDetails(
     @SerializedName("base_fare")
-    val baseFare: Double,
+    val baseFare: Int,
 
     @SerializedName("distance_km")
     val distanceKm: Double,
 
+    @SerializedName("free_distance_km")
+    val freeDistanceKm: Double = 0.0,
+
+    @SerializedName("chargeable_distance_km")
+    val chargeableDistanceKm: Double,
+
     @SerializedName("distance_fare")
-    val distanceFare: Double,
+    val distanceFare: Int,
+
+    @SerializedName("loading_charges")
+    val loadingCharges: Int = 0,
+
+    @SerializedName("free_loading_time_mins")
+    val freeLoadingTimeMins: Int = 25,
+
+    @SerializedName("waiting_charges")
+    val waitingCharges: Int = 0,
+
+    @SerializedName("toll_charges")
+    val tollCharges: Int = 0,
+
+    @SerializedName("platform_fee")
+    val platformFee: Int = 0,
+
+    @SerializedName("surge_multiplier")
+    val surgeMultiplier: Double = 1.0,
+
+    @SerializedName("surge_amount")
+    val surgeAmount: Int = 0,
 
     @SerializedName("sub_total")
-    val subTotal: Double,
+    val subTotal: Int,
 
-    @SerializedName("gst")
-    val gst: Double,
+    @SerializedName("gst_percentage")
+    val gstPercentage: Double = 5.0,
+
+    @SerializedName("gst_amount")
+    val gstAmount: Int,
 
     @SerializedName("discount")
-    val discount: Double = 0.0,
+    val discount: Int = 0,
 
     @SerializedName("total_fare")
-    val totalFare: Double,
+    val totalFare: Int,
+
+    @SerializedName("rounded_fare")
+    val roundedFare: Int,
 
     @SerializedName("estimated_duration_minutes")
     val estimatedDurationMinutes: Int,
 
+    @SerializedName("currency")
+    val currency: String = "INR",
+
     @SerializedName("promo_applied")
-    val promoApplied: PromoInfo?
+    val promoApplied: PromoInfo? = null,
+
+    @SerializedName("fare_breakdown")
+    val fareBreakdown: List<FareBreakdownItem> = emptyList()
 )
 
+/**
+ * Promo Info
+ */
 data class PromoInfo(
-    @SerializedName("code")
-    val code: String,
+    @SerializedName("promo_code")
+    val promoCode: String,
 
-    @SerializedName("discount")
-    val discount: Double,
+    @SerializedName("discount_amount")
+    val discountAmount: Int,
 
-    @SerializedName("message")
-    val message: String
+    @SerializedName("discount_type")
+    val discountType: String // "percentage" or "fixed"
+)
+
+/**
+ * Fare Breakdown Item for displaying detailed breakdown
+ */
+data class FareBreakdownItem(
+    @SerializedName("label")
+    val label: String,
+
+    @SerializedName("value")
+    val value: Int,
+
+    @SerializedName("type")
+    val type: String // "charge", "discount", "tax", "total"
 )
 
 /**

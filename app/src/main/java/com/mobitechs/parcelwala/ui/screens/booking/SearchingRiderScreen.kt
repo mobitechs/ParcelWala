@@ -1,5 +1,5 @@
+// ui/screens/booking/SearchingRiderScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
-
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -15,36 +15,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,16 +41,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.IconButtonWithBackground
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.components.JourneyConnector
 import com.mobitechs.parcelwala.ui.components.SecondaryButton
-import com.mobitechs.parcelwala.ui.components.VehicleType
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
@@ -78,7 +67,7 @@ fun SearchingRiderScreen(
     bookingId: String,
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
-    selectedVehicle: VehicleType,
+    selectedVehicle: VehicleTypeResponse,
     fare: Int,
     onRiderFound: () -> Unit,
     onContactSupport: () -> Unit,
@@ -155,7 +144,11 @@ fun SearchingRiderScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+            ) {
                 // GST Benefits Banner (Collapsible)
                 if (showGSTBanner) {
                     GSTBenefitsBanner(
@@ -187,6 +180,16 @@ fun SearchingRiderScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Vehicle Info Card
+                VehicleInfoCard(
+                    vehicle = selectedVehicle,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Payment Summary
                 PaymentSummaryCard(
                     paymentMethod = "Cash",
@@ -196,7 +199,7 @@ fun SearchingRiderScreen(
                         .padding(horizontal = 16.dp)
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Support Section
                 SupportSection(
@@ -231,6 +234,8 @@ fun SearchingRiderScreen(
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.height(80.dp))
             }
         }
     }
@@ -246,328 +251,6 @@ fun SearchingRiderScreen(
         )
     }
 }
-
-/**
- * Cancellation Reason Bottom Sheet
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CancellationReasonBottomSheet(
-    onDismiss: () -> Unit,
-    onConfirmCancel: (String) -> Unit
-) {
-    var selectedReason by remember { mutableStateOf<String?>(null) }
-    var otherReason by remember { mutableStateOf("") }
-    var showConfirmDialog by remember { mutableStateOf(false) }
-
-    val cancellationReasons = listOf(
-        CancellationReason(
-            id = "driver_delayed",
-            title = "Driver is taking too long",
-            icon = Icons.Default.Timer
-        ),
-        CancellationReason(
-            id = "change_plans",
-            title = "Change of plans",
-            icon = Icons.Default.EventBusy
-        ),
-        CancellationReason(
-            id = "wrong_address",
-            title = "Wrong pickup/drop location",
-            icon = Icons.Default.LocationOff
-        ),
-        CancellationReason(
-            id = "price_high",
-            title = "Price is too high",
-            icon = Icons.Default.MoneyOff
-        ),
-        CancellationReason(
-            id = "booking_mistake",
-            title = "Booked by mistake",
-            icon = Icons.Default.ErrorOutline
-        ),
-        CancellationReason(
-            id = "other",
-            title = "Other reason",
-            icon = Icons.Default.MoreHoriz
-        )
-    )
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(40.dp)
-                    .height(4.dp)
-                    .background(
-                        color = AppColors.Border,
-                        shape = RoundedCornerShape(2.dp)
-                    )
-            )
-        }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Cancel Trip?",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = "Please select a reason",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.TextSecondary
-                    )
-                }
-
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = AppColors.TextSecondary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Cancellation Reasons List
-            cancellationReasons.forEach { reason ->
-                CancellationReasonItem(
-                    reason = reason,
-                    isSelected = selectedReason == reason.id,
-                    onClick = { selectedReason = reason.id }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Other Reason Text Field
-            if (selectedReason == "other") {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = otherReason,
-                    onValueChange = { otherReason = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Please specify") },
-                    placeholder = { Text("Enter your reason...") },
-                    minLines = 3,
-                    maxLines = 5,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        focusedLabelColor = AppColors.Primary
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Warning Message
-            InfoCard(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = Color(0xFFFF9800),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Cancellation Policy",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Frequent cancellations may result in temporary suspension of your account.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.TextSecondary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SecondaryButton(
-                    text = "Keep Trip",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Button(
-                    onClick = {
-                        if (selectedReason != null) {
-                            showConfirmDialog = true
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Drop
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank())
-                ) {
-                    Text(
-                        text = "Cancel Trip",
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-            }
-        }
-    }
-
-    // Final Confirmation Dialog
-    if (showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.ErrorOutline,
-                    contentDescription = null,
-                    tint = AppColors.Drop,
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "Confirm Cancellation",
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to cancel this trip? This action cannot be undone.",
-                    color = AppColors.TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val reason = if (selectedReason == "other") {
-                            otherReason.ifBlank { "Other" }
-                        } else {
-                            cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled by user"
-                        }
-                        onConfirmCancel(reason)
-                        showConfirmDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Drop
-                    )
-                ) {
-                    Text("Yes, Cancel")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("No, Keep It", color = AppColors.Primary)
-                }
-            },
-            containerColor = Color.White
-        )
-    }
-}
-
-/**
- * Cancellation Reason Item
- */
-@Composable
-private fun CancellationReasonItem(
-    reason: CancellationReason,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                AppColors.Primary.copy(alpha = 0.1f)
-            else
-                Color.White
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) AppColors.Primary else AppColors.Border
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = reason.icon,
-                contentDescription = reason.title,
-                tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
-                modifier = Modifier.size(24.dp)
-            )
-
-            Text(
-                text = reason.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
-                modifier = Modifier.weight(1f)
-            )
-
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = AppColors.Primary,
-                    unselectedColor = AppColors.Border
-                )
-            )
-        }
-    }
-}
-
-/**
- * Cancellation Reason Data Class
- */
-data class CancellationReason(
-    val id: String,
-    val title: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-)
-
-// Rest of the composables remain the same (GST Banner, Searching Animation, etc.)
-// Keep all the existing composables from the previous SearchingRiderScreen.kt
 
 /**
  * GST Benefits Banner
@@ -848,6 +531,70 @@ private fun JourneyDetailsCard(
 }
 
 /**
+ * Vehicle Info Card
+ */
+@Composable
+private fun VehicleInfoCard(
+    vehicle: VehicleTypeResponse,
+    modifier: Modifier = Modifier
+) {
+    InfoCard(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            color = AppColors.Primary.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = vehicle.icon,
+                        style = MaterialTheme.typography.headlineLarge
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = vehicle.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    Text(
+                        text = vehicle.capacity,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "Searching",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary
+                )
+                Text(
+                    text = "nearby",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+/**
  * Payment Summary Card
  */
 @Composable
@@ -961,3 +708,382 @@ private fun SupportSection(
         }
     }
 }
+
+/**
+ * Cancellation Reason Bottom Sheet - FIXED VERSION
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CancellationReasonBottomSheet(
+    onDismiss: () -> Unit,
+    onConfirmCancel: (String) -> Unit
+) {
+    var selectedReason by remember { mutableStateOf<String?>(null) }
+    var otherReason by remember { mutableStateOf("") }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    // Keyboard and focus management
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    val cancellationReasons = listOf(
+        CancellationReason(
+            id = "driver_delayed",
+            title = "Driver is taking too long",
+            icon = Icons.Default.Timer
+        ),
+        CancellationReason(
+            id = "change_plans",
+            title = "Change of plans",
+            icon = Icons.Default.EventBusy
+        ),
+        CancellationReason(
+            id = "wrong_address",
+            title = "Wrong pickup/drop location",
+            icon = Icons.Default.LocationOff
+        ),
+        CancellationReason(
+            id = "price_high",
+            title = "Price is too high",
+            icon = Icons.Default.MoneyOff
+        ),
+        CancellationReason(
+            id = "booking_mistake",
+            title = "Booked by mistake",
+            icon = Icons.Default.ErrorOutline
+        ),
+        CancellationReason(
+            id = "other",
+            title = "Other reason",
+            icon = Icons.Default.MoreHoriz
+        )
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true // FULL HEIGHT
+        ),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 12.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .background(
+                        color = AppColors.Border,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.92f) // FULL HEIGHT
+                .fillMaxWidth()
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Cancel Trip?",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    Text(
+                        text = "Please select a reason",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.TextSecondary
+                    )
+                }
+
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = AppColors.TextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Scrollable Content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+            ) {
+                // Cancellation Reasons List
+                cancellationReasons.forEach { reason ->
+                    CancellationReasonItem(
+                        reason = reason,
+                        isSelected = selectedReason == reason.id,
+                        onClick = {
+                            selectedReason = reason.id
+                            if (reason.id != "other") {
+                                // Clear other reason when selecting different option
+                                otherReason = ""
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Other Reason Text Field - FIXED: Don't close on keyboard action
+                if (selectedReason == "other") {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = otherReason,
+                        onValueChange = { otherReason = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Please specify") },
+                        placeholder = { Text("Enter your reason...") },
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                // FIXED: Just hide keyboard, don't close sheet
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppColors.Primary,
+                            focusedLabelColor = AppColors.Primary
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Warning Message
+                InfoCard(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Cancellation Policy",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = AppColors.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Frequent cancellations may result in temporary suspension of your account.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Bottom Action Buttons - FIXED SIZE AND TEXT
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Keep Trip Button
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = AppColors.Primary
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Primary
+                        )
+                    ) {
+                        Text(
+                            text = "Keep Trip",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Cancel Trip Button
+                    Button(
+                        onClick = {
+                            if (selectedReason != null &&
+                                (selectedReason != "other" || otherReason.isNotBlank())) {
+                                showConfirmDialog = true
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppColors.Drop,
+                            disabledContainerColor = AppColors.Drop.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        enabled = selectedReason != null &&
+                                (selectedReason != "other" || otherReason.isNotBlank())
+                    ) {
+                        Text(
+                            text = "Cancel Trip",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Final Confirmation Dialog
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = AppColors.Drop,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Confirm Cancellation",
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to cancel this trip? This action cannot be undone.",
+                    color = AppColors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val reason = if (selectedReason == "other") {
+                            otherReason.ifBlank { "Other" }
+                        } else {
+                            cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled by user"
+                        }
+                        onConfirmCancel(reason)
+                        showConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Drop
+                    )
+                ) {
+                    Text("Yes, Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("No, Keep It", color = AppColors.Primary)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+}
+
+/**
+ * Cancellation Reason Item
+ */
+@Composable
+private fun CancellationReasonItem(
+    reason: CancellationReason,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) AppColors.Primary else AppColors.Border
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = reason.icon,
+                contentDescription = reason.title,
+                tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Text(
+                text = reason.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
+                modifier = Modifier.weight(1f)
+            )
+
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = AppColors.Primary,
+                    unselectedColor = AppColors.Border
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Cancellation Reason Data Class
+ */
+data class CancellationReason(
+    val id: String,
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)

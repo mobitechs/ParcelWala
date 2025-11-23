@@ -1,8 +1,12 @@
+// ui/screens/booking/AddGSTINScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,13 +19,14 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.components.InfoCard
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
  * Add GSTIN Screen
+ * Allows user to add GST number for invoice generation
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,16 +37,18 @@ fun AddGSTINScreen(
     var gstin by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
     var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
 
     val focusManager = LocalFocusManager.current
+
+    // GSTIN validation regex (15 characters)
+    val gstinRegex = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Add GSTIN",
+                        text = "Add GST Details",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -66,193 +73,239 @@ fun AddGSTINScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp)
         ) {
-            // Info Card
-            InfoCard(
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                // Info Banner
+                InfoCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Get GST Benefits",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AppColors.Primary,
+                            modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Add your GSTIN to get invoices with Input Tax Credit",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.TextSecondary
-                        )
+                        Column {
+                            Text(
+                                text = "Why add GSTIN?",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AppColors.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Get detailed invoices with GSTIN for Input Tax Credit claims",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
+                            )
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // GSTIN Input
-            OutlinedTextField(
-                value = gstin,
-                onValueChange = {
-                    if (it.length <= 15) {
-                        gstin = it.uppercase()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("GSTIN Number *") },
-                placeholder = { Text("27AABCU9603R1ZM") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Receipt,
-                        contentDescription = null,
-                        tint = AppColors.Primary
+                // Form Fields
+                InfoCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Enter GST Details",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
                     )
-                },
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                ),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppColors.Primary,
-                    focusedLabelColor = AppColors.Primary
-                ),
-                isError = showError && gstin.length != 15
-            )
 
-            if (gstin.isNotEmpty() && gstin.length != 15) {
-                Text(
-                    text = "GSTIN must be 15 characters",
-                    color = AppColors.Drop,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
+                    Spacer(modifier = Modifier.height(20.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Company Name Input
-            OutlinedTextField(
-                value = companyName,
-                onValueChange = { companyName = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Company Name (Optional)") },
-                placeholder = { Text("Enter company name") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Business,
-                        contentDescription = null,
-                        tint = AppColors.Primary
+                    // GSTIN Field
+                    OutlinedTextField(
+                        value = gstin,
+                        onValueChange = {
+                            if (it.length <= 15) {
+                                gstin = it.uppercase()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("GSTIN") },
+                        placeholder = { Text("22AAAAA0000A1Z5") },
+                        singleLine = true,
+                        isError = showError && !gstinRegex.matches(gstin),
+                        supportingText = {
+                            if (showError && !gstinRegex.matches(gstin)) {
+                                Text(
+                                    text = "Please enter valid 15-digit GSTIN",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            } else {
+                                Text(
+                                    text = "${gstin.length}/15 characters",
+                                    color = AppColors.TextSecondary
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Receipt,
+                                contentDescription = null,
+                                tint = AppColors.Primary
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Characters,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppColors.Primary,
+                            focusedLabelColor = AppColors.Primary
+                        )
                     )
-                },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = { focusManager.clearFocus() }
-                ),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AppColors.Primary,
-                    focusedLabelColor = AppColors.Primary
-                )
-            )
 
-            Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Company Name Field
+                    OutlinedTextField(
+                        value = companyName,
+                        onValueChange = { companyName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Company/Business Name") },
+                        placeholder = { Text("ABC Private Limited") },
+                        singleLine = true,
+                        isError = showError && companyName.isBlank(),
+                        supportingText = {
+                            if (showError && companyName.isBlank()) {
+                                Text(
+                                    text = "Company name is required",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Business,
+                                contentDescription = null,
+                                tint = AppColors.Primary
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { focusManager.clearFocus() }
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppColors.Primary,
+                            focusedLabelColor = AppColors.Primary
+                        )
+                    )
+                }
+
+                // Benefits Section
+                InfoCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Benefits",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    BenefitItem(
+                        icon = Icons.Default.CheckCircle,
+                        text = "Claim Input Tax Credit (ITC)"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    BenefitItem(
+                        icon = Icons.Default.CheckCircle,
+                        text = "Get detailed GST invoice"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    BenefitItem(
+                        icon = Icons.Default.CheckCircle,
+                        text = "Maintain proper accounting records"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    BenefitItem(
+                        icon = Icons.Default.CheckCircle,
+                        text = "Simplified tax filing"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(100.dp))
+            }
 
             // Save Button
-            PrimaryButton(
-                text = "Save GSTIN",
-                onClick = {
-                    when {
-                        gstin.isBlank() -> {
-                            errorMessage = "Please enter GSTIN"
-                            showError = true
-                        }
-                        gstin.length != 15 -> {
-                            errorMessage = "GSTIN must be 15 characters"
-                            showError = true
-                        }
-                        !isValidGSTIN(gstin) -> {
-                            errorMessage = "Please enter a valid GSTIN"
-                            showError = true
-                        }
-                        else -> {
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                PrimaryButton(
+                    text = "Save GST Details",
+                    onClick = {
+                        if (gstinRegex.matches(gstin) && companyName.isNotBlank()) {
                             onSave(gstin)
+                        } else {
+                            showError = true
                         }
-                    }
-                },
-                icon = Icons.Default.Check,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Skip Button
-            SecondaryButton(
-                text = "Skip for now",
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Info Text
-            Text(
-                text = "Your GSTIN will be used to generate tax invoices for your bookings",
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextHint,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-
-    // Error Dialog
-    if (showError) {
-        AlertDialog(
-            onDismissRequest = { showError = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = AppColors.Drop
+                    },
+                    icon = Icons.Default.Save,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 )
-            },
-            title = { Text("Error", color = AppColors.TextPrimary) },
-            text = { Text(errorMessage, color = AppColors.TextSecondary) },
-            confirmButton = {
-                TextButton(onClick = { showError = false }) {
-                    Text("OK", color = AppColors.Primary)
-                }
-            },
-            containerColor = Color.White
-        )
+            }
+        }
     }
 }
 
 /**
- * Validate GSTIN format
+ * Benefit Item Component
  */
-private fun isValidGSTIN(gstin: String): Boolean {
-    if (gstin.length != 15) return false
-
-    // Basic GSTIN format validation
-    val gstinRegex = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
-    return gstin.matches(gstinRegex)
+@Composable
+private fun BenefitItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = AppColors.Pickup,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppColors.TextPrimary
+        )
+    }
 }

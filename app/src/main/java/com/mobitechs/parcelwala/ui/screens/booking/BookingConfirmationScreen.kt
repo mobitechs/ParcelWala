@@ -1,3 +1,4 @@
+// ui/screens/booking/BookingConfirmationScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.BorderStroke
@@ -5,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
@@ -32,14 +33,25 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 fun BookingConfirmationScreen(
     pickupAddress: SavedAddress?,
     dropAddress: SavedAddress?,
-    onVehicleSelected: (VehicleType) -> Unit,
+    onVehicleSelected: (VehicleTypeResponse) -> Unit,
     onChangePickup: () -> Unit,
     onChangeDrop: () -> Unit,
     onBack: () -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
-    var selectedVehicle by remember { mutableStateOf<VehicleType?>(null) }
+    var selectedVehicle by remember { mutableStateOf<VehicleTypeResponse?>(null) }
     var showLocationDetails by remember { mutableStateOf(false) }
+
+    // Observe vehicle types from ViewModel
+    val vehicleTypes by viewModel.vehicleTypes.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Load vehicle types on first composition
+    LaunchedEffect(Unit) {
+        if (vehicleTypes.isEmpty()) {
+            viewModel.loadVehicleTypes()
+        }
+    }
 
     if (pickupAddress == null || dropAddress == null) {
         // Show error state
@@ -82,126 +94,168 @@ fun BookingConfirmationScreen(
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Scrollable Content
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Journey Summary Card
-                JourneySummaryCard(
-                    pickupAddress = pickupAddress,
-                    dropAddress = dropAddress,
-                    onChangePickup = onChangePickup,
-                    onChangeDrop = onChangeDrop,
-                    onViewDetails = { showLocationDetails = true },
+            if (uiState.isLoading && vehicleTypes.isEmpty()) {
+                // Show loading state
+                LoadingIndicator(
+                    message = "Loading vehicles...",
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .padding(32.dp)
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Select Vehicle Section
-                SectionHeader(
-                    text = "Select Vehicle",
-                    subtitle = "Choose the right vehicle for your delivery",
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Vehicle Options
-                availableVehicles.forEach { vehicle ->
-                    VehicleOptionCard(
-                        vehicle = vehicle,
-                        isSelected = selectedVehicle == vehicle,
-                        onSelect = { selectedVehicle = vehicle },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Information Card
-                InfoCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = AppColors.Primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = "Fare includes 25 mins of free loading/unloading time",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.TextSecondary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(80.dp))
-            }
-
-            // Bottom Button
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
+            } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    selectedVehicle?.let { vehicle ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Estimated Fare",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = AppColors.TextSecondary
-                                )
-                                Text(
-                                    text = "₹${vehicle.price}",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppColors.Primary
+                    // Scrollable Content
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        // Journey Summary Card
+                        JourneySummaryCard(
+                            pickupAddress = pickupAddress,
+                            dropAddress = dropAddress,
+                            onChangePickup = onChangePickup,
+                            onChangeDrop = onChangeDrop,
+                            onViewDetails = { showLocationDetails = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Select Vehicle Section
+                        SectionHeader(
+                            text = "Select Vehicle",
+                            subtitle = "Choose the right vehicle for your delivery",
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Vehicle Options from API
+                        if (vehicleTypes.isEmpty()) {
+                            // Empty state
+                            EmptyState(
+                                icon = Icons.Default.DirectionsCar,
+                                title = "No Vehicles Available",
+                                subtitle = "Please try again later",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp)
+                            )
+                        } else {
+                            vehicleTypes.forEach { vehicle ->
+                                VehicleOptionCard(
+                                    vehicle = vehicle,
+                                    isSelected = selectedVehicle?.vehicleTypeId == vehicle.vehicleTypeId,
+                                    onSelect = { selectedVehicle = vehicle },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
                                 )
                             }
-
-                            PrimaryButton(
-                                text = "Proceed",
-                                onClick = { onVehicleSelected(vehicle) },
-                                icon = Icons.Default.ArrowForward,
-                                modifier = Modifier.width(150.dp)
-                            )
                         }
-                    } ?: run {
-                        Text(
-                            text = "Please select a vehicle to proceed",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.TextHint,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Information Card
+                        InfoCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = AppColors.Primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Fare includes 25 mins of free loading/unloading time",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AppColors.TextSecondary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
+
+                    // Bottom Button
+                    Surface(
+                        color = Color.White,
+                        shadowElevation = 8.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            selectedVehicle?.let { vehicle ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Estimated Fare",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = AppColors.TextSecondary
+                                        )
+                                        Text(
+                                            text = "₹${vehicle.basePrice}",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AppColors.Primary
+                                        )
+                                    }
+
+                                    PrimaryButton(
+                                        text = "Proceed",
+                                        onClick = { onVehicleSelected(vehicle) },
+                                        icon = Icons.Default.ArrowForward,
+                                        modifier = Modifier.width(150.dp)
+                                    )
+                                }
+                            } ?: run {
+                                Text(
+                                    text = "Please select a vehicle to proceed",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AppColors.TextHint,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Show error snackbar
+            uiState.error?.let { error ->
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
+                    Text(error)
                 }
             }
         }
@@ -346,11 +400,11 @@ private fun LocationRow(
 }
 
 /**
- * Vehicle Option Card with Border Selection
+ * Vehicle Option Card - Updated to use VehicleTypeResponse
  */
 @Composable
 private fun VehicleOptionCard(
-    vehicle: VehicleType,
+    vehicle: VehicleTypeResponse,
     isSelected: Boolean,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier
@@ -424,7 +478,7 @@ private fun VehicleOptionCard(
                 horizontalAlignment = Alignment.End
             ) {
                 Text(
-                    text = "₹${vehicle.price}",
+                    text = "₹${vehicle.basePrice}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (isSelected) AppColors.Primary else AppColors.TextPrimary

@@ -271,7 +271,7 @@ fun NavGraph(
                     pickupAddress = uiState.pickupAddress,
                     dropAddress = uiState.dropAddress,
                     onVehicleSelected = { vehicle ->
-                        viewModel.setSelectedVehicle(vehicle)
+                        viewModel.setSelectedVehicle(vehicle)  // Now receives VehicleTypeResponse
                         navController.navigate("review_booking")
                     },
                     onChangePickup = {
@@ -292,9 +292,15 @@ fun NavGraph(
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
+                val vehicleTypes by viewModel.vehicleTypes.collectAsState()
 
                 var showGoodsTypeSheet by remember { mutableStateOf(false) }
                 var showRestrictedItemsSheet by remember { mutableStateOf(false) }
+
+                // Get the selected vehicle from vehicle types list
+                val selectedVehicle = uiState.selectedVehicleId?.let { id ->
+                    vehicleTypes.find { it.vehicleTypeId == id }
+                }
 
                 LaunchedEffect(Unit) {
                     viewModel.navigationEvent.collect { event ->
@@ -313,13 +319,13 @@ fun NavGraph(
                     }
                 }
 
-                if (uiState.pickupAddress == null || uiState.dropAddress == null || uiState.selectedVehicle == null) {
+                if (uiState.pickupAddress == null || uiState.dropAddress == null || selectedVehicle == null) {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
                     }
                 } else {
                     ReviewBookingScreen(
-                        selectedVehicle = uiState.selectedVehicle!!,
+                        selectedVehicle = selectedVehicle,
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         onConfirmBooking = { viewModel.confirmBooking() },
@@ -396,6 +402,12 @@ fun NavGraph(
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
+                val vehicleTypes by viewModel.vehicleTypes.collectAsState()
+
+                // Get the selected vehicle
+                val selectedVehicle = uiState.selectedVehicleId?.let { id ->
+                    vehicleTypes.find { it.vehicleTypeId == id }
+                }
 
                 LaunchedEffect(Unit) {
                     viewModel.navigationEvent.collect { event ->
@@ -410,12 +422,12 @@ fun NavGraph(
                     }
                 }
 
-                if (uiState.pickupAddress != null && uiState.dropAddress != null && uiState.selectedVehicle != null) {
+                if (uiState.pickupAddress != null && uiState.dropAddress != null && selectedVehicle != null) {
                     SearchingRiderScreen(
                         bookingId = bookingId,
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
-                        selectedVehicle = uiState.selectedVehicle!!,
+                        selectedVehicle = selectedVehicle,
                         fare = uiState.finalFare,
                         onRiderFound = {},
                         onContactSupport = {},
@@ -424,6 +436,8 @@ fun NavGraph(
                     )
                 }
             }
+
+
         }
     }
 }

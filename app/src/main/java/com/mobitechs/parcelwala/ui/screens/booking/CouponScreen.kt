@@ -1,6 +1,9 @@
+// ui/screens/booking/CouponScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,12 +22,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.data.model.response.CouponResponse
+import com.mobitechs.parcelwala.ui.components.EmptyState
+import com.mobitechs.parcelwala.ui.components.InfoCard
+import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
- * Coupons & Offers Screen
+ * Coupon Screen
+ * Shows available coupons and allows manual code entry
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,16 +40,26 @@ fun CouponScreen(
     onCouponApplied: (String) -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
-    var couponCode by remember { mutableStateOf("") }
-    val availableCoupons = remember { getCouponsList() }
+    var manualCouponCode by remember { mutableStateOf("") }
+    var isApplying by remember { mutableStateOf(false) }
+
+    // Observe coupons from ViewModel
+    val availableCoupons by viewModel.availableCoupons.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+
+    // Load coupons if not already loaded
+    LaunchedEffect(Unit) {
+        if (availableCoupons.isEmpty()) {
+            viewModel.loadAvailableCoupons()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Coupons & Offers",
+                        text = "Apply Coupon",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -63,95 +80,163 @@ fun CouponScreen(
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Coupon Input Section
-            Surface(
-                color = Color.White,
-                shadowElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = couponCode,
-                        onValueChange = { couponCode = it.uppercase() },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Enter coupon code") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Characters,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (couponCode.isNotBlank()) {
-                                    onCouponApplied(couponCode)
-                                }
-                            }
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppColors.Primary,
-                            unfocusedBorderColor = AppColors.Border
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    Button(
-                        onClick = {
-                            if (couponCode.isNotBlank()) {
-                                onCouponApplied(couponCode)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.Primary
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = couponCode.isNotBlank()
-                    ) {
-                        Text(
-                            text = "APPLY",
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Available Coupons List
-            if (availableCoupons.isEmpty()) {
-                EmptyState(
-                    icon = Icons.Default.LocalOffer,
-                    title = "No active offers",
-                    subtitle = "Please check back later",
+            if (uiState.isLoading && availableCoupons.isEmpty() && !isApplying) {
+                LoadingIndicator(
+                    message = "Loading coupons...",
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(32.dp)
                 )
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    items(availableCoupons) { coupon ->
-                        CouponCard(
-                            coupon = coupon,
-                            isApplied = uiState.appliedCoupon == coupon.code,
-                            onApply = {
-                                onCouponApplied(coupon.code)
-                            }
+                    // Manual Coupon Entry
+                    InfoCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Have a coupon code?",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.TextPrimary
                         )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = manualCouponCode,
+                                onValueChange = { manualCouponCode = it.uppercase() },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Enter code") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Characters,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        if (manualCouponCode.isNotBlank()) {
+                                            isApplying = true
+                                            viewModel.applyCoupon(manualCouponCode)
+                                        }
+                                    }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AppColors.Primary,
+                                    unfocusedBorderColor = AppColors.Border
+                                )
+                            )
+
+                            Button(
+                                onClick = {
+                                    if (manualCouponCode.isNotBlank()) {
+                                        isApplying = true
+                                        viewModel.applyCoupon(manualCouponCode)
+                                    }
+                                },
+                                enabled = manualCouponCode.isNotBlank() && !isApplying,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppColors.Primary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                if (isApplying) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Apply",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
+
+                    // Available Coupons Section
+                    if (availableCoupons.isEmpty()) {
+                        EmptyState(
+                            icon = Icons.Default.LocalOffer,
+                            title = "No Coupons Available",
+                            subtitle = "Check back later for exciting offers",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Available Coupons",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.TextPrimary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(availableCoupons) { coupon ->
+                                CouponCard(
+                                    coupon = coupon,
+                                    onApply = {
+                                        isApplying = true
+                                        viewModel.applyCoupon(coupon.code)
+                                    }
+                                )
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.height(80.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Show success/error messages
+            LaunchedEffect(uiState.error, uiState.appliedCoupon) {
+                if (isApplying) {
+                    if (uiState.appliedCoupon != null) {
+                        onCouponApplied(uiState.appliedCoupon!!)
+                        isApplying = false
+                    } else if (uiState.error != null) {
+                        isApplying = false
+                    }
+                }
+            }
+
+            // Show error snackbar
+            uiState.error?.let { error ->
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
+                    Text(error)
                 }
             }
         }
@@ -163,8 +248,7 @@ fun CouponScreen(
  */
 @Composable
 private fun CouponCard(
-    coupon: Coupon,
-    isApplied: Boolean,
+    coupon: CouponResponse,
     onApply: () -> Unit
 ) {
     Card(
@@ -173,76 +257,95 @@ private fun CouponCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isApplied) 4.dp else 2.dp
-        ),
-        border = if (isApplied) {
-            androidx.compose.foundation.BorderStroke(2.dp, AppColors.Primary)
-        } else null
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            // Coupon Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Coupon Icon and Code
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = AppColors.Pickup.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalOffer,
-                            contentDescription = null,
-                            tint = AppColors.Pickup,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = coupon.code,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary
-                        )
-                        Text(
-                            text = "Save ₹${coupon.discount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.Pickup
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.LocalOffer,
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = coupon.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
                 }
 
-                // Apply Button
-                if (isApplied) {
-                    StatusBadge(
-                        text = "APPLIED",
-                        backgroundColor = AppColors.Pickup,
-                        textColor = Color.White
-                    )
-                } else {
-                    TextButton(onClick = onApply) {
-                        Text(
-                            text = "APPLY",
-                            color = AppColors.Primary,
-                            fontWeight = FontWeight.Bold
-                        )
+                if (coupon.expiryDate != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFFF9E6)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9800),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = coupon.expiryDate,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFF9800)
+                            )
+                        }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Coupon Code
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = AppColors.Primary,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .background(
+                        color = AppColors.Primary.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = coupon.code,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Primary
+                )
+
+                TextButton(onClick = onApply) {
+                    Text(
+                        text = "APPLY",
+                        color = AppColors.Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -252,92 +355,97 @@ private fun CouponCard(
             Text(
                 text = coupon.description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.TextSecondary
+                color = AppColors.TextPrimary
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Terms
+            // Discount Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (coupon.discountType == "percentage") {
+                    CouponInfoChip(
+                        icon = Icons.Default.Percent,
+                        text = "${coupon.discountValue}% OFF"
+                    )
+                } else {
+                    CouponInfoChip(
+                        icon = Icons.Default.CurrencyRupee,
+                        text = "₹${coupon.discountValue} OFF"
+                    )
+                }
+
+                CouponInfoChip(
+                    icon = Icons.Default.ShoppingCart,
+                    text = "Min ₹${coupon.minOrderValue}"
+                )
+
+                if (coupon.maxDiscount != null && coupon.discountType == "percentage") {
+                    CouponInfoChip(
+                        icon = Icons.Default.TrendingDown,
+                        text = "Max ₹${coupon.maxDiscount}"
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            HorizontalDivider(color = AppColors.Divider)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Terms & Conditions
             Row(
                 verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = AppColors.TextHint,
-                    modifier = Modifier.size(14.dp)
+                    tint = AppColors.TextSecondary,
+                    modifier = Modifier.size(16.dp)
                 )
                 Text(
                     text = coupon.terms,
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextHint
+                    color = AppColors.TextSecondary
                 )
-            }
-
-            if (coupon.expiryDate != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = AppColors.Drop,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "Valid till ${coupon.expiryDate}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.Drop,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
             }
         }
     }
 }
 
 /**
- * Coupon Data Class
+ * Coupon Info Chip
  */
-data class Coupon(
-    val code: String,
-    val description: String,
-    val discount: Int,
-    val terms: String,
-    val expiryDate: String? = null
-)
-
-/**
- * Get Coupons List (Mock Data)
- */
-private fun getCouponsList(): List<Coupon> {
-    // Return empty for "No active offers" state
-    // Uncomment below for sample coupons
-
-    return listOf(
-        Coupon(
-            code = "FIRST50",
-            description = "Get ₹50 off on your first booking",
-            discount = 50,
-            terms = "Valid on orders above ₹200. First time users only.",
-            expiryDate = "31 Dec 2024"
-        ),
-        Coupon(
-            code = "SAVE100",
-            description = "Flat ₹100 off on all bookings",
-            discount = 100,
-            terms = "Valid on orders above ₹500. Use once per user.",
-            expiryDate = "15 Dec 2024"
-        ),
-        Coupon(
-            code = "WEEKEND20",
-            description = "Get 20% off on weekend bookings",
-            discount = 20,
-            terms = "Valid on Saturdays and Sundays only. Max discount ₹150.",
-            expiryDate = null
-        )
-    )
+@Composable
+private fun CouponInfoChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = AppColors.Background
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = AppColors.Primary,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextPrimary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
 }

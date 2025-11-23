@@ -1,30 +1,28 @@
+// ui/components/VehicleType.kt
 package com.mobitechs.parcelwala.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+
+import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
 
 /**
- * Reusable Vehicle Selection Components
+ * Extension function to convert VehicleTypeResponse to display model
  */
+fun VehicleTypeResponse.toDisplayModel() = VehicleType(
+    id = this.vehicleTypeId,
+    name = this.name,
+    icon = this.icon,
+    description = this.description,
+    capacity = this.capacity,
+    price = this.basePrice
+)
 
 /**
- * Vehicle Type Data Class
+ * Legacy VehicleType for UI compatibility
+ * Use VehicleTypeResponse directly where possible
  */
 data class VehicleType(
-    val id: String,
+    val id: Int,
     val name: String,
     val icon: String,
     val description: String,
@@ -32,201 +30,108 @@ data class VehicleType(
     val price: Int
 )
 
-/**
- * Vehicle Selection Card
- */
-@Composable
-fun VehicleSelectionCard(
-    vehicle: VehicleType,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) AppColors.Primary else AppColors.Border,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                AppColors.Primary.copy(alpha = 0.05f)
-            else
-                Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 2.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Vehicle Icon
-            VehicleIcon(icon = vehicle.icon)
-
-            // Vehicle Details
-            VehicleDetails(
-                name = vehicle.name,
-                description = vehicle.description,
-                capacity = vehicle.capacity,
-                modifier = Modifier.weight(1f)
-            )
-
-            // Price and Selection
-            VehiclePriceSection(
-                price = vehicle.price,
-                isSelected = isSelected
-            )
-        }
-    }
-}
-
-/**
- * Vehicle Icon Display
- */
-@Composable
-private fun VehicleIcon(
-    icon: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(60.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(AppColors.Background),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = icon,
-            fontSize = 32.sp
-        )
-    }
-}
-
-/**
- * Vehicle Information Section
- */
-@Composable
-private fun VehicleDetails(
-    name: String,
-    description: String,
-    capacity: String,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodySmall,
-            color = AppColors.TextSecondary,
-            lineHeight = 16.sp
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = capacity,
-            style = MaterialTheme.typography.labelSmall,
-            color = AppColors.Primary,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-/**
- * Vehicle Price and Selection Indicator
- */
-@Composable
-private fun VehiclePriceSection(
-    price: Int,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = "₹$price",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.Primary
-            )
-            Text(
-                text = "Estimated",
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextSecondary,
-                fontSize = 10.sp
-            )
-        }
-
-        RadioButton(
-            selected = isSelected,
-            onClick = null,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = AppColors.Primary,
-                unselectedColor = AppColors.Border
-            )
-        )
-    }
-}
-
-/**
- * Available Vehicles List
- */
+// Mock data for backward compatibility (will be removed)
 val availableVehicles = listOf(
     VehicleType(
-        id = "bike",
-        name = "Bike",
+        id = 1,
+        name = "2 Wheeler",
         icon = "🏍️",
-        description = "Small packages, documents",
+        description = "Perfect for small packages",
         capacity = "Up to 10 kg",
         price = 50
     ),
     VehicleType(
-        id = "3wheeler",
+        id = 2,
         name = "3 Wheeler",
         icon = "🛺",
-        description = "Medium sized parcels",
-        capacity = "Up to 50 kg",
-        price = 120
+        description = "Ideal for medium loads",
+        capacity = "Up to 100 kg",
+        price = 80
     ),
     VehicleType(
-        id = "tata_ace",
+        id = 3,
         name = "Tata Ace",
-        icon = "🚛",
-        description = "Furniture, appliances",
-        capacity = "Up to 500 kg",
-        price = 300
-    ),
-    VehicleType(
-        id = "pickup",
-        name = "Pickup Truck",
-        icon = "🚙",
-        description = "Large items, bulk goods",
-        capacity = "Up to 750 kg",
-        price = 450
-    ),
-    VehicleType(
-        id = "tempo",
-        name = "Tempo",
         icon = "🚚",
-        description = "House shifting, bulk",
-        capacity = "Up to 1500 kg",
-        price = 800
+        description = "Best for furniture & boxes",
+        capacity = "Up to 750 kg",
+        price = 150
+    ),
+    VehicleType(
+        id = 4,
+        name = "Pickup",
+        icon = "🚙",
+        description = "Large item transportation",
+        capacity = "Up to 1000 kg",
+        price = 200
+    ),
+    VehicleType(
+        id = 5,
+        name = "Tempo",
+        icon = "🚛",
+        description = "House shifting & bulk items",
+        capacity = "Up to 2000 kg",
+        price = 350
+    ),
+    VehicleType(
+        id = 6,
+        name = "Hamal",
+        icon = "🚶",
+        description = "Labor assistance",
+        capacity = "Manual labor",
+        price = 100
+    )
+)
+
+// ui/components/GoodsType.kt
+
+/**
+ * Extension function to convert GoodsTypeResponse to display model
+ */
+fun GoodsTypeResponse.toDisplayModel() = GoodsType(
+    id = this.goodsTypeId,
+    name = this.name,
+    icon = this.icon,
+    weight = this.defaultWeight,
+    packages = this.defaultPackages,
+    value = this.defaultValue
+)
+
+/**
+ * Legacy GoodsType for UI compatibility
+ */
+data class GoodsType(
+    val id: Int,
+    val name: String,
+    val icon: String,
+    val weight: Double,
+    val packages: Int,
+    val value: Int
+)
+
+// Mock data for backward compatibility (will be removed)
+val availableGoodsTypes = listOf(
+    GoodsType(
+        id = 1,
+        name = "Homemade / Prepared / Fresh Food",
+        icon = "🍲",
+        weight = 5.0,
+        packages = 1,
+        value = 500
+    ),
+    GoodsType(
+        id = 2,
+        name = "Furnitures / Home Furnishings",
+        icon = "🛋️",
+        weight = 50.0,
+        packages = 1,
+        value = 5000
+    ),
+    GoodsType(
+        id = 3,
+        name = "General Goods",
+        icon = "📦",
+        weight = 20.0,
+        packages = 1,
+        value = 1500
     )
 )

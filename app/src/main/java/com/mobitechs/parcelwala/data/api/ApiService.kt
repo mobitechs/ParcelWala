@@ -2,7 +2,6 @@ package com.mobitechs.parcelwala.data.api
 
 import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
-import com.mobitechs.parcelwala.data.model.response.VehicleTypeListResponse
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -33,15 +32,42 @@ interface ApiService {
         @Body request: CompleteProfileRequest
     ): Response<ApiResponse<User>>
 
-    /**
-     * BOOKING ENDPOINTS
-     */
+
 
     /**
      * Get available vehicle types
      */
-    @GET("customer/vehicle-types")
-    suspend fun getVehicleTypes(): VehicleTypeListResponse
+
+    @GET("vehicles/types")
+    suspend fun getVehicleTypes(): ApiResponse<List<VehicleTypeResponse>>
+
+    /**
+     * Get Goods Types
+     */
+    @GET("goods/types")
+    suspend fun getGoodsTypes(): ApiResponse<List<GoodsTypeResponse>>
+
+    /**
+     * Get Restricted Items
+     */
+    @GET("items/restricted")
+    suspend fun getRestrictedItems(): ApiResponse<List<RestrictedItemResponse>>
+
+    /**
+     * Get Available Coupons
+     */
+    @GET("coupons/available")
+    suspend fun getAvailableCoupons(): ApiResponse<List<CouponResponse>>
+
+    /**
+     * Validate Coupon
+     */
+    @POST("coupons/validate")
+    suspend fun validateCoupon(@Body request: ValidateCouponRequest): ApiResponse<CouponResponse>
+
+
+//    @GET("customer/vehicle-types")
+//    suspend fun getVehicleTypes(): VehicleTypeListResponse
 
     /**
      * Get saved addresses

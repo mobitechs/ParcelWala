@@ -1,10 +1,10 @@
+// ui/screens/booking/RestrictedItemsBottomSheet.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,57 +14,78 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.mobitechs.parcelwala.ui.components.*
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
+import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
- * Restricted Items Bottom Sheet
+ * Restricted Items Bottom Sheet - FULL HEIGHT
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RestrictedItemsBottomSheet(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    viewModel: BookingViewModel = hiltViewModel()
 ) {
+    // Observe restricted items from ViewModel
+    val restrictedItems by viewModel.restrictedItems.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Load restricted items if not already loaded
+    LaunchedEffect(Unit) {
+        if (restrictedItems.isEmpty()) {
+            viewModel.loadRestrictedItems()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true // FULL HEIGHT
+        ),
         dragHandle = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(
-                            color = AppColors.Border,
-                            shape = RoundedCornerShape(2.dp)
-                        )
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 12.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .background(
+                        color = AppColors.Border,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
         }
     ) {
         Column(
             modifier = Modifier
+                .fillMaxHeight(0.92f) // FULL HEIGHT
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
         ) {
             // Header
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Restricted Items",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
+                Column {
+                    Text(
+                        text = "Restricted Items",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    Text(
+                        text = "These items cannot be shipped",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.TextSecondary
+                    )
+                }
 
                 IconButton(onClick = onDismiss) {
                     Icon(
@@ -75,68 +96,98 @@ fun RestrictedItemsBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Warning Banner
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF9E6)
-                )
+            InfoCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Block,
+                        imageVector = Icons.Default.Warning,
                         contentDescription = null,
                         tint = Color(0xFFFF9800),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(28.dp)
                     )
-
                     Column {
                         Text(
-                            text = "Your order should not contain any of these restricted items",
+                            text = "Important Notice",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.TextPrimary
+                        )
+                        Text(
+                            text = "Shipping restricted items may result in booking cancellation and legal action",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Restricted Items Grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 500.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(restrictedItems) { item ->
-                    RestrictedItemCard(item)
+            if (uiState.isLoading && restrictedItems.isEmpty()) {
+                // Loading state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = AppColors.Primary)
+                }
+            } else {
+                // Restricted Items List
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(restrictedItems) { item ->
+                        RestrictedItemCard(item)
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Understand Button
-            PrimaryButton(
-                text = "Okay, Understood",
-                onClick = onDismiss,
-                icon = Icons.Default.Check,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
+            // Bottom Button - FIXED AT BOTTOM
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Primary
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "I Understand",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -145,61 +196,83 @@ fun RestrictedItemsBottomSheet(
  * Restricted Item Card
  */
 @Composable
-private fun RestrictedItemCard(item: String) {
+private fun RestrictedItemCard(
+    item: RestrictedItemResponse
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = AppColors.Background
+            containerColor = Color(0xFFFFF9F0)
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Border)
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = Color(0xFFFFE0B2)
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            horizontalAlignment = Alignment.Start
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Warning Icon
             Icon(
-                imageVector = Icons.Default.Cancel,
+                imageVector = Icons.Default.Block,
                 contentDescription = null,
-                tint = AppColors.Drop,
-                modifier = Modifier.size(20.dp)
+                tint = Color(0xFFFF6F00),
+                modifier = Modifier.size(24.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = item,
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.TextPrimary,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Start
-            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Item Details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+
+                if (item.description != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+
+                if (item.category != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = getCategoryColor(item.category).copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            text = item.category,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = getCategoryColor(item.category),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 /**
- * Restricted Items List
+ * Get color based on category
  */
-private val restrictedItems = listOf(
-    "Pornographic Materials",
-    "Dry Ice",
-    "Human Body Parts",
-    "Explosives",
-    "Fire Arms",
-    "Flammables",
-    "Livestock",
-    "Pets & Animals",
-    "Dangerous Goods",
-    "Hazardous Goods",
-    "Illegal Goods",
-    "Radioactive Materials",
-    "Precious Jewelleries",
-    "Currencies & Coins",
-    "Stones and Gems",
-    "Gambling Devices",
-    "Lottery Tickets",
-    "Fire Extinguishers",
-    "Cigarettes & Alcohols",
-    "Narcotics and Illegal Drugs"
-)
+private fun getCategoryColor(category: String): Color {
+    return when (category.lowercase()) {
+        "illegal" -> Color(0xFFD32F2F)
+        "dangerous" -> Color(0xFFFF6F00)
+        "restricted" -> Color(0xFFF57C00)
+        "prohibited" -> Color(0xFFE64A19)
+        else -> Color(0xFFFF9800)
+    }
+}

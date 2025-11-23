@@ -1,12 +1,12 @@
+// ui/screens/booking/GoodsTypeBottomSheet.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,66 +14,82 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.mobitechs.parcelwala.ui.components.*
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
- * Goods Type Selection Bottom Sheet
+ * Goods Type Bottom Sheet - FULL HEIGHT WITH FIXED STYLING
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoodsTypeBottomSheet(
     onDismiss: () -> Unit,
-    onConfirm: (GoodsType) -> Unit
+    onConfirm: (GoodsTypeResponse) -> Unit,
+    viewModel: BookingViewModel = hiltViewModel()
 ) {
-    var selectedGoods by remember { mutableStateOf<GoodsType?>(null) }
-    var weight by remember { mutableStateOf("20.0") }
-    var packages by remember { mutableStateOf("01") }
-    var value by remember { mutableStateOf("1500") }
+    var selectedGoodsType by remember { mutableStateOf<GoodsTypeResponse?>(null) }
+
+    // Observe goods types from ViewModel
+    val goodsTypes by viewModel.goodsTypes.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Load goods types if not already loaded
+    LaunchedEffect(Unit) {
+        if (goodsTypes.isEmpty()) {
+            viewModel.loadGoodsTypes()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true // FULL HEIGHT
+        ),
         dragHandle = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Drag Handle
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(
-                            color = AppColors.Border,
-                            shape = RoundedCornerShape(2.dp)
-                        )
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 12.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .background(
+                        color = AppColors.Border,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
         }
     ) {
         Column(
             modifier = Modifier
+                .fillMaxHeight(0.92f) // FULL HEIGHT
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
         ) {
             // Header
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Select Goods Type",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
+                Column {
+                    Text(
+                        text = "Select Goods Type",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    Text(
+                        text = "Choose the type of goods you're shipping",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.TextSecondary
+                    )
+                }
 
                 IconButton(onClick = onDismiss) {
                     Icon(
@@ -84,153 +100,66 @@ fun GoodsTypeBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Search Field
-            SearchField(
-                value = "",
-                onValueChange = { },
-                placeholder = "Search goods type",
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Goods Types List
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .heightIn(max = 400.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(availableGoodsTypes) { goodsType ->
-                    GoodsTypeItem(
-                        goodsType = goodsType,
-                        isSelected = selectedGoods == goodsType,
-                        onClick = { selectedGoods = goodsType }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Selected Goods Details
-            selectedGoods?.let { goods ->
-                InfoCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = 4.dp
+            if (uiState.isLoading && goodsTypes.isEmpty()) {
+                // Loading state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Package Details",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Weight Input
-                        OutlinedTextField(
-                            value = weight,
-                            onValueChange = { if (it.matches(Regex("^\\d*\\.?\\d*$"))) weight = it },
-                            label = { Text("Weight (Kg)") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AppColors.Primary,
-                                focusedLabelColor = AppColors.Primary
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                    CircularProgressIndicator(color = AppColors.Primary)
+                }
+            } else {
+                // Goods Type List - Scrollable
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp)
+                ) {
+                    goodsTypes.forEach { goodsType ->
+                        GoodsTypeCard(
+                            goodsType = goodsType,
+                            isSelected = selectedGoodsType?.goodsTypeId == goodsType.goodsTypeId,
+                            onClick = { selectedGoodsType = goodsType }
                         )
-
-                        // Packages Input
-                        OutlinedTextField(
-                            value = packages,
-                            onValueChange = { if (it.matches(Regex("^\\d{0,2}$"))) packages = it },
-                            label = { Text("Packages") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AppColors.Primary,
-                                focusedLabelColor = AppColors.Primary
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Value Input
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = { if (it.matches(Regex("^\\d*$"))) value = it },
-                        label = { Text("Declared Value (₹)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppColors.Primary,
-                            focusedLabelColor = AppColors.Primary
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "(Default)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextHint
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Disclaimer
-                Text(
-                    text = "Disclaimer: Porter shall bear limited liability whatsoever for loss, damage, deterioration, delay, or regulatory non-compliance arising from the transportation of the listed item. Senders discretion is advised.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextHint,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Confirm Button
-                PrimaryButton(
-                    text = "Confirm",
-                    onClick = {
-                        selectedGoods?.let {
-                            onConfirm(it.copy(
-                                weight = weight.toDoubleOrNull() ?: 20.0,
-                                packages = packages.toIntOrNull() ?: 1,
-                                value = value.toIntOrNull() ?: 1500
-                            ))
-                        }
-                    },
-                    icon = Icons.Default.Check,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // Bottom Action Button - FIXED AT BOTTOM
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                PrimaryButton(
+                    text = "Confirm Selection",
+                    onClick = {
+                        selectedGoodsType?.let { onConfirm(it) }
+                    },
+                    icon = Icons.Default.Check,
+                    enabled = selectedGoodsType != null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                )
+            }
         }
     }
 }
 
 /**
- * Goods Type Item Card
+ * Goods Type Card Item - FIXED: WHITE BACKGROUND WITH BORDER ONLY
  */
 @Composable
-private fun GoodsTypeItem(
-    goodsType: GoodsType,
+private fun GoodsTypeCard(
+    goodsType: GoodsTypeResponse,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -238,98 +167,113 @@ private fun GoodsTypeItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) AppColors.Primary.copy(alpha = 0.1f) else Color.White
+            containerColor = Color.White // ALWAYS WHITE BACKGROUND
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
             color = if (isSelected) AppColors.Primary else AppColors.Border
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 4.dp else 2.dp
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = goodsType.icon,
-                contentDescription = goodsType.name,
-                tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
-                modifier = Modifier.size(24.dp)
-            )
-
-            Text(
-                text = goodsType.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
-                modifier = Modifier.weight(1f)
-            )
-
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = AppColors.Primary,
-                    modifier = Modifier.size(24.dp)
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(
+                        color = if (isSelected)
+                            AppColors.Primary.copy(alpha = 0.1f)
+                        else
+                            AppColors.Background,
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = goodsType.icon,
+                    style = MaterialTheme.typography.headlineLarge
                 )
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = goodsType.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
+                    maxLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Default Values
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    InfoChip(
+                        icon = Icons.Default.FitnessCenter,
+                        text = "${goodsType.defaultWeight} kg"
+                    )
+                    InfoChip(
+                        icon = Icons.Default.Inventory,
+                        text = "${goodsType.defaultPackages} pkg"
+                    )
+                    InfoChip(
+                        icon = Icons.Default.CurrencyRupee,
+                        text = "${goodsType.defaultValue}"
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Selection Indicator
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = AppColors.Primary,
+                    unselectedColor = AppColors.Border
+                )
+            )
         }
     }
 }
 
 /**
- * Goods Type Data Class
+ * Info Chip for Goods Details
  */
-data class GoodsType(
-    val id: String,
-    val name: String,
-    val icon: ImageVector,
-    val weight: Double = 20.0,
-    val packages: Int = 1,
-    val value: Int = 1500
-)
-
-/**
- * Available Goods Types
- */
-val availableGoodsTypes = listOf(
-    GoodsType(
-        id = "food",
-        name = "Homemade / Prepared / Fresh Food",
-        icon = Icons.Default.Restaurant
-    ),
-    GoodsType(
-        id = "furniture",
-        name = "Furnitures / Home Furnishings",
-        icon = Icons.Default.Chair
-    ),
-    GoodsType(
-        id = "general",
-        name = "General Goods",
-        icon = Icons.Default.Inventory
-    ),
-    GoodsType(
-        id = "hardware",
-        name = "Hardwares",
-        icon = Icons.Default.Build
-    ),
-    GoodsType(
-        id = "shifting",
-        name = "House Shifting / Packers and Movers",
-        icon = Icons.Default.Home
-    ),
-    GoodsType(
-        id = "logistics",
-        name = "Logistics Service Providers",
-        icon = Icons.Default.LocalShipping
-    ),
-    GoodsType(
-        id = "machines",
-        name = "Machines / Equipments / Spare Parts",
-        icon = Icons.Default.Settings
-    )
-)
+@Composable
+private fun InfoChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = AppColors.TextSecondary,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppColors.TextSecondary
+        )
+    }
+}

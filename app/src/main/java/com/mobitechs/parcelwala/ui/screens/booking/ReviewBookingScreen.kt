@@ -1,3 +1,4 @@
+// ui/screens/booking/ReviewBookingScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
@@ -29,7 +32,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewBookingScreen(
-    selectedVehicle: VehicleType,
+    selectedVehicle: VehicleTypeResponse,
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
     onConfirmBooking: () -> Unit,
@@ -45,13 +48,25 @@ fun ReviewBookingScreen(
     var showTermsDialog by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
 
+    // Load coupons and goods types when screen opens
+    LaunchedEffect(Unit) {
+        viewModel.loadAvailableCoupons()
+        if (viewModel.goodsTypes.value.isEmpty()) {
+            viewModel.loadGoodsTypes()
+        }
+    }
+
     // Use actual values from ViewModel state
     val baseFare = uiState.baseFare
     val discount = uiState.discount
     val finalFare = uiState.finalFare
     val appliedCoupon = uiState.appliedCoupon
     val selectedPaymentMethod = uiState.paymentMethod
-    val selectedGoodsType = uiState.goodsType
+    val selectedGoodsTypeId = uiState.selectedGoodsTypeId
+
+    // Get selected goods type from ViewModel
+    val goodsTypes by viewModel.goodsTypes.collectAsState()
+    val selectedGoodsType = goodsTypes.find { it.goodsTypeId == selectedGoodsTypeId }
 
     Scaffold(
         topBar = {
@@ -361,7 +376,7 @@ fun ReviewBookingScreen(
  */
 @Composable
 private fun VehicleInfoCard(
-    vehicle: VehicleType,
+    vehicle: VehicleTypeResponse,
     onViewAddressDetails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -707,11 +722,11 @@ private fun GSTCard(
 }
 
 /**
- * Goods Description Card with Selected Goods
+ * Goods Description Card
  */
 @Composable
 private fun GoodsDescriptionCard(
-    selectedGoodsType: GoodsType?,
+    selectedGoodsType: GoodsTypeResponse?,
     onSelectGoodsType: () -> Unit,
     onViewRestrictions: () -> Unit,
     modifier: Modifier = Modifier
@@ -735,7 +750,7 @@ private fun GoodsDescriptionCard(
                 selectedGoodsType?.let { goods ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${goods.weight} Kg • ${goods.packages.toString().padStart(2, '0')} Package • ₹${goods.value} (Default)",
+                        text = "${goods.defaultWeight} Kg • ${goods.defaultPackages.toString().padStart(2, '0')} Package • ₹${goods.defaultValue} (Default)",
                         style = MaterialTheme.typography.bodySmall,
                         color = AppColors.TextSecondary
                     )
