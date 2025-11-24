@@ -66,8 +66,6 @@ interface ApiService {
     suspend fun validateCoupon(@Body request: ValidateCouponRequest): ApiResponse<CouponResponse>
 
 
-//    @GET("customer/vehicle-types")
-//    suspend fun getVehicleTypes(): VehicleTypeListResponse
 
     /**
      * Get saved addresses
@@ -122,6 +120,26 @@ interface ApiService {
         @Path("bookingId") bookingId: Int,
         @Body reason: Map<String, String>
     ): ApiResponse<BookingResponse>
+
+
+
+    @GET("orders")
+    suspend fun getMyOrders(
+        @Query("status") status: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): OrdersListResponse
+
+    /**
+     * Get single order details
+     */
+    @GET("orders/{orderId}")
+    suspend fun getOrderDetails(
+        @Path("orderId") orderId: Int
+    ): OrderDetailsResponse
+
+
+
 
 
 }

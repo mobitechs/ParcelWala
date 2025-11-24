@@ -1,8 +1,11 @@
-// NavGraph.kt
+// ui/navigation/NavGraph.kt
 package com.mobitechs.parcelwala.ui.navigation
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,11 +16,13 @@ import androidx.navigation.navigation
 import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.screens.auth.CompleteProfileScreen
 import com.mobitechs.parcelwala.ui.screens.auth.LoginScreen
 import com.mobitechs.parcelwala.ui.screens.auth.OtpScreen
 import com.mobitechs.parcelwala.ui.screens.booking.*
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
+import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
@@ -29,6 +34,13 @@ fun NavGraph(
     preferencesManager: PreferencesManager
 ) {
     val isLoggedIn = preferencesManager.isLoggedIn()
+    val context = LocalContext.current
+
+    // ✅ State to hold selected order for details screen
+    var selectedOrder by remember { mutableStateOf<OrderResponse?>(null) }
+
+    // ✅ State to hold order for book again flow
+    var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
 
     NavHost(
         navController = navController,
@@ -102,7 +114,16 @@ fun NavGraph(
                     }
                 },
                 onNavigateToLocationSearch = {
-                    // Navigate to booking flow
+                    navController.navigate("booking_flow")
+                },
+                // ✅ Handle order click - pass order object directly
+                onNavigateToOrderDetails = { order ->
+                    selectedOrder = order
+                    navController.navigate(Screen.OrderDetails.route)
+                },
+                // ✅ Handle book again - prefill data and start booking flow
+                onBookAgain = { order ->
+                    orderForBookAgain = order
                     navController.navigate("booking_flow")
                 },
                 currentRoute = "home"
@@ -120,6 +141,14 @@ fun NavGraph(
                 onNavigateToLocationSearch = {
                     navController.navigate("booking_flow")
                 },
+                onNavigateToOrderDetails = { order ->
+                    selectedOrder = order
+                    navController.navigate(Screen.OrderDetails.route)
+                },
+                onBookAgain = { order ->
+                    orderForBookAgain = order
+                    navController.navigate("booking_flow")
+                },
                 currentRoute = "home"
             )
         }
@@ -133,6 +162,14 @@ fun NavGraph(
                     }
                 },
                 onNavigateToLocationSearch = {},
+                onNavigateToOrderDetails = { order ->
+                    selectedOrder = order
+                    navController.navigate(Screen.OrderDetails.route)
+                },
+                onBookAgain = { order ->
+                    orderForBookAgain = order
+                    navController.navigate("booking_flow")
+                },
                 currentRoute = "bookings"
             )
         }
@@ -146,8 +183,53 @@ fun NavGraph(
                     }
                 },
                 onNavigateToLocationSearch = {},
+                onNavigateToOrderDetails = { order ->
+                    selectedOrder = order
+                    navController.navigate(Screen.OrderDetails.route)
+                },
+                onBookAgain = { order ->
+                    orderForBookAgain = order
+                    navController.navigate("booking_flow")
+                },
                 currentRoute = "profile"
             )
+        }
+
+        // ✅ ORDER DETAILS SCREEN - Receives order object directly (no API call)
+        composable(Screen.OrderDetails.route) {
+            selectedOrder?.let { order ->
+                OrderDetailsScreen(
+                    order = order,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onBookAgain = { orderToBook ->
+                        orderForBookAgain = orderToBook
+                        navController.navigate("booking_flow") {
+                            popUpTo(Screen.Main.route) { inclusive = false }
+                        }
+                    },
+                    onCallDriver = { phoneNumber ->
+                        // Open phone dialer
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:$phoneNumber")
+                        }
+                        context.startActivity(intent)
+                    },
+                    onCallSupport = {
+                        // Open phone dialer with support number
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:+919876543210") // Replace with actual support number
+                        }
+                        context.startActivity(intent)
+                    }
+                )
+            } ?: run {
+                // If no order selected, go back
+                LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+            }
         }
 
         // ✅ BOOKING FLOW - Nested Navigation to Share ViewModel
@@ -166,16 +248,25 @@ fun NavGraph(
                 )
             ) { backStackEntry ->
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("booking_flow")
+                }
+                val viewModel: BookingViewModel = hiltViewModel(parentEntry)
+
+                // ✅ Prefill from book again order
+                LaunchedEffect(orderForBookAgain) {
+                    orderForBookAgain?.let { order ->
+                        viewModel.prefillFromOrder(order)
+                        orderForBookAgain = null // Clear after prefilling
+                    }
+                }
 
                 LocationSearchScreen(
                     locationType = locationType,
                     onAddressSelected = { address ->
-                        // Save to savedStateHandle
                         navController.currentBackStackEntry
                             ?.savedStateHandle
                             ?.set("selected_address", address)
-
-                        // Navigate to address confirmation
                         navController.navigate("address_confirm/$locationType")
                     },
                     onMapPicker = { latLng ->
@@ -271,7 +362,7 @@ fun NavGraph(
                     pickupAddress = uiState.pickupAddress,
                     dropAddress = uiState.dropAddress,
                     onVehicleSelected = { vehicle ->
-                        viewModel.setSelectedVehicle(vehicle)  // Now receives VehicleTypeResponse
+                        viewModel.setSelectedVehicle(vehicle)
                         navController.navigate("review_booking")
                     },
                     onChangePickup = {
@@ -297,7 +388,6 @@ fun NavGraph(
                 var showGoodsTypeSheet by remember { mutableStateOf(false) }
                 var showRestrictedItemsSheet by remember { mutableStateOf(false) }
 
-                // Get the selected vehicle from vehicle types list
                 val selectedVehicle = uiState.selectedVehicleId?.let { id ->
                     vehicleTypes.find { it.vehicleTypeId == id }
                 }
@@ -404,7 +494,6 @@ fun NavGraph(
                 val uiState by viewModel.uiState.collectAsState()
                 val vehicleTypes by viewModel.vehicleTypes.collectAsState()
 
-                // Get the selected vehicle
                 val selectedVehicle = uiState.selectedVehicleId?.let { id ->
                     vehicleTypes.find { it.vehicleTypeId == id }
                 }
@@ -436,9 +525,6 @@ fun NavGraph(
                     )
                 }
             }
-
-
         }
     }
 }
-

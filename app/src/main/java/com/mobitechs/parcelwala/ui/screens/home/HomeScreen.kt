@@ -148,7 +148,7 @@ fun HomeScreen(
                     // Marketing Text
                     MarketingText()
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
 

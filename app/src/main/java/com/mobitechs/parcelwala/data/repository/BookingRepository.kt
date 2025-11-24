@@ -5,6 +5,7 @@ import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.mock.MockBookingData
 import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
+import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -21,9 +22,7 @@ class BookingRepository @Inject constructor(
     private val apiService: ApiService
 ) {
 
-    companion object {
-        private const val USE_MOCK_DATA = true // ← Single flag to control mock vs real API
-    }
+
 
     // ============ IN-MEMORY CACHE ============
     private var cachedVehicleTypes: List<VehicleTypeResponse>? = null

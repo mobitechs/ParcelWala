@@ -457,6 +457,58 @@ class BookingViewModel @Inject constructor(
     fun resetBooking() {
         _uiState.value = BookingUiState()
     }
+
+    // ============ BOOK AGAIN FUNCTIONALITY ============
+
+    /**
+     * Prefill booking data from a previous order (Book Again)
+     * This allows users to quickly rebook with same pickup/drop addresses
+     */
+    fun prefillFromOrder(order: OrderResponse) {
+        val pickupAddress = SavedAddress(
+            addressId = "pickup_${order.bookingId}",  // String (required)
+            addressType = "other",                     // "home", "shop", "other"
+            label = order.pickupContactName ?: "Pickup", // String (required)
+            address = order.pickupAddress,
+            landmark = null,
+            latitude = order.pickupLatitude ?: 0.0,   // Double (not nullable)
+            longitude = order.pickupLongitude ?: 0.0, // Double (not nullable)
+            contactName = order.pickupContactName,
+            contactPhone = order.pickupContactPhone,
+            isDefault = false
+        )
+
+        val dropAddress = SavedAddress(
+            addressId = "drop_${order.bookingId}",
+            addressType = "other",
+            label = order.dropContactName ?: "Drop",
+            address = order.dropAddress,
+            landmark = null,
+            latitude = order.dropLatitude ?: 0.0,
+            longitude = order.dropLongitude ?: 0.0,
+            contactName = order.dropContactName,
+            contactPhone = order.dropContactPhone,
+            isDefault = false
+        )
+
+
+        // Update UI state with prefilled data
+        _uiState.update { currentState ->
+            currentState.copy(
+                pickupAddress = pickupAddress,
+                dropAddress = dropAddress,
+                selectedGoodsTypeId = order.goodsTypeId,
+                isBookAgain = true,
+                originalOrderId = order.bookingId,
+                preferredVehicleTypeId = order.vehicleTypeId
+            )
+        }
+
+        // Calculate fare if both addresses have valid coordinates
+        if ((order.pickupLatitude ?: 0.0) != 0.0 && (order.dropLatitude ?: 0.0) != 0.0) {
+            calculateFare()
+        }
+    }
 }
 
 /**
@@ -477,7 +529,11 @@ data class BookingUiState(
     val paymentMethod: String = "Cash",
     val gstin: String? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    // Book Again fields
+    val isBookAgain: Boolean = false,
+    val originalOrderId: Int? = null,
+    val preferredVehicleTypeId: Int? = null
 )
 
 /**

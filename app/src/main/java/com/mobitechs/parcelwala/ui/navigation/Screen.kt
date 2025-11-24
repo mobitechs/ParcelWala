@@ -1,3 +1,4 @@
+// ui/navigation/Screen.kt
 package com.mobitechs.parcelwala.ui.navigation
 
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -12,14 +13,6 @@ sealed class Screen(val route: String) {
     object CompleteProfile : Screen("complete_profile")
     object Main : Screen("main")
     object Home : Screen("home")
-
-    // Booking flow
-//    object LocationSearch : Screen("location_search/{type}") {
-//        fun createRoute(type: String) = "location_search/$type"
-//    }
-//    object AddressConfirm : Screen("address_confirm/{type}") {
-//        fun createRoute(type: String) = "address_confirm/$type"
-//    }
 
     // ✅ Location & Booking Screens
     object LocationSearch : Screen("location_search/{locationType}") {
@@ -36,9 +29,14 @@ sealed class Screen(val route: String) {
     }
 
     object BookingConfirm : Screen("booking_confirm")
+
+    // ✅ Order Screens
+    object OrderDetails : Screen("order_details")  // No bookingId needed - we pass object directly
+
+    object OrderTracking : Screen("order_tracking/{bookingId}") {
+        fun createRoute(bookingId: Int) = "order_tracking/$bookingId"
+    }
 }
-
-
 
 
 // Navigation Helper for Location Flow

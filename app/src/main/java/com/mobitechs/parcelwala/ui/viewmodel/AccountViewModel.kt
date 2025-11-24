@@ -2,17 +2,20 @@
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.mobitechs.parcelwala.data.local.PreferencesManager
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Account ViewModel
+ */
 @HiltViewModel
-class AccountViewModel @Inject constructor(
-    private val preferencesManager: PreferencesManager
-) : ViewModel() {
+class AccountViewModel @Inject constructor() : ViewModel() {
 
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
@@ -22,21 +25,38 @@ class AccountViewModel @Inject constructor(
     }
 
     private fun loadUserProfile() {
-        val user = preferencesManager.getUser()
-        _uiState.value = AccountUiState(
-            userName = user?.fullName ?: "Guest",
-            userPhone = user?.phoneNumber ?: "",
-            userEmail = user?.email
-        )
+        viewModelScope.launch {
+            // Mock user data - Replace with actual API call
+            _uiState.update {
+                it.copy(
+                    userName = "Pratik Sonawane",
+                    email = "sonawane.ptk@gmail.com",
+                    isEmailVerified = false,
+                    phoneNumber = "+91 8655883062",
+                    profileImage = null,
+                    walletBalance = 0.0,
+                    referralCode = "PRATIK2024"
+                )
+            }
+        }
     }
 
-    suspend fun logout() {
-        preferencesManager.clearAll()
+    fun logout() {
+        viewModelScope.launch {
+            // Clear user session
+            // Navigate to login
+        }
     }
 }
 
 data class AccountUiState(
-    val userName: String = "",
-    val userPhone: String = "",
-    val userEmail: String? = null
+    val isLoading: Boolean = false,
+    val userName: String? = null,
+    val email: String? = null,
+    val isEmailVerified: Boolean = false,
+    val phoneNumber: String? = null,
+    val profileImage: String? = null,
+    val walletBalance: Double = 0.0,
+    val referralCode: String? = null,
+    val error: String? = null
 )
