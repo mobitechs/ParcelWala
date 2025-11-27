@@ -20,13 +20,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 
 /**
  * Account Screen
- * User profile and settings
+ * Main profile/account management screen with navigation to sub-features
+ *
+ * Features:
+ * - User profile header with View/Edit option
+ * - Quick action cards (Saved Addresses, Help & Support)
+ * - GST Details section
+ * - Logout option
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,247 +49,10 @@ fun AccountScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showGSTBottomSheet by remember { mutableStateOf(false) }
+    var showEditProfileSheet by remember { mutableStateOf(false) }
 
-    Scaffold(
-        containerColor = AppColors.Background
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Profile Header Card
-            ProfileHeaderCard(
-                userName = uiState.userName ?: "Guest User",
-                email = uiState.email,
-                isEmailVerified = uiState.isEmailVerified,
-                profileImage = uiState.profileImage,
-                onViewProfile = { /* Navigate to profile */ },
-                onVerifyEmail = { /* Verify email */ },
-                onAddGST = onNavigateToGSTDetails
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Quick Actions - Saved Addresses & Help
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickActionCard(
-                    icon = Icons.Filled.Favorite,
-                    title = "Saved Addresses",
-                    onClick = onNavigateToSavedAddresses,
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionCard(
-                    icon = Icons.Filled.Help,
-                    title = "Help & Support",
-                    onClick = onNavigateToHelpSupport,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // GST & Referral Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column {
-                    // GST Details
-                    MenuItemRow(
-                        icon = Icons.Outlined.Receipt,
-                        title = "GST Details",
-                        actionText = "+ Add GSTIN",
-                        onClick = onNavigateToGSTDetails
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = AppColors.Divider
-                    )
-
-                    // Refer and Earn
-                    MenuItemRow(
-                        icon = Icons.Outlined.CardGiftcard,
-                        title = "Refer and earn ₹200",
-                        actionText = "Invite",
-                        actionIcon = Icons.Default.Share,
-                        onClick = onNavigateToReferral
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Enterprise Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clickable { /* Navigate to Enterprise */ },
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    color = AppColors.Primary.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(10.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Business,
-                                contentDescription = "Enterprise",
-                                tint = AppColors.Primary
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Parcel Wala Enterprise",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.TextPrimary
-                            )
-                            Text(
-                                text = "Upgrade to Business Solution",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
-                        }
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFFFF3E0)
-                        ) {
-                            Text(
-                                text = "NEW",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFF9800),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = "Go",
-                            tint = AppColors.TextSecondary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Settings Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column {
-                    // Change Language
-                    SettingsMenuItem(
-                        icon = Icons.Outlined.Translate,
-                        title = "Change Language",
-                        onClick = { /* Language selection */ }
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = AppColors.Divider
-                    )
-
-                    // Terms & Conditions
-                    SettingsMenuItem(
-                        icon = Icons.Outlined.Description,
-                        title = "Terms & Conditions",
-                        onClick = onNavigateToTerms
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Logout Button
-            OutlinedButton(
-                onClick = { showLogoutDialog = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = AppColors.Drop
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Drop)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Logout,
-                    contentDescription = "Logout",
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Logout",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // App Version
-            Text(
-                text = "App Version 1.0.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextHint,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            Spacer(modifier = Modifier.height(100.dp))
-        }
-    }
-
-    // Logout Confirmation Dialog
+    // Logout confirmation dialog
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -302,74 +73,197 @@ fun AccountScreen(
                 Text("Are you sure you want to logout?")
             },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        onLogout()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Drop
-                    )
+                        viewModel.logout { onLogout() }
+                    }
                 ) {
-                    Text("Logout")
+                    Text("Logout", color = AppColors.Drop)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel", color = AppColors.Primary)
+                    Text("Cancel", color = AppColors.TextSecondary)
                 }
             },
             containerColor = Color.White
         )
     }
+
+    // GST Bottom Sheet
+    if (showGSTBottomSheet) {
+        AddGSTBottomSheet(
+            onDismiss = { showGSTBottomSheet = false },
+            onSave = { gstin ->
+                viewModel.saveGSTIN(gstin)
+                showGSTBottomSheet = false
+            }
+        )
+    }
+
+    // Edit Profile Bottom Sheet
+    if (showEditProfileSheet) {
+        EditProfileBottomSheet(
+            currentUser = uiState.user,
+            onDismiss = { showEditProfileSheet = false },
+            onSave = { firstName, lastName, email ->
+                viewModel.updateProfile(firstName, lastName, email)
+                showEditProfileSheet = false
+            }
+        )
+    }
+
+    Scaffold(
+        containerColor = AppColors.Background
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // ============ PROFILE HEADER ============
+            ProfileHeaderCard(
+                userName = uiState.userName ?: "User",
+                email = uiState.email,
+                isEmailVerified = uiState.isEmailVerified,
+                onViewClick = { showEditProfileSheet = true },
+                onAddGSTClick = { showGSTBottomSheet = true }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ============ QUICK ACTION CARDS ============
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Saved Addresses Card
+                QuickActionCard(
+                    icon = Icons.Default.Favorite,
+                    title = "Saved Addresses",
+                    onClick = onNavigateToSavedAddresses,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Help & Support Card
+                QuickActionCard(
+                    icon = Icons.Default.HelpOutline,
+                    title = "Help & Support",
+                    onClick = onNavigateToHelpSupport,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ============ GST DETAILS SECTION ============
+            GSTDetailsCard(
+                gstin = uiState.gstin,
+                onAddGSTIN = { showGSTBottomSheet = true },
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ============ MENU ITEMS ============
+            InfoCard(
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                // Referral
+                MenuItemRow(
+                    icon = Icons.Outlined.CardGiftcard,
+                    title = "Refer & Earn",
+                    subtitle = "Share & get rewards",
+                    onClick = onNavigateToReferral
+                )
+
+                HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
+
+                // Terms & Conditions
+                MenuItemRow(
+                    icon = Icons.Outlined.Description,
+                    title = "Terms & Conditions",
+                    subtitle = "Read our policies",
+                    onClick = onNavigateToTerms
+                )
+
+                HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
+
+                // Logout
+                MenuItemRow(
+                    icon = Icons.Outlined.Logout,
+                    title = "Logout",
+                    subtitle = "Sign out from app",
+                    onClick = { showLogoutDialog = true },
+                    iconTint = AppColors.Drop,
+                    textColor = AppColors.Drop
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // App Version
+            Text(
+                text = "Version 1.0.0",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextHint,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 100.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
 }
 
 /**
  * Profile Header Card
+ * Displays user info with View and Add GST options
  */
 @Composable
 private fun ProfileHeaderCard(
     userName: String,
     email: String?,
     isEmailVerified: Boolean,
-    profileImage: String?,
-    onViewProfile: () -> Unit,
-    onVerifyEmail: () -> Unit,
-    onAddGST: () -> Unit
+    onViewClick: () -> Unit,
+    onAddGSTClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AppColors.Primary.copy(alpha = 0.05f))
+            .padding(24.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // View Profile Button
+            // View Button - Top Right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                TextButton(onClick = onViewProfile) {
+                TextButton(onClick = onViewClick) {
                     Text(
                         text = "View",
                         color = AppColors.Primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = AppColors.Primary
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            // Profile Image
+            // Profile Avatar
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -377,22 +271,12 @@ private fun ProfileHeaderCard(
                     .background(AppColors.Primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (profileImage != null) {
-                    // AsyncImage for actual image
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile",
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(40.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -405,30 +289,25 @@ private fun ProfileHeaderCard(
                 color = AppColors.TextPrimary
             )
 
-            // Email with Verify
-            if (email != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Email with verify option
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = email ?: "Add email",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary
+                )
+                if (email != null && !isEmailVerified) {
                     Text(
-                        text = email,
+                        text = "Verify",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.TextSecondary
+                        color = AppColors.Primary,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    if (!isEmailVerified) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(
-                            onClick = onVerifyEmail,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        ) {
-                            Text(
-                                text = "Verify",
-                                color = AppColors.Primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
             }
 
@@ -436,21 +315,24 @@ private fun ProfileHeaderCard(
 
             // Add GST Details Button
             OutlinedButton(
-                onClick = onAddGST,
-                shape = RoundedCornerShape(24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.TextPrimary)
+                onClick = onAddGSTClick,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = AppColors.Primary
+                ),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = AppColors.TextPrimary,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "Add GST Details",
-                    color = AppColors.TextPrimary,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -459,6 +341,7 @@ private fun ProfileHeaderCard(
 
 /**
  * Quick Action Card
+ * Reusable card for quick actions like Saved Addresses, Help
  */
 @Composable
 private fun QuickActionCard(
@@ -472,9 +355,7 @@ private fun QuickActionCard(
             .height(100.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -487,7 +368,7 @@ private fun QuickActionCard(
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = AppColors.TextPrimary,
+                tint = AppColors.Primary,
                 modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -502,136 +383,109 @@ private fun QuickActionCard(
 }
 
 /**
- * Menu Item Row with Action
+ * GST Details Card
+ * Shows GST section with add option
  */
 @Composable
-private fun MenuItemRow(
-    icon: ImageVector,
-    title: String,
-    actionText: String,
-    actionIcon: ImageVector? = null,
-    onClick: () -> Unit
+private fun GSTDetailsCard(
+    gstin: String?,
+    onAddGSTIN: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = AppColors.Primary.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = AppColors.Primary
+                    imageVector = Icons.Default.Receipt,
+                    contentDescription = null,
+                    tint = AppColors.TextSecondary,
+                    modifier = Modifier.size(24.dp)
                 )
-            }
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = AppColors.TextPrimary
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            OutlinedButton(
-                onClick = onClick,
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                if (actionIcon != null) {
-                    Icon(
-                        imageVector = actionIcon,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                }
                 Text(
-                    text = actionText,
-                    color = AppColors.Primary,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
+                    text = "GST Details",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.TextPrimary
                 )
             }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Go",
-                tint = AppColors.TextSecondary
-            )
+
+            TextButton(onClick = onAddGSTIN) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Add GSTIN",
+                    color = AppColors.Primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
 
 /**
- * Settings Menu Item
+ * Menu Item Row
+ * Reusable menu item with icon, title, and subtitle
  */
 @Composable
-private fun SettingsMenuItem(
+private fun MenuItemRow(
     icon: ImageVector,
     title: String,
-    onClick: () -> Unit
+    subtitle: String,
+    onClick: () -> Unit,
+    iconTint: Color = AppColors.TextSecondary,
+    textColor: Color = AppColors.TextPrimary
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = AppColors.Primary.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = AppColors.Primary
-                )
-            }
-
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
-                color = AppColors.TextPrimary
+                color = textColor
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
             )
         }
-
         Icon(
             imageVector = Icons.Default.ChevronRight,
-            contentDescription = "Go",
-            tint = AppColors.TextSecondary
+            contentDescription = null,
+            tint = AppColors.TextHint,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

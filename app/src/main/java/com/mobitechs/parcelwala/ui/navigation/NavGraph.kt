@@ -17,6 +17,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.screens.account.*
 import com.mobitechs.parcelwala.ui.screens.auth.CompleteProfileScreen
 import com.mobitechs.parcelwala.ui.screens.auth.LoginScreen
 import com.mobitechs.parcelwala.ui.screens.auth.OtpScreen
@@ -24,9 +25,19 @@ import com.mobitechs.parcelwala.ui.screens.booking.*
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
+import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
+/**
+ * Main Navigation Graph
+ * Handles all app navigation including:
+ * - Authentication flow
+ * - Main app with bottom navigation
+ * - Booking flow (nested navigation)
+ * - Account/Profile management flow (nested navigation)
+ * - Order details
+ */
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
@@ -42,10 +53,14 @@ fun NavGraph(
     // ✅ State to hold order for book again flow
     var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
 
+    // ✅ State to hold address for editing
+    var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
+        // ============ SPLASH ============
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLogin = {
@@ -62,6 +77,7 @@ fun NavGraph(
             )
         }
 
+        // ============ AUTH FLOW ============
         composable(Screen.Login.route) {
             LoginScreen(
                 onNavigateToOtp = { phoneNumber ->
@@ -105,6 +121,7 @@ fun NavGraph(
             )
         }
 
+        // ============ MAIN SCREEN WITH BOTTOM NAV ============
         composable(Screen.Main.route) {
             MainScreen(
                 preferencesManager = preferencesManager,
@@ -116,86 +133,36 @@ fun NavGraph(
                 onNavigateToLocationSearch = {
                     navController.navigate("booking_flow")
                 },
-                // ✅ Handle order click - pass order object directly
                 onNavigateToOrderDetails = { order ->
                     selectedOrder = order
                     navController.navigate(Screen.OrderDetails.route)
                 },
-                // ✅ Handle book again - prefill data and start booking flow
                 onBookAgain = { order ->
                     orderForBookAgain = order
                     navController.navigate("booking_flow")
+                },
+                // ✅ Account navigation callbacks
+                onNavigateToSavedAddresses = {
+                    navController.navigate("account_flow")
+                },
+                onNavigateToProfileDetails = {
+                    navController.navigate("profile_details")
+                },
+                onNavigateToGSTDetails = {
+                    // Handled in AccountScreen with bottom sheet
                 },
                 currentRoute = "home"
             )
         }
 
-        composable("home") {
-            MainScreen(
-                preferencesManager = preferencesManager,
-                onNavigateToLogin = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Main.route) { inclusive = true }
-                    }
-                },
-                onNavigateToLocationSearch = {
-                    navController.navigate("booking_flow")
-                },
-                onNavigateToOrderDetails = { order ->
-                    selectedOrder = order
-                    navController.navigate(Screen.OrderDetails.route)
-                },
-                onBookAgain = { order ->
-                    orderForBookAgain = order
-                    navController.navigate("booking_flow")
-                },
-                currentRoute = "home"
+        // ============ PROFILE DETAILS SCREEN ============
+        composable("profile_details") {
+            ProfileDetailsScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
-        composable("bookings") {
-            MainScreen(
-                preferencesManager = preferencesManager,
-                onNavigateToLogin = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Main.route) { inclusive = true }
-                    }
-                },
-                onNavigateToLocationSearch = {},
-                onNavigateToOrderDetails = { order ->
-                    selectedOrder = order
-                    navController.navigate(Screen.OrderDetails.route)
-                },
-                onBookAgain = { order ->
-                    orderForBookAgain = order
-                    navController.navigate("booking_flow")
-                },
-                currentRoute = "bookings"
-            )
-        }
-
-        composable("profile") {
-            MainScreen(
-                preferencesManager = preferencesManager,
-                onNavigateToLogin = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Main.route) { inclusive = true }
-                    }
-                },
-                onNavigateToLocationSearch = {},
-                onNavigateToOrderDetails = { order ->
-                    selectedOrder = order
-                    navController.navigate(Screen.OrderDetails.route)
-                },
-                onBookAgain = { order ->
-                    orderForBookAgain = order
-                    navController.navigate("booking_flow")
-                },
-                currentRoute = "profile"
-            )
-        }
-
-        // ✅ ORDER DETAILS SCREEN - Receives order object directly (no API call)
+        // ============ ORDER DETAILS SCREEN ============
         composable(Screen.OrderDetails.route) {
             selectedOrder?.let { order ->
                 OrderDetailsScreen(
@@ -210,34 +177,168 @@ fun NavGraph(
                         }
                     },
                     onCallDriver = { phoneNumber ->
-                        // Open phone dialer
                         val intent = Intent(Intent.ACTION_DIAL).apply {
                             data = Uri.parse("tel:$phoneNumber")
                         }
                         context.startActivity(intent)
                     },
                     onCallSupport = {
-                        // Open phone dialer with support number
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+919876543210") // Replace with actual support number
+                            data = Uri.parse("tel:+919876543210")
                         }
                         context.startActivity(intent)
                     }
                 )
             } ?: run {
-                // If no order selected, go back
                 LaunchedEffect(Unit) {
                     navController.popBackStack()
                 }
             }
         }
 
-        // ✅ BOOKING FLOW - Nested Navigation to Share ViewModel
+        // ============ ACCOUNT FLOW - NESTED NAVIGATION ============
+        navigation(
+            startDestination = "saved_addresses",
+            route = "account_flow"
+        ) {
+            // ✅ Saved Addresses List Screen
+            composable("saved_addresses") {
+                val parentEntry = remember(navController) {
+                    navController.getBackStackEntry("account_flow")
+                }
+                val viewModel: AccountViewModel = hiltViewModel(parentEntry)
+
+                // Handle address save/delete success
+                val uiState by viewModel.uiState.collectAsState()
+
+                LaunchedEffect(uiState.addressSaveSuccess) {
+                    if (uiState.addressSaveSuccess) {
+                        viewModel.clearAddressSaveSuccess()
+                        viewModel.loadSavedAddresses()
+                    }
+                }
+
+                SavedAddressesScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onAddAddress = {
+                        addressToEdit = null
+                        navController.navigate("address_search")
+                    },
+                    onEditAddress = { address ->
+                        addressToEdit = address
+                        navController.navigate("address_search")
+                    },
+                    viewModel = viewModel
+                )
+            }
+
+            // ✅ Address Search Screen (for adding new address)
+            composable("address_search") {
+                AddressSearchScreen(
+                    onAddressSelected = { address ->
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("selected_address", address)
+                        navController.navigate("account_address_confirm")
+                    },
+                    onMapPicker = { latLng ->
+                        navController.navigate(
+                            "address_map_picker/${latLng.latitude}/${latLng.longitude}"
+                        )
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // ✅ Map Picker Screen for Address
+            composable(
+                route = "address_map_picker/{lat}/{lng}",
+                arguments = listOf(
+                    navArgument("lat") { type = NavType.StringType },
+                    navArgument("lng") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 19.0760
+                val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 72.8777
+                val initialLocation = LatLng(lat, lng)
+
+                MapPickerScreen(
+                    initialLocation = initialLocation,
+                    onLocationSelected = { address ->
+                        // ✅ Set the address on the current entry's savedStateHandle
+                        // Then navigate to confirm screen
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("selected_address", address)
+                        // Navigate to confirm screen instead of just popping back
+                        navController.navigate("account_address_confirm") {
+                            // Pop the map picker from backstack
+                            popUpTo("address_map_picker/{lat}/{lng}") { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ✅ Address Confirmation Screen for Account (with save as options)
+            composable("account_address_confirm") {
+                val parentEntry = remember(navController) {
+                    navController.getBackStackEntry("account_flow")
+                }
+                val viewModel: AccountViewModel = hiltViewModel(parentEntry)
+                val user = preferencesManager.getUser()
+
+                // ✅ Try to get address from multiple sources:
+                // 1. Current back stack entry's savedStateHandle (from map picker)
+                // 2. Previous back stack entry's savedStateHandle (from address search)
+                // 3. Address being edited
+                val selectedAddress = navController.currentBackStackEntry
+                    ?.savedStateHandle
+                    ?.get<SavedAddress>("selected_address")
+                    ?: navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.get<SavedAddress>("selected_address")
+                    ?: addressToEdit
+
+                // ✅ Use the same AddressConfirmationScreen with additional parameters
+                AddressConfirmationScreen(
+                    address = selectedAddress,
+                    locationType = "save", // Use "save" to trigger save address mode
+                    onConfirm = { confirmedAddress ->
+                        if (addressToEdit != null) {
+                            viewModel.updateAddress(confirmedAddress)
+                        } else {
+                            viewModel.saveAddress(confirmedAddress)
+                        }
+                        addressToEdit = null
+                        navController.navigate("saved_addresses") {
+                            popUpTo("saved_addresses") { inclusive = true }
+                        }
+                    },
+                    onEdit = {
+                        navController.popBackStack()
+                    },
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    // Additional parameters for save address mode
+                    isEditMode = addressToEdit != null,
+                    userPhoneNumber = user?.phoneNumber,
+                    showSaveLocationBadge = true
+                )
+            }
+        }
+
+        // ============ BOOKING FLOW - NESTED NAVIGATION ============
         navigation(
             startDestination = "location_search/pickup",
             route = "booking_flow"
         ) {
-            // ✅ Location Search Screen
+            // Location Search Screen
             composable(
                 route = "location_search/{locationType}",
                 arguments = listOf(
@@ -253,11 +354,11 @@ fun NavGraph(
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
-                // ✅ Prefill from book again order
+                // Prefill from book again order
                 LaunchedEffect(orderForBookAgain) {
                     orderForBookAgain?.let { order ->
                         viewModel.prefillFromOrder(order)
-                        orderForBookAgain = null // Clear after prefilling
+                        orderForBookAgain = null
                     }
                 }
 
@@ -286,7 +387,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Map Picker Screen
+            // Map Picker Screen
             composable(
                 route = "map_picker/{lat}/{lng}/{locationType}",
                 arguments = listOf(
@@ -312,7 +413,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Address Confirmation Screen
+            // Address Confirmation Screen for Booking
             composable(
                 route = "address_confirm/{locationType}",
                 arguments = listOf(
@@ -329,6 +430,7 @@ fun NavGraph(
                     ?.savedStateHandle
                     ?.get<SavedAddress>("selected_address")
 
+                // ✅ Standard booking flow - no additional parameters needed
                 AddressConfirmationScreen(
                     address = selectedAddress,
                     locationType = locationType,
@@ -350,7 +452,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Booking Confirmation Screen
+            // Booking Confirmation Screen
             composable("booking_confirm") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -376,7 +478,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Review Booking Screen
+            // Review Booking Screen
             composable("review_booking") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -446,7 +548,7 @@ fun NavGraph(
                 }
             }
 
-            // ✅ Coupons Screen
+            // Coupons Screen
             composable("coupons") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -463,7 +565,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Add GSTIN Screen
+            // Add GSTIN Screen
             composable("add_gstin") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -479,7 +581,7 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Searching Rider Screen
+            // Searching Rider Screen
             composable(
                 route = "searching_rider/{bookingId}",
                 arguments = listOf(

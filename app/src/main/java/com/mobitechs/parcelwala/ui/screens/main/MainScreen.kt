@@ -28,6 +28,7 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
  * Bottom Navigation Items
+ * Defines the tabs in the bottom navigation bar
  */
 sealed class BottomNavItem(
     val route: String,
@@ -66,14 +67,24 @@ sealed class BottomNavItem(
 
 /**
  * Main Screen with Bottom Navigation
+ *
+ * Contains:
+ * - Home tab with vehicle selection
+ * - Orders tab with order history
+ * - Payments tab
+ * - Account tab with profile management
  */
 @Composable
 fun MainScreen(
     preferencesManager: PreferencesManager,
     onNavigateToLogin: () -> Unit,
     onNavigateToLocationSearch: () -> Unit,
-    onNavigateToOrderDetails: (OrderResponse) -> Unit = {},  // ✅ Pass OrderResponse object
-    onBookAgain: (OrderResponse) -> Unit = {},               // ✅ Book again callback
+    onNavigateToOrderDetails: (OrderResponse) -> Unit = {},
+    onBookAgain: (OrderResponse) -> Unit = {},
+    // ✅ Account navigation callbacks
+    onNavigateToSavedAddresses: () -> Unit = {},
+    onNavigateToProfileDetails: () -> Unit = {},
+    onNavigateToGSTDetails: () -> Unit = {},
     currentRoute: String = "home"
 ) {
     val navController = rememberNavController()
@@ -99,39 +110,39 @@ fun MainScreen(
                 navController = navController,
                 startDestination = currentRoute.ifEmpty { BottomNavItem.Home.route }
             ) {
+                // ============ HOME TAB ============
                 composable(BottomNavItem.Home.route) {
                     HomeScreen(
                         onNavigateToLocationSearch = onNavigateToLocationSearch
                     )
                 }
 
+                // ============ ORDERS TAB ============
                 composable(BottomNavItem.Orders.route) {
                     OrdersScreen(
-                        // ✅ Pass OrderResponse object on card click
                         onOrderClick = { order ->
                             onNavigateToOrderDetails(order)
                         },
-                        // ✅ Book again with order data
                         onBookAgain = { order ->
                             onBookAgain(order)
                         }
                     )
                 }
 
+                // ============ PAYMENTS TAB ============
                 composable(BottomNavItem.Payments.route) {
                     PaymentsScreen()
                 }
 
+                // ============ ACCOUNT TAB ============
                 composable(BottomNavItem.Account.route) {
                     AccountScreen(
-                        onNavigateToSavedAddresses = { },
-                        onNavigateToHelpSupport = { },
-                        onNavigateToGSTDetails = { },
-                        onNavigateToReferral = { },
-                        onNavigateToTerms = { },
-                        onLogout = {
-                            onNavigateToLogin()
-                        }
+                        onNavigateToSavedAddresses = onNavigateToSavedAddresses,
+                        onNavigateToHelpSupport = { /* TODO: Navigate to Help */ },
+                        onNavigateToGSTDetails = onNavigateToGSTDetails,
+                        onNavigateToReferral = { /* TODO: Navigate to Referral */ },
+                        onNavigateToTerms = { /* TODO: Navigate to Terms */ },
+                        onLogout = onNavigateToLogin
                     )
                 }
             }
@@ -141,7 +152,7 @@ fun MainScreen(
 
 /**
  * Bottom Navigation Bar
- * FIXED: Removed light orange indicator color
+ * Custom styled navigation bar with orange theme
  */
 @Composable
 private fun BottomNavigationBar(
@@ -189,7 +200,7 @@ private fun BottomNavigationBar(
                     selectedTextColor = AppColors.Primary,
                     unselectedIconColor = AppColors.TextSecondary,
                     unselectedTextColor = AppColors.TextSecondary,
-                    // ✅ FIXED: Removed light orange - now transparent
+                    // Transparent indicator - no light orange background
                     indicatorColor = Color.Transparent
                 )
             )

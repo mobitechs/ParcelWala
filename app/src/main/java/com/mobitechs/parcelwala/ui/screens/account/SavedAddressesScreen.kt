@@ -1,0 +1,364 @@
+// ui/screens/account/SavedAddressesScreen.kt
+package com.mobitechs.parcelwala.ui.screens.account
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.ui.components.EmptyState
+import com.mobitechs.parcelwala.ui.components.LoadingIndicator
+import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
+
+/**
+ * Saved Addresses Screen
+ * Displays list of saved addresses with edit and delete options
+ *
+ * Features:
+ * - List of saved addresses with type icons (Home/Shop/Other)
+ * - Edit and Delete actions for each address
+ * - Add new address button
+ * - Empty state when no addresses
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SavedAddressesScreen(
+    onBack: () -> Unit,
+    onAddAddress: () -> Unit,
+    onEditAddress: (SavedAddress) -> Unit,
+    viewModel: AccountViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val savedAddresses by viewModel.savedAddresses.collectAsState()
+
+    var addressToDelete by remember { mutableStateOf<SavedAddress?>(null) }
+
+    // Delete confirmation dialog
+    addressToDelete?.let { address ->
+        AlertDialog(
+            onDismissRequest = { addressToDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = AppColors.Drop
+                )
+            },
+            title = {
+                Text(
+                    text = "Delete Address",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("Are you sure you want to delete this address?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAddress(address.addressId)
+                        addressToDelete = null
+                    }
+                ) {
+                    Text("Delete", color = AppColors.Drop)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { addressToDelete = null }) {
+                    Text("Cancel", color = AppColors.TextSecondary)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+
+    // Handle delete success
+    LaunchedEffect(uiState.addressDeleteSuccess) {
+        if (uiState.addressDeleteSuccess) {
+            viewModel.clearAddressDeleteSuccess()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Saved Addresses",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
+                actions = {
+                    // Add button
+                    OutlinedButton(
+                        onClick = onAddAddress,
+                        modifier = Modifier.padding(end = 8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Primary
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Add",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        },
+        containerColor = AppColors.Background
+    ) { padding ->
+        when {
+            uiState.isLoadingAddresses -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LoadingIndicator(message = "Loading addresses...")
+                }
+            }
+            savedAddresses.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptyState(
+                        icon = Icons.Outlined.LocationOff,
+                        title = "No Saved Addresses",
+                        subtitle = "Add addresses for quick booking",
+                        actionText = "Add Address",
+                        onAction = onAddAddress
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = savedAddresses,
+                        key = { it.addressId }
+                    ) { address ->
+                        SavedAddressCard(
+                            address = address,
+                            onEdit = { onEditAddress(address) },
+                            onDelete = { addressToDelete = address }
+                        )
+                    }
+
+                    // Bottom spacing for navigation bar
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Saved Address Card
+ * Individual address item with edit/delete actions
+ */
+@Composable
+private fun SavedAddressCard(
+    address: SavedAddress,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header Row - Type icon, Label, Contact
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Address Type Icon
+                AddressTypeIcon(
+                    addressType = address.addressType,
+                    modifier = Modifier.size(48.dp)
+                )
+
+                // Label and Contact Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = address.label.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    address.contactName?.let { name ->
+                        Text(
+                            text = "$name • ${address.contactPhone ?: ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Address Text
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.Background)
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = address.address,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary,
+                    maxLines = 2
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Edit Button
+                TextButton(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Edit",
+                        color = AppColors.Primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Divider
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(24.dp)
+                        .background(AppColors.Divider)
+                )
+
+                // Delete Button
+                TextButton(
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = AppColors.Drop,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Delete",
+                        color = AppColors.Drop,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Address Type Icon
+ * Shows appropriate icon based on address type (Home/Shop/Other)
+ */
+@Composable
+fun AddressTypeIcon(
+    addressType: String,
+    modifier: Modifier = Modifier
+) {
+    val (icon, backgroundColor) = when (addressType.lowercase()) {
+        "home" -> Icons.Default.Home to AppColors.Primary.copy(alpha = 0.1f)
+        "shop" -> Icons.Default.Store to AppColors.Pickup.copy(alpha = 0.1f)
+        else -> Icons.Default.Place to AppColors.TextSecondary.copy(alpha = 0.1f)
+    }
+
+    val iconTint = when (addressType.lowercase()) {
+        "home" -> AppColors.Primary
+        "shop" -> AppColors.Pickup
+        else -> AppColors.TextSecondary
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = addressType,
+            tint = iconTint,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}

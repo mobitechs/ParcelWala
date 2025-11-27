@@ -2,6 +2,7 @@
 package com.mobitechs.parcelwala.data.repository
 
 import com.mobitechs.parcelwala.data.api.ApiService
+import com.mobitechs.parcelwala.data.mock.MockAccountData
 import com.mobitechs.parcelwala.data.mock.MockBookingData
 import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
@@ -16,19 +17,26 @@ import javax.inject.Singleton
 /**
  * Repository for booking operations
  * Handles both mock and real API calls with caching
+ *
+ * Features:
+ * - Vehicle types management
+ * - Goods types management
+ * - Coupon validation
+ * - Address CRUD operations
+ * - Fare calculation
+ * - Booking creation and management
  */
 @Singleton
 class BookingRepository @Inject constructor(
     private val apiService: ApiService
 ) {
 
-
-
     // ============ IN-MEMORY CACHE ============
     private var cachedVehicleTypes: List<VehicleTypeResponse>? = null
     private var cachedGoodsTypes: List<GoodsTypeResponse>? = null
     private var cachedRestrictedItems: List<RestrictedItemResponse>? = null
     private var cachedCoupons: List<CouponResponse>? = null
+    private var cachedSavedAddresses: MutableList<SavedAddress>? = null
     private var cacheTimestamp: Long = 0L
     private val CACHE_DURATION = 30 * 60 * 1000L // 30 minutes
 
@@ -47,6 +55,7 @@ class BookingRepository @Inject constructor(
         cachedGoodsTypes = null
         cachedRestrictedItems = null
         cachedCoupons = null
+        cachedSavedAddresses = null
         cacheTimestamp = 0L
     }
 
@@ -214,10 +223,11 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    // ============ BOOKING APIs ============
+    // ============ SAVED ADDRESSES APIs ============
 
     /**
      * Get saved addresses
+     * Returns cached addresses if available, otherwise fetches from API/Mock
      */
     fun getSavedAddresses(): Flow<NetworkResult<List<SavedAddress>>> = flow {
         emit(NetworkResult.Loading())
@@ -225,11 +235,17 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(600)
-                val mockData = MockBookingData.getSavedAddresses()
-                emit(NetworkResult.Success(mockData))
+
+                // Initialize cache from mock data if empty
+                if (cachedSavedAddresses == null) {
+                    cachedSavedAddresses = MockAccountData.getSavedAddresses().toMutableList()
+                }
+
+                emit(NetworkResult.Success(cachedSavedAddresses!!.toList()))
             } else {
                 val response = apiService.getSavedAddresses()
                 if (response.success && response.data != null) {
+                    cachedSavedAddresses = response.data.toMutableList()
                     emit(NetworkResult.Success(response.data))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to load addresses"))
@@ -249,11 +265,45 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(500)
-                val randomNo = (100..999).random()
-                emit(NetworkResult.Success(address.copy(addressId = randomNo.toString())))
+
+                // Generate new ID for new addresses
+                val newAddress = if (address.addressId.startsWith("addr_") ||
+                    address.addressId.startsWith("map_") ||
+                    address.addressId == "0" ||
+                    address.addressId.isBlank()) {
+                    address.copy(addressId = MockAccountData.generateAddressId())
+                } else {
+                    address
+                }
+
+                // Add to cache
+                if (cachedSavedAddresses == null) {
+                    cachedSavedAddresses = mutableListOf()
+                }
+
+                // Check if updating existing or adding new
+                val existingIndex = cachedSavedAddresses!!.indexOfFirst { it.addressId == newAddress.addressId }
+                if (existingIndex >= 0) {
+                    cachedSavedAddresses!![existingIndex] = newAddress
+                } else {
+                    cachedSavedAddresses!!.add(newAddress)
+                }
+
+                emit(NetworkResult.Success(newAddress))
             } else {
                 val response = apiService.saveAddress(address)
                 if (response.success && response.data != null) {
+                    // Update cache
+                    if (cachedSavedAddresses == null) {
+                        cachedSavedAddresses = mutableListOf()
+                    }
+                    val existingIndex = cachedSavedAddresses!!.indexOfFirst { it.addressId == response.data.addressId }
+                    if (existingIndex >= 0) {
+                        cachedSavedAddresses!![existingIndex] = response.data
+                    } else {
+                        cachedSavedAddresses!!.add(response.data)
+                    }
+
                     emit(NetworkResult.Success(response.data))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to save address"))
@@ -273,10 +323,17 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(400)
+
+                // Remove from cache
+                cachedSavedAddresses?.removeIf { it.addressId == addressId.toString() }
+
                 emit(NetworkResult.Success(Unit))
             } else {
                 val response = apiService.deleteAddress(addressId)
                 if (response.success) {
+                    // Update cache
+                    cachedSavedAddresses?.removeIf { it.addressId == addressId.toString() }
+
                     emit(NetworkResult.Success(Unit))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to delete address"))
@@ -286,6 +343,8 @@ class BookingRepository @Inject constructor(
             emit(NetworkResult.Error(e.message ?: "Network error"))
         }
     }
+
+    // ============ BOOKING APIs ============
 
     /**
      * Calculate fare
