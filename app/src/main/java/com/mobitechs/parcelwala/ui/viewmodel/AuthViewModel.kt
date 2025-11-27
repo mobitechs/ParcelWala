@@ -1,5 +1,6 @@
 package com.mobitechs.parcelwala.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.model.response.LoginData
@@ -24,13 +25,22 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val savedStateHandle: SavedStateHandle  // Add this
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    private var currentPhoneNumber: String = ""
+    // Use SavedStateHandle for phone number persistence
+    companion object {
+        private const val KEY_PHONE_NUMBER = "phone_number"
+    }
+
+    // Get phone number from SavedStateHandle (survives process death)
+    private var currentPhoneNumber: String
+        get() = savedStateHandle[KEY_PHONE_NUMBER] ?: ""
+        set(value) { savedStateHandle[KEY_PHONE_NUMBER] = value }
 
     fun sendOtp(phoneNumber: String) {
         if (!isValidPhoneNumber(phoneNumber)) {
@@ -38,6 +48,7 @@ class AuthViewModel @Inject constructor(
             return
         }
 
+        // Save to SavedStateHandle
         currentPhoneNumber = phoneNumber
 
         viewModelScope.launch {
@@ -69,14 +80,25 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun verifyOtp(otp: String) {
+    /**
+     * Verify OTP - now also accepts phone number as parameter for flexibility
+     */
+    fun verifyOtp(otp: String, phoneNumber: String? = null) {
         if (otp.length != 6) {
             _uiState.update { it.copy(error = "Please enter a valid 6-digit OTP") }
             return
         }
 
+        // Use provided phone number or fall back to saved one
+        val phone = phoneNumber ?: currentPhoneNumber
+
+        if (phone.isBlank()) {
+            _uiState.update { it.copy(error = "Phone number not found. Please go back and try again.") }
+            return
+        }
+
         viewModelScope.launch {
-            authRepository.verifyOtp(currentPhoneNumber, otp).collect { result ->
+            authRepository.verifyOtp(phone, otp).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -106,6 +128,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // ... rest of the code remains the same
     fun completeProfile(
         fullName: String,
         email: String?,
@@ -155,6 +178,13 @@ class AuthViewModel @Inject constructor(
 
     fun resetOtpState() {
         _uiState.update { it.copy(otpSent = false, otpData = null) }
+    }
+
+    /**
+     * Set phone number directly (useful when navigating with phone as parameter)
+     */
+    fun setPhoneNumber(phoneNumber: String) {
+        currentPhoneNumber = phoneNumber
     }
 
     private fun isValidPhoneNumber(phone: String): Boolean {

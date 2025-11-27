@@ -2,9 +2,9 @@ package com.mobitechs.parcelwala.utils
 
 object Constants {
     // API
-    const val BASE_URL = "https://api.yourapp.com/v1/"
+    const val BASE_URL = "https://parcelwala.azurewebsites.net/"
 
-    const val USE_MOCK_DATA = true // ← Single flag to control mock vs real API
+    const val USE_MOCK_DATA = false // ← Single flag to control mock vs real API
 
     const val TIMEOUT_SECONDS = 30L
 

@@ -47,6 +47,21 @@ fun OtpScreen(
 
     val focusRequesters = remember { List(6) { FocusRequester() } }
 
+    // Auto-verify when complete - pass phone number
+    LaunchedEffect(otp) {
+        val otpString = otp.joinToString("")
+        if (otpString.length == 6) {
+            viewModel.verifyOtp(otpString, phoneNumber)  // Pass phoneNumber
+        }
+    }
+
+// Also set phone number when screen loads
+    LaunchedEffect(phoneNumber) {
+        viewModel.setPhoneNumber(phoneNumber)
+    }
+
+
+
     // Auto-focus first box
     LaunchedEffect(Unit) {
         delay(300)
@@ -64,13 +79,6 @@ fun OtpScreen(
         }
     }
 
-    // Auto-verify when complete
-    LaunchedEffect(otp) {
-        val otpString = otp.joinToString("")
-        if (otpString.length == 6) {
-            viewModel.verifyOtp(otpString)
-        }
-    }
 
     // Resend timer
     LaunchedEffect(Unit) {
@@ -212,7 +220,7 @@ fun OtpScreen(
                 onClick = {
                     val otpString = otp.joinToString("")
                     if (otpString.length == 6) {
-                        viewModel.verifyOtp(otpString)
+                        viewModel.verifyOtp(otpString, phoneNumber)
                     } else {
                         errorMessage = "Please enter complete 6-digit OTP"
                         showError = true
@@ -221,7 +229,7 @@ fun OtpScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading && otp.joinToString("").length == 6,
                 isLoading = uiState.isLoading,
-                icon = androidx.compose.material.icons.Icons.Default.Check
+                icon = Icons.Default.Check
             )
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -5,6 +5,7 @@ import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.mock.MockData
 import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
+import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +18,7 @@ class AuthRepository @Inject constructor(
 ) {
 
     companion object {
-        // ⚠️ CHANGE THIS TO false WHEN API IS READY ⚠️
-        private const val USE_MOCK_DATA = true
+
         private const val MOCK_DELAY = 1500L // Simulate network delay
     }
 
