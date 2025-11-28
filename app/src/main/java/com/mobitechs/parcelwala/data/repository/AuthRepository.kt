@@ -71,6 +71,7 @@ class AuthRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
+
             if (USE_MOCK_DATA) {
                 // ========== MOCK MODE ==========
                 delay(MOCK_DELAY)
@@ -98,11 +99,12 @@ class AuthRepository @Inject constructor(
                 }
                 // ================================
             } else {
+
                 // ========== REAL API ==========
                 val request = VerifyOtpRequest(
                     phoneNumber = phoneNumber,
                     otp = otp,
-                    deviceToken = preferencesManager.getDeviceToken(),
+                    deviceToken =  preferencesManager.getDeviceToken() ?: "",
                     deviceType = "android"
                 )
 

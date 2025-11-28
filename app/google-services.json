@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "524815401768",
+    "project_id": "parcelwala-android",
+    "storage_bucket": "parcelwala-android.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524815401768:android:38a49da24af92b6755461d",
+        "android_client_info": {
+          "package_name": "com.mobitechs.parcelwala"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCk1Zv5Dc7kO-6rS6tLYD4JUoiycCZpp8k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
