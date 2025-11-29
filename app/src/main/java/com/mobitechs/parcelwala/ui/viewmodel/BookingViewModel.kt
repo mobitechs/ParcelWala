@@ -15,6 +15,7 @@ import javax.inject.Inject
 /**
  * Booking ViewModel
  * Handles all booking-related operations with API integration
+ * Supports Book Again feature with prefilled data
  */
 @HiltViewModel
 class BookingViewModel @Inject constructor(
@@ -280,12 +281,18 @@ class BookingViewModel @Inject constructor(
 
             if (pickup == null || drop == null) return@launch
 
+            // Ensure we have valid coordinates
+            if (pickup.latitude == 0.0 || pickup.longitude == 0.0 ||
+                drop.latitude == 0.0 || drop.longitude == 0.0) {
+                return@launch
+            }
+
             val request = CalculateFareRequest(
                 vehicleTypeId = _uiState.value.selectedVehicleId ?: 1,
-                pickupLatitude = pickup.latitude ?: 0.0,
-                pickupLongitude = pickup.longitude ?: 0.0,
-                dropLatitude = drop.latitude ?: 0.0,
-                dropLongitude = drop.longitude ?: 0.0
+                pickupLatitude = pickup.latitude,
+                pickupLongitude = pickup.longitude,
+                dropLatitude = drop.latitude,
+                dropLongitude = drop.longitude
             )
 
             bookingRepository.calculateFare(request).collect { result ->
@@ -359,13 +366,13 @@ class BookingViewModel @Inject constructor(
             val request = CreateBookingRequest(
                 vehicleTypeId = state.selectedVehicleId,
                 pickupAddress = state.pickupAddress.address,
-                pickupLatitude = state.pickupAddress.latitude ?: 0.0,
-                pickupLongitude = state.pickupAddress.longitude ?: 0.0,
+                pickupLatitude = state.pickupAddress.latitude,
+                pickupLongitude = state.pickupAddress.longitude,
                 pickupContactName = state.pickupAddress.contactName ?: "",
                 pickupContactPhone = state.pickupAddress.contactPhone ?: "",
                 dropAddress = state.dropAddress.address,
-                dropLatitude = state.dropAddress.latitude ?: 0.0,
-                dropLongitude = state.dropAddress.longitude ?: 0.0,
+                dropLatitude = state.dropAddress.latitude,
+                dropLongitude = state.dropAddress.longitude,
                 dropContactName = state.dropAddress.contactName ?: "",
                 dropContactPhone = state.dropAddress.contactPhone ?: "",
                 goodsTypeId = state.selectedGoodsTypeId,
@@ -452,6 +459,20 @@ class BookingViewModel @Inject constructor(
     }
 
     /**
+     * Set pending address (used to pass address from MapPicker/LocationSearch to AddressConfirm)
+     */
+    fun setPendingAddress(address: SavedAddress) {
+        _uiState.update { it.copy(pendingAddress = address) }
+    }
+
+    /**
+     * Clear pending address after it's been used
+     */
+    fun clearPendingAddress() {
+        _uiState.update { it.copy(pendingAddress = null) }
+    }
+
+    /**
      * Reset booking state
      */
     fun resetBooking() {
@@ -463,73 +484,144 @@ class BookingViewModel @Inject constructor(
     /**
      * Prefill booking data from a previous order (Book Again)
      * This allows users to quickly rebook with same pickup/drop addresses
+     *
+     * IMPORTANT: Ensures latitude and longitude are properly set
      */
     fun prefillFromOrder(order: OrderResponse) {
-        val pickupAddress = SavedAddress(
-            addressId = "pickup_${order.bookingId}",  // String (required)
-            addressType = "other",                     // "home", "shop", "other"
-            label = order.pickupContactName ?: "Pickup", // String (required)
-            address = order.pickupAddress,
-            landmark = null,
-            latitude = order.pickupLatitude ?: 0.0,   // Double (not nullable)
-            longitude = order.pickupLongitude ?: 0.0, // Double (not nullable)
-            contactName = order.pickupContactName,
-            contactPhone = order.pickupContactPhone,
-            isDefault = false
-        )
-
-        val dropAddress = SavedAddress(
-            addressId = "drop_${order.bookingId}",
-            addressType = "other",
-            label = order.dropContactName ?: "Drop",
-            address = order.dropAddress,
-            landmark = null,
-            latitude = order.dropLatitude ?: 0.0,
-            longitude = order.dropLongitude ?: 0.0,
-            contactName = order.dropContactName,
-            contactPhone = order.dropContactPhone,
-            isDefault = false
-        )
-
-
-        // Update UI state with prefilled data
-        _uiState.update { currentState ->
-            currentState.copy(
-                pickupAddress = pickupAddress,
-                dropAddress = dropAddress,
-                selectedGoodsTypeId = order.goodsTypeId,
-                isBookAgain = true,
-                originalOrderId = order.bookingId,
-                preferredVehicleTypeId = order.vehicleTypeId
+        viewModelScope.launch {
+            // Create pickup address from order with ALL fields including lat/lng
+            val pickupAddress = SavedAddress(
+                addressId = "pickup_${order.bookingId}",
+                addressType = "other",
+                label = order.pickupContactName ?: "Pickup",
+                address = order.pickupAddress,
+                landmark = null,
+                latitude = order.pickupLatitude ?: 0.0,
+                longitude = order.pickupLongitude ?: 0.0,
+                contactName = order.pickupContactName,
+                contactPhone = order.pickupContactPhone,
+                isDefault = false,
+                flatNumber = null,
+                buildingName = null,
+                pincode = null
             )
-        }
 
-        // Calculate fare if both addresses have valid coordinates
-        if ((order.pickupLatitude ?: 0.0) != 0.0 && (order.dropLatitude ?: 0.0) != 0.0) {
-            calculateFare()
+            // Create drop address from order with ALL fields including lat/lng
+            val dropAddress = SavedAddress(
+                addressId = "drop_${order.bookingId}",
+                addressType = "other",
+                label = order.dropContactName ?: "Drop",
+                address = order.dropAddress,
+                landmark = null,
+                latitude = order.dropLatitude ?: 0.0,
+                longitude = order.dropLongitude ?: 0.0,
+                contactName = order.dropContactName,
+                contactPhone = order.dropContactPhone,
+                isDefault = false,
+                flatNumber = null,
+                buildingName = null,
+                pincode = null
+            )
+
+            // Update UI state with prefilled data
+            _uiState.update { currentState ->
+                currentState.copy(
+                    pickupAddress = pickupAddress,
+                    dropAddress = dropAddress,
+                    selectedGoodsTypeId = order.goodsTypeId,
+                    isBookAgain = true,
+                    originalOrderId = order.bookingId,
+                    preferredVehicleTypeId = order.vehicleTypeId
+                )
+            }
+
+            // Load vehicle types if not loaded
+            if (_vehicleTypes.value.isEmpty()) {
+                loadVehicleTypes()
+            }
+
+            // Auto-select vehicle type
+            if (order.vehicleTypeId != null) {
+                selectVehicleById(order.vehicleTypeId)
+            } else {
+                selectVehicleByName(order.vehicleType)
+            }
+
+            // Calculate fare if both addresses have valid coordinates
+            if ((order.pickupLatitude ?: 0.0) != 0.0 && (order.dropLatitude ?: 0.0) != 0.0) {
+                calculateFare()
+            }
+        }
+    }
+
+    /**
+     * Find and select vehicle by ID
+     */
+    private fun selectVehicleById(vehicleTypeId: Int) {
+        viewModelScope.launch {
+            _vehicleTypes
+                .filter { it.isNotEmpty() }
+                .take(1)
+                .collect { vehicles ->
+                    vehicles.find { it.vehicleTypeId == vehicleTypeId }?.let { vehicle ->
+                        setSelectedVehicle(vehicle)
+                    }
+                }
+        }
+    }
+
+    /**
+     * Find and select vehicle by name (fallback)
+     */
+    private fun selectVehicleByName(vehicleTypeName: String) {
+        viewModelScope.launch {
+            _vehicleTypes
+                .filter { it.isNotEmpty() }
+                .take(1)
+                .collect { vehicles ->
+                    vehicles.find { it.name.equals(vehicleTypeName, ignoreCase = true) }?.let { vehicle ->
+                        setSelectedVehicle(vehicle)
+                    }
+                }
         }
     }
 }
 
 /**
  * Booking UI State
+ * Contains all state for the booking flow
  */
 data class BookingUiState(
+    // Addresses
     val pickupAddress: SavedAddress? = null,
     val dropAddress: SavedAddress? = null,
+
+    // ✅ Pending address - used to pass address between screens (MapPicker → AddressConfirm)
+    val pendingAddress: SavedAddress? = null,
+
+    // Selected options
     val selectedVehicleId: Int? = null,
     val selectedGoodsTypeId: Int? = null,
+
+    // Goods details
     val goodsWeight: Double? = null,
     val goodsPackages: Int? = null,
     val goodsValue: Int? = null,
+
+    // Fare details
     val baseFare: Int = 0,
     val discount: Int = 0,
     val finalFare: Int = 0,
+
+    // Payment & extras
     val appliedCoupon: String? = null,
     val paymentMethod: String = "Cash",
     val gstin: String? = null,
+
+    // Loading & error states
     val isLoading: Boolean = false,
     val error: String? = null,
+
     // Book Again fields
     val isBookAgain: Boolean = false,
     val originalOrderId: Int? = null,
@@ -537,7 +629,7 @@ data class BookingUiState(
 )
 
 /**
- * Navigation Events
+ * Navigation Events for Booking Flow
  */
 sealed class BookingNavigationEvent {
     data class NavigateToSearchingRider(val bookingId: String) : BookingNavigationEvent()

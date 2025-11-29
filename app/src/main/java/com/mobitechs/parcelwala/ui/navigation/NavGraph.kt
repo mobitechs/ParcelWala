@@ -4,7 +4,12 @@ package com.mobitechs.parcelwala.ui.navigation
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -25,6 +30,7 @@ import com.mobitechs.parcelwala.ui.screens.booking.*
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
+import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
@@ -34,9 +40,14 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
  * Handles all app navigation including:
  * - Authentication flow
  * - Main app with bottom navigation
- * - Booking flow (nested navigation)
+ * - Booking flow (nested navigation) with Book Again support
  * - Account/Profile management flow (nested navigation)
  * - Order details
+ *
+ * KEY FEATURES:
+ * - Edit button (✏️): Edit contact details only → address_confirm?isEdit=true
+ * - Change button (📍): Change location → location_search?isChange=true
+ * - Book Again: Prefill from order → booking_confirm directly
  */
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -53,8 +64,14 @@ fun NavGraph(
     // ✅ State to hold order for book again flow
     var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
 
-    // ✅ State to hold address for editing
+    // ✅ State to track if this is a Book Again flow
+    var isBookAgainFlow by remember { mutableStateOf(false) }
+
+    // ✅ State to hold address for editing (account flow)
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
+
+    // ✅ State to hold address selected from search/map picker (account flow)
+    var pendingAccountAddress by remember { mutableStateOf<SavedAddress?>(null) }
 
     NavHost(
         navController = navController,
@@ -131,6 +148,9 @@ fun NavGraph(
                     }
                 },
                 onNavigateToLocationSearch = {
+                    // ✅ Normal booking flow - reset flags
+                    isBookAgainFlow = false
+                    orderForBookAgain = null
                     navController.navigate("booking_flow")
                 },
                 onNavigateToOrderDetails = { order ->
@@ -138,7 +158,9 @@ fun NavGraph(
                     navController.navigate(Screen.OrderDetails.route)
                 },
                 onBookAgain = { order ->
+                    // ✅ Book Again flow - set flags
                     orderForBookAgain = order
+                    isBookAgainFlow = true
                     navController.navigate("booking_flow")
                 },
                 // ✅ Account navigation callbacks
@@ -171,7 +193,9 @@ fun NavGraph(
                         navController.popBackStack()
                     },
                     onBookAgain = { orderToBook ->
+                        // ✅ Book Again from order details
                         orderForBookAgain = orderToBook
+                        isBookAgainFlow = true
                         navController.navigate("booking_flow") {
                             popUpTo(Screen.Main.route) { inclusive = false }
                         }
@@ -224,23 +248,41 @@ fun NavGraph(
                     },
                     onAddAddress = {
                         addressToEdit = null
-                        navController.navigate("address_search")
+                        navController.navigate("address_search")  // ✅ New address → go to search
                     },
                     onEditAddress = { address ->
                         addressToEdit = address
-                        navController.navigate("address_search")
+                        navController.navigate("account_address_confirm")  // ✅ FIXED: Edit → go directly to confirm
                     },
                     viewModel = viewModel
                 )
             }
 
-            // ✅ Address Search Screen (for adding new address)
+            // ✅ Address Search Screen (for adding new address OR changing location)
             composable("address_search") {
                 AddressSearchScreen(
                     onAddressSelected = { address ->
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("selected_address", address)
+                        // ✅ If editing (changing location), preserve contact info from original address
+                        val mergedAddress = if (addressToEdit != null) {
+                            address.copy(
+                                addressId = addressToEdit!!.addressId,
+                                addressType = addressToEdit!!.addressType,
+                                label = addressToEdit!!.label,
+                                contactName = addressToEdit!!.contactName,
+                                contactPhone = addressToEdit!!.contactPhone,
+                                flatNumber = addressToEdit!!.flatNumber,
+                                buildingName = addressToEdit!!.buildingName,
+                                landmark = addressToEdit!!.landmark,
+                                pincode = addressToEdit!!.pincode,
+                                isDefault = addressToEdit!!.isDefault
+                                // latitude, longitude, address come from the new selection
+                            )
+                        } else {
+                            address
+                        }
+
+                        // ✅ FIXED: Use state variable instead of savedStateHandle
+                        pendingAccountAddress = mergedAddress
                         navController.navigate("account_address_confirm")
                     },
                     onMapPicker = { latLng ->
@@ -249,6 +291,7 @@ fun NavGraph(
                         )
                     },
                     onBack = {
+                        pendingAccountAddress = null  // ✅ Clear on back
                         navController.popBackStack()
                     }
                 )
@@ -269,14 +312,28 @@ fun NavGraph(
                 MapPickerScreen(
                     initialLocation = initialLocation,
                     onLocationSelected = { address ->
-                        // ✅ Set the address on the current entry's savedStateHandle
-                        // Then navigate to confirm screen
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("selected_address", address)
-                        // Navigate to confirm screen instead of just popping back
+                        // ✅ If editing (changing location), preserve contact info from original address
+                        val mergedAddress = if (addressToEdit != null) {
+                            address.copy(
+                                addressId = addressToEdit!!.addressId,
+                                addressType = addressToEdit!!.addressType,
+                                label = addressToEdit!!.label,
+                                contactName = addressToEdit!!.contactName,
+                                contactPhone = addressToEdit!!.contactPhone,
+                                flatNumber = addressToEdit!!.flatNumber,
+                                buildingName = addressToEdit!!.buildingName,
+                                landmark = addressToEdit!!.landmark,
+                                pincode = addressToEdit!!.pincode,
+                                isDefault = addressToEdit!!.isDefault
+                                // latitude, longitude, address come from the new map selection
+                            )
+                        } else {
+                            address
+                        }
+
+                        // ✅ FIXED: Use state variable instead of savedStateHandle
+                        pendingAccountAddress = mergedAddress
                         navController.navigate("account_address_confirm") {
-                            // Pop the map picker from backstack
                             popUpTo("address_map_picker/{lat}/{lng}") { inclusive = true }
                         }
                     },
@@ -292,40 +349,39 @@ fun NavGraph(
                 val viewModel: AccountViewModel = hiltViewModel(parentEntry)
                 val user = preferencesManager.getUser()
 
-                // ✅ Try to get address from multiple sources:
-                // 1. Current back stack entry's savedStateHandle (from map picker)
-                // 2. Previous back stack entry's savedStateHandle (from address search)
-                // 3. Address being edited
-                val selectedAddress = navController.currentBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<SavedAddress>("selected_address")
-                    ?: navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.get<SavedAddress>("selected_address")
-                    ?: addressToEdit
+                // ✅ FIXED: Priority for address selection using state variables
+                // 1. pendingAccountAddress (from address_search or map_picker - new/changed location)
+                // 2. addressToEdit (for direct edit without location change)
+                val selectedAddress = pendingAccountAddress ?: addressToEdit
 
-                // ✅ Use the same AddressConfirmationScreen with additional parameters
                 AddressConfirmationScreen(
                     address = selectedAddress,
-                    locationType = "save", // Use "save" to trigger save address mode
+                    locationType = "save",
                     onConfirm = { confirmedAddress ->
                         if (addressToEdit != null) {
                             viewModel.updateAddress(confirmedAddress)
                         } else {
                             viewModel.saveAddress(confirmedAddress)
                         }
+                        // ✅ Clear both state variables
                         addressToEdit = null
+                        pendingAccountAddress = null
                         navController.navigate("saved_addresses") {
                             popUpTo("saved_addresses") { inclusive = true }
                         }
                     },
-                    onEdit = {
-                        navController.popBackStack()
+                    onChangeLocation = {
+                        // ✅ Clear pendingAccountAddress before going to search
+                        pendingAccountAddress = null
+                        // Keep addressToEdit so contact info can be preserved
+                        navController.navigate("address_search")
                     },
                     onBack = {
+                        // ✅ Clear both state variables when going back
+                        addressToEdit = null
+                        pendingAccountAddress = null
                         navController.popBackStack()
                     },
-                    // Additional parameters for save address mode
                     isEditMode = addressToEdit != null,
                     userPhoneNumber = user?.phoneNumber,
                     showSaveLocationBadge = true
@@ -335,48 +391,106 @@ fun NavGraph(
 
         // ============ BOOKING FLOW - NESTED NAVIGATION ============
         navigation(
-            startDestination = "location_search/pickup",
+            startDestination = "booking_entry",
             route = "booking_flow"
         ) {
-            // Location Search Screen
-            composable(
-                route = "location_search/{locationType}",
-                arguments = listOf(
-                    navArgument("locationType") {
-                        type = NavType.StringType
-                        defaultValue = "pickup"
-                    }
-                )
-            ) { backStackEntry ->
-                val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
+            // ═══════════════════════════════════════════════════════════════
+            // ENTRY POINT - Decides flow direction (Book Again vs Normal)
+            // ═══════════════════════════════════════════════════════════════
+            composable("booking_entry") { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("booking_flow")
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
-                // Prefill from book again order
-                LaunchedEffect(orderForBookAgain) {
-                    orderForBookAgain?.let { order ->
-                        viewModel.prefillFromOrder(order)
+                LaunchedEffect(orderForBookAgain, isBookAgainFlow) {
+                    if (isBookAgainFlow && orderForBookAgain != null) {
+                        // ✅ Book Again flow - prefill and go to booking confirm
+                        viewModel.prefillFromOrder(orderForBookAgain!!)
                         orderForBookAgain = null
+                        isBookAgainFlow = false
+                        navController.navigate("booking_confirm") {
+                            popUpTo("booking_entry") { inclusive = true }
+                        }
+                    } else {
+                        // ✅ Normal flow - go to location search
+                        navController.navigate("location_search/pickup") {
+                            popUpTo("booking_entry") { inclusive = true }
+                        }
                     }
                 }
+
+                // Loading while deciding
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = AppColors.Primary)
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // LOCATION SEARCH SCREEN
+            // Route: location_search/{locationType}?isChange={isChange}
+            // - locationType: "pickup" or "drop"
+            // - isChange: true when changing existing location (preserves contact info)
+            // ═══════════════════════════════════════════════════════════════
+            composable(
+                route = "location_search/{locationType}?isChange={isChange}",
+                arguments = listOf(
+                    navArgument("locationType") {
+                        type = NavType.StringType
+                        defaultValue = "pickup"
+                    },
+                    navArgument("isChange") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
+                val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
+
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("booking_flow")
+                }
+                val viewModel: BookingViewModel = hiltViewModel(parentEntry)
+                val uiState by viewModel.uiState.collectAsState()
+
+                // Get existing address for preserving contact info when changing location
+                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 LocationSearchScreen(
                     locationType = locationType,
                     onAddressSelected = { address ->
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("selected_address", address)
-                        navController.navigate("address_confirm/$locationType")
+                        // ✅ Preserve contact info from existing address when changing location
+                        val mergedAddress = if (isChange && existingAddress != null) {
+                            address.copy(
+                                contactName = existingAddress.contactName,
+                                contactPhone = existingAddress.contactPhone,
+                                flatNumber = existingAddress.flatNumber,
+                                buildingName = existingAddress.buildingName,
+                                landmark = existingAddress.landmark,
+                                pincode = existingAddress.pincode
+                            )
+                        } else {
+                            address
+                        }
+
+                        // ✅ Use ViewModel to pass address (more reliable than savedStateHandle)
+                        viewModel.setPendingAddress(mergedAddress)
+                        navController.navigate("address_confirm/$locationType?isChange=$isChange")
                     },
                     onMapPicker = { latLng ->
                         navController.navigate(
-                            "map_picker/${latLng.latitude}/${latLng.longitude}/$locationType"
+                            "map_picker/${latLng.latitude}/${latLng.longitude}/$locationType?isChange=$isChange"
                         )
                     },
                     onBack = {
-                        if (locationType == "pickup") {
+                        if (isChange) {
+                            // Go back to booking_confirm when changing
+                            navController.popBackStack()
+                        } else if (locationType == "pickup") {
                             navController.navigate(Screen.Main.route) {
                                 popUpTo("booking_flow") { inclusive = true }
                             }
@@ -387,72 +501,154 @@ fun NavGraph(
                 )
             }
 
-            // Map Picker Screen
+            // ═══════════════════════════════════════════════════════════════
+            // MAP PICKER SCREEN
+            // Route: map_picker/{lat}/{lng}/{locationType}?isChange={isChange}
+            // ═══════════════════════════════════════════════════════════════
             composable(
-                route = "map_picker/{lat}/{lng}/{locationType}",
+                route = "map_picker/{lat}/{lng}/{locationType}?isChange={isChange}",
                 arguments = listOf(
                     navArgument("lat") { type = NavType.StringType },
                     navArgument("lng") { type = NavType.StringType },
-                    navArgument("locationType") { type = NavType.StringType }
+                    navArgument("locationType") { type = NavType.StringType },
+                    navArgument("isChange") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
                 )
             ) { backStackEntry ->
                 val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 19.0760
                 val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 72.8777
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
+                val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
                 val initialLocation = LatLng(lat, lng)
+
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("booking_flow")
+                }
+                val viewModel: BookingViewModel = hiltViewModel(parentEntry)
+                val uiState by viewModel.uiState.collectAsState()
+
+                // Get existing address for preserving contact info
+                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 MapPickerScreen(
                     initialLocation = initialLocation,
                     onLocationSelected = { address ->
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("selected_address", address)
-                        navController.popBackStack()
+                        // ✅ Preserve contact info from existing address
+                        val mergedAddress = if (isChange && existingAddress != null) {
+                            address.copy(
+                                contactName = existingAddress.contactName,
+                                contactPhone = existingAddress.contactPhone,
+                                flatNumber = existingAddress.flatNumber,
+                                buildingName = existingAddress.buildingName,
+                                landmark = existingAddress.landmark,
+                                pincode = existingAddress.pincode
+                            )
+                        } else {
+                            address
+                        }
+
+                        // ✅ Use ViewModel to pass address (more reliable than savedStateHandle)
+                        viewModel.setPendingAddress(mergedAddress)
+                        navController.navigate("address_confirm/$locationType?isChange=$isChange") {
+                            // Pop map picker from stack
+                            popUpTo("map_picker/{lat}/{lng}/{locationType}?isChange={isChange}") {
+                                inclusive = true
+                            }
+                        }
                     },
                     onBack = { navController.popBackStack() }
                 )
             }
 
-            // Address Confirmation Screen for Booking
+            // ═══════════════════════════════════════════════════════════════
+            // ADDRESS CONFIRMATION SCREEN
+            // Route: address_confirm/{locationType}?isEdit={isEdit}&isChange={isChange}
+            //
+            // Parameters:
+            // - locationType: "pickup" or "drop"
+            // - isEdit: true when editing existing address details (from Edit ✏️ button)
+            // - isChange: true when changing location (from Change 📍 button)
+            //
+            // Behavior:
+            // - isEdit=true: Load existing address from ViewModel, show "Save Changes"
+            // - isChange=true/false (new): Load address from ViewModel's pendingAddress
+            // ═══════════════════════════════════════════════════════════════
             composable(
-                route = "address_confirm/{locationType}",
+                route = "address_confirm/{locationType}?isEdit={isEdit}&isChange={isChange}",
                 arguments = listOf(
-                    navArgument("locationType") { type = NavType.StringType }
+                    navArgument("locationType") { type = NavType.StringType },
+                    navArgument("isEdit") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                    navArgument("isChange") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
                 )
             ) { backStackEntry ->
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
+                val isEdit = backStackEntry.arguments?.getBoolean("isEdit") ?: false
+                val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
+
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("booking_flow")
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
-                val selectedAddress = navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<SavedAddress>("selected_address")
-
-                // ✅ Standard booking flow - no additional parameters needed
                 AddressConfirmationScreen(
-                    address = selectedAddress,
+                    address = null, // Will be read from ViewModel
                     locationType = locationType,
+                    isEditMode = isEdit || isChange,
+                    viewModel = viewModel, // ✅ Pass ViewModel
                     onConfirm = { confirmedAddress ->
+                        // ✅ Save address to ViewModel (includes lat/lng)
                         if (locationType == "pickup") {
                             viewModel.setPickupAddress(confirmedAddress)
+                        } else {
+                            viewModel.setDropAddress(confirmedAddress)
+                        }
+
+                        // ✅ Clear pending address
+                        viewModel.clearPendingAddress()
+
+                        // ✅ Navigate based on flow
+                        if (isEdit || isChange) {
+                            // Editing or Changing: go back to booking_confirm
+                            navController.navigate("booking_confirm") {
+                                popUpTo("booking_confirm") { inclusive = true }
+                            }
+                        } else if (locationType == "pickup") {
+                            // Normal flow: go to drop location search
                             navController.navigate("location_search/drop") {
                                 popUpTo("location_search/pickup") { inclusive = false }
                             }
                         } else {
-                            viewModel.setDropAddress(confirmedAddress)
+                            // Normal flow (drop): go to booking confirm
                             navController.navigate("booking_confirm") {
                                 popUpTo("location_search/pickup") { inclusive = false }
                             }
                         }
                     },
-                    onEdit = { navController.popBackStack() },
-                    onBack = { navController.popBackStack() }
+                    onChangeLocation = {
+                        // ✅ Clear pending address before going to location search
+                        viewModel.clearPendingAddress()
+                        // Change location button clicked - go to location search with isChange=true
+                        navController.navigate("location_search/$locationType?isChange=true")
+                    },
+                    onBack = {
+                        viewModel.clearPendingAddress()
+                        navController.popBackStack()
+                    }
                 )
             }
 
-            // Booking Confirmation Screen
+            // ═══════════════════════════════════════════════════════════════
+            // BOOKING CONFIRMATION SCREEN
+            // Shows both addresses with Edit (✏️) and Change (📍) buttons
+            // ═══════════════════════════════════════════════════════════════
             composable("booking_confirm") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -463,22 +659,47 @@ fun NavGraph(
                 BookingConfirmationScreen(
                     pickupAddress = uiState.pickupAddress,
                     dropAddress = uiState.dropAddress,
+                    preSelectedVehicleId = uiState.preferredVehicleTypeId,
+                    isPrefilledFromOrder = uiState.isBookAgain,
                     onVehicleSelected = { vehicle ->
                         viewModel.setSelectedVehicle(vehicle)
                         navController.navigate("review_booking")
                     },
+                    // ✅ Edit (✏️): Go to address_confirm to edit details (name, phone, flat, etc.)
+                    onEditPickup = {
+                        viewModel.clearPendingAddress() // Clear any stale pending address
+                        navController.navigate("address_confirm/pickup?isEdit=true")
+                    },
+                    onEditDrop = {
+                        viewModel.clearPendingAddress() // Clear any stale pending address
+                        navController.navigate("address_confirm/drop?isEdit=true")
+                    },
+                    // ✅ Change (📍): Go to location_search to change location
                     onChangePickup = {
-                        navController.navigate("location_search/pickup")
+                        viewModel.clearPendingAddress() // Clear before new selection
+                        navController.navigate("location_search/pickup?isChange=true")
                     },
                     onChangeDrop = {
-                        navController.navigate("location_search/drop")
+                        viewModel.clearPendingAddress() // Clear before new selection
+                        navController.navigate("location_search/drop?isChange=true")
                     },
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        if (uiState.isBookAgain) {
+                            // Book Again flow: go back to main screen
+                            navController.navigate(Screen.Main.route) {
+                                popUpTo("booking_flow") { inclusive = true }
+                            }
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
                     viewModel = viewModel
                 )
             }
 
-            // Review Booking Screen
+            // ═══════════════════════════════════════════════════════════════
+            // REVIEW BOOKING SCREEN
+            // ═══════════════════════════════════════════════════════════════
             composable("review_booking") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -548,7 +769,9 @@ fun NavGraph(
                 }
             }
 
-            // Coupons Screen
+            // ═══════════════════════════════════════════════════════════════
+            // COUPONS SCREEN
+            // ═══════════════════════════════════════════════════════════════
             composable("coupons") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -565,7 +788,9 @@ fun NavGraph(
                 )
             }
 
-            // Add GSTIN Screen
+            // ═══════════════════════════════════════════════════════════════
+            // ADD GSTIN SCREEN
+            // ═══════════════════════════════════════════════════════════════
             composable("add_gstin") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("booking_flow")
@@ -581,7 +806,9 @@ fun NavGraph(
                 )
             }
 
-            // Searching Rider Screen
+            // ═══════════════════════════════════════════════════════════════
+            // SEARCHING RIDER SCREEN
+            // ═══════════════════════════════════════════════════════════════
             composable(
                 route = "searching_rider/{bookingId}",
                 arguments = listOf(

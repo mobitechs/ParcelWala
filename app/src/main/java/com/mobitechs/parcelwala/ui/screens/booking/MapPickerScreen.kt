@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -27,19 +27,12 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.*
+import java.util.Locale
 
 /**
  * Map Picker Screen
- * Full-screen map for selecting precise location
- *
- * Features:
- * - Full-screen Google Map
- * - Center pin indicator
- * - Address display at bottom
- * - Confirm button
- * - ✅ Pinch-to-zoom support
- * - ✅ All map gestures enabled
+ * Allows user to select location by moving map
+ * Creates SavedAddress with proper latitude/longitude
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,266 +46,276 @@ fun MapPickerScreen(
 
     // Camera position state
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialLocation, 17f)
+        position = CameraPosition.fromLatLngZoom(initialLocation, 16f)
     }
 
-    // Current address state
+    // Current selected location (center of map)
+    var selectedLocation by remember { mutableStateOf(initialLocation) }
     var currentAddress by remember { mutableStateOf("Move map to select location") }
-    var currentLocationName by remember { mutableStateOf("Selected Location") }
-    var isLoadingAddress by remember { mutableStateOf(false) }
-    var selectedLatLng by remember { mutableStateOf(initialLocation) }
+    var isLoading by remember { mutableStateOf(false) }
 
-    // ✅ Map UI Settings with all gestures enabled
-    val mapUiSettings = remember {
-        MapUiSettings(
-            zoomControlsEnabled = true,           // Show +/- buttons
-            zoomGesturesEnabled = true,           // ✅ Enable pinch-to-zoom
-            scrollGesturesEnabled = true,         // ✅ Enable pan/scroll
-            tiltGesturesEnabled = true,           // ✅ Enable tilt
-            rotationGesturesEnabled = true,       // ✅ Enable rotation
-            scrollGesturesEnabledDuringRotateOrZoom = true, // ✅ Allow scroll during zoom
-            compassEnabled = true,                // Show compass
-            myLocationButtonEnabled = false       // We'll add our own
-        )
-    }
-
-    // Map properties
-    val mapProperties = remember {
-        MapProperties(
-            isMyLocationEnabled = false,          // We handle this manually
-            mapType = MapType.NORMAL
-        )
-    }
-
-    // Geocode function
-    fun geocodeLocation(latLng: LatLng) {
-        isLoadingAddress = true
-        scope.launch {
-            try {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                val addresses = withContext(Dispatchers.IO) {
-                    @Suppress("DEPRECATION")
-                    geocoder.getFromLocation(latLng.latitude, latLng.longitude, 1)
-                }
-
-                if (!addresses.isNullOrEmpty()) {
-                    val address = addresses[0]
-                    currentAddress = address.getAddressLine(0) ?: "Unknown address"
-                    currentLocationName = address.featureName
-                        ?: address.subLocality
-                                ?: address.locality
-                                ?: "Selected Location"
-                } else {
-                    currentAddress = "Unable to determine address"
-                    currentLocationName = "Selected Location"
-                }
-            } catch (e: Exception) {
-                currentAddress = "Unable to determine address"
-                currentLocationName = "Selected Location"
-            } finally {
-                isLoadingAddress = false
+    // Update selected location when camera moves
+    LaunchedEffect(cameraPositionState.isMoving) {
+        if (!cameraPositionState.isMoving) {
+            selectedLocation = cameraPositionState.position.target
+            // Reverse geocode to get address
+            isLoading = true
+            scope.launch {
+                val address = getAddressFromLatLng(
+                    context = context,
+                    latLng = selectedLocation
+                )
+                currentAddress = address
+                isLoading = false
             }
         }
     }
 
-    // Update address when camera stops moving
-    LaunchedEffect(cameraPositionState.isMoving) {
-        if (!cameraPositionState.isMoving) {
-            selectedLatLng = cameraPositionState.position.target
-            geocodeLocation(selectedLatLng)
-        }
-    }
-
-    // Initial geocode
+    // Initial geocoding
     LaunchedEffect(Unit) {
-        geocodeLocation(initialLocation)
+        isLoading = true
+        val address = getAddressFromLatLng(context, initialLocation)
+        currentAddress = address
+        isLoading = false
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // ============ GOOGLE MAP ============
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            uiSettings = mapUiSettings,      // ✅ Apply UI settings with gestures
-            properties = mapProperties
-        )
-
-        // ============ CENTER PIN (Fixed position) ============
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Select Location",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        }
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 48.dp), // Offset for pin shadow
-            contentAlignment = Alignment.Center
+                .padding(paddingValues)
         ) {
-            // Pin shadow
+            // Google Map
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                uiSettings = MapUiSettings(
+                    zoomControlsEnabled = true,
+                    myLocationButtonEnabled = false
+                )
+            )
+
+            // Center Pin Marker (fixed at center)
             Box(
-                modifier = Modifier
-                    .offset(y = 24.dp)
-                    .size(12.dp, 6.dp)
-                    .background(
-                        color = Color.Black.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(50)
-                    )
-            )
-
-            // Pin icon
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = "Location pin",
-                tint = AppColors.Primary,
-                modifier = Modifier.size(48.dp)
-            )
-        }
-
-        // ============ TOP BAR ============
-        TopAppBar(
-            title = { Text("Select Location") },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back"
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.White.copy(alpha = 0.95f)
-            ),
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
-
-        // ============ MY LOCATION BUTTON ============
-        FloatingActionButton(
-            onClick = {
-                // Move camera to initial location
-                scope.launch {
-                    cameraPositionState.animate(
-                        CameraUpdateFactory.newLatLngZoom(initialLocation, 17f)
-                    )
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 80.dp, end = 16.dp)
-                .size(48.dp),
-            containerColor = Color.White,
-            contentColor = AppColors.Primary,
-            shape = CircleShape
-        ) {
-            Icon(
-                imageVector = Icons.Default.MyLocation,
-                contentDescription = "My Location",
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        // ============ BOTTOM CARD ============
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                // Address Info
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Pin",
+                    tint = AppColors.Primary,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .offset(y = (-24).dp)  // Offset to place pin tip at center
+                )
+            }
+
+            // Bottom Card with address and confirm button
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 ) {
-                    // Location Icon
-                    Surface(
-                        modifier = Modifier.size(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = AppColors.Primary.copy(alpha = 0.1f)
+                    // Location indicator
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = AppColors.Primary,
+                        Box(
                             modifier = Modifier
-                                .padding(10.dp)
-                                .size(24.dp)
-                        )
-                    }
-
-                    // Address Text
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = currentLocationName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        if (isLoadingAddress) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(12.dp),
-                                    strokeWidth = 2.dp,
-                                    color = AppColors.Primary
-                                )
-                                Text(
-                                    text = "Getting address...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = AppColors.TextHint
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = currentAddress,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                .size(40.dp)
+                                .background(
+                                    color = AppColors.Primary.copy(alpha = 0.1f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = AppColors.Primary,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Selected Location",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AppColors.TextSecondary
+                            )
+                            if (isLoading) {
+                                Text(
+                                    text = "Getting address...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AppColors.TextHint
+                                )
+                            } else {
+                                Text(
+                                    text = currentAddress,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AppColors.TextPrimary,
+                                    maxLines = 2
+                                )
+                            }
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Confirm Button
-                PrimaryButton(
-                    text = "Confirm Location",
-                    onClick = {
-                        val savedAddress = SavedAddress(
-                            addressId = "map_${System.currentTimeMillis()}",
-                            addressType = "other",
-                            label = currentLocationName,
-                            address = currentAddress,
-                            landmark = null,
-                            latitude = selectedLatLng.latitude,
-                            longitude = selectedLatLng.longitude,
-                            contactName = null,
-                            contactPhone = null,
-                            isDefault = false
+                    // Coordinates display - IMPORTANT for verification
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = AppColors.Background
                         )
-                        onLocationSelected(savedAddress)
-                    },
-                    enabled = !isLoadingAddress && currentAddress != "Move map to select location",
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Latitude",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.TextHint
+                                )
+                                Text(
+                                    text = String.format("%.6f", selectedLocation.latitude),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AppColors.TextPrimary
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "Longitude",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.TextHint
+                                )
+                                Text(
+                                    text = String.format("%.6f", selectedLocation.longitude),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AppColors.TextPrimary
+                                )
+                            }
+                        }
+                    }
 
-                // Bottom safe area padding
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Confirm Button
+                    PrimaryButton(
+                        text = "Confirm Location",
+                        onClick = {
+                            // ✅ Create SavedAddress with PROPER latitude and longitude
+                            val savedAddress = SavedAddress(
+                                addressId = "map_${System.currentTimeMillis()}",
+                                addressType = "other",
+                                label = "Selected Location",
+                                address = currentAddress,
+                                landmark = null,
+                                latitude = selectedLocation.latitude,    // ✅ IMPORTANT
+                                longitude = selectedLocation.longitude,  // ✅ IMPORTANT
+                                contactName = null,
+                                contactPhone = null,
+                                isDefault = false,
+                                flatNumber = null,
+                                buildingName = null,
+                                pincode = null
+                            )
+                            onLocationSelected(savedAddress)
+                        },
+                        icon = Icons.Default.Check,
+                        enabled = !isLoading && currentAddress.isNotEmpty() && currentAddress != "Move map to select location",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // My Location Button
+            FloatingActionButton(
+                onClick = {
+                    // TODO: Get current location and move camera
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                containerColor = Color.White
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "My Location",
+                    tint = AppColors.Primary
+                )
             }
         }
+    }
+}
 
-        // ============ ZOOM HINT (optional - shows on first load) ============
-        // You can add a hint to show users they can pinch to zoom
+/**
+ * Get address string from LatLng using Geocoder
+ */
+private suspend fun getAddressFromLatLng(
+    context: android.content.Context,
+    latLng: LatLng
+): String {
+    return withContext(Dispatchers.IO) {
+        try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(
+                latLng.latitude,
+                latLng.longitude,
+                1
+            )
+            if (!addresses.isNullOrEmpty()) {
+                val address = addresses[0]
+                buildString {
+                    address.getAddressLine(0)?.let { append(it) }
+                }
+            } else {
+                "Unknown location"
+            }
+        } catch (e: Exception) {
+            "Unable to get address"
+        }
     }
 }

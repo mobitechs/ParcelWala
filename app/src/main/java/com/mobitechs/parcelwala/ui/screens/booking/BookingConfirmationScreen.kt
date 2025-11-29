@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -28,14 +28,18 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 /**
  * Booking Confirmation Screen
  * Shows pickup/drop locations and vehicle selection
+ * Supports Book Again flow with pre-filled data
  */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingConfirmationScreen(
     pickupAddress: SavedAddress?,
     dropAddress: SavedAddress?,
+    preSelectedVehicleId: Int? = null,
+    isPrefilledFromOrder: Boolean = false,
     onVehicleSelected: (VehicleTypeResponse) -> Unit,
+    onEditPickup: () -> Unit,
+    onEditDrop: () -> Unit,
     onChangePickup: () -> Unit,
     onChangeDrop: () -> Unit,
     onBack: () -> Unit,
@@ -43,6 +47,7 @@ fun BookingConfirmationScreen(
 ) {
     var selectedVehicle by remember { mutableStateOf<VehicleTypeResponse?>(null) }
     var showLocationDetails by remember { mutableStateOf(false) }
+    var hasInitializedPreSelection by remember { mutableStateOf(false) }
 
     // Observe vehicle types from ViewModel
     val vehicleTypes by viewModel.vehicleTypes.collectAsState()
@@ -52,6 +57,20 @@ fun BookingConfirmationScreen(
     LaunchedEffect(Unit) {
         if (vehicleTypes.isEmpty()) {
             viewModel.loadVehicleTypes()
+        }
+    }
+
+    // Auto-select vehicle for Book Again flow
+    LaunchedEffect(vehicleTypes, preSelectedVehicleId) {
+        if (!hasInitializedPreSelection &&
+            vehicleTypes.isNotEmpty() &&
+            preSelectedVehicleId != null
+        ) {
+            val preSelected = vehicleTypes.find { it.vehicleTypeId == preSelectedVehicleId }
+            if (preSelected != null) {
+                selectedVehicle = preSelected
+                hasInitializedPreSelection = true
+            }
         }
     }
 
@@ -74,11 +93,20 @@ fun BookingConfirmationScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Confirm Booking",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "Confirm Booking",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isPrefilledFromOrder) {
+                            Text(
+                                text = "Booking from previous order",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Primary
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -119,10 +147,21 @@ fun BookingConfirmationScreen(
                             .weight(1f)
                             .verticalScroll(rememberScrollState())
                     ) {
+                        // Book Again Banner
+                        if (isPrefilledFromOrder) {
+                            BookAgainBanner(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+
                         // Journey Summary Card
                         JourneySummaryCard(
                             pickupAddress = pickupAddress,
                             dropAddress = dropAddress,
+                            onEditPickup = onEditPickup,
+                            onEditDrop = onEditDrop,
                             onChangePickup = onChangePickup,
                             onChangeDrop = onChangeDrop,
                             onViewDetails = { showLocationDetails = true },
@@ -136,7 +175,10 @@ fun BookingConfirmationScreen(
                         // Select Vehicle Section
                         SectionHeader(
                             text = "Select Vehicle",
-                            subtitle = "Choose the right vehicle for your delivery",
+                            subtitle = if (preSelectedVehicleId != null)
+                                "Pre-selected from your previous order"
+                            else
+                                "Choose the right vehicle for your delivery",
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
 
@@ -158,6 +200,7 @@ fun BookingConfirmationScreen(
                                 VehicleOptionCard(
                                     vehicle = vehicle,
                                     isSelected = selectedVehicle?.vehicleTypeId == vehicle.vehicleTypeId,
+                                    isPreSelected = preSelectedVehicleId == vehicle.vehicleTypeId,
                                     onSelect = { selectedVehicle = vehicle },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -279,12 +322,58 @@ fun BookingConfirmationScreen(
 }
 
 /**
+ * Book Again Banner
+ */
+@Composable
+private fun BookAgainBanner(
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = AppColors.Primary.copy(alpha = 0.1f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Book Again",
+                tint = AppColors.Primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Booking Again",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Primary
+                )
+                Text(
+                    text = "Details pre-filled from your previous order. You can modify if needed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+/**
  * Journey Summary Card with Pickup and Drop
  */
 @Composable
 private fun JourneySummaryCard(
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
+    onEditPickup: () -> Unit,
+    onEditDrop: () -> Unit,
     onChangePickup: () -> Unit,
     onChangeDrop: () -> Unit,
     onViewDetails: () -> Unit,
@@ -328,13 +417,20 @@ private fun JourneySummaryCard(
         LocationRow(
             address = pickupAddress,
             locationType = "pickup",
+            onEditDetails = onEditPickup,
             onChangeLocation = onChangePickup
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // Journey Connector
-        JourneyConnector(modifier = Modifier.padding(start = 20.dp))
+        Box(
+            modifier = Modifier
+                .padding(start = 20.dp)
+                .width(2.dp)
+                .height(24.dp)
+                .background(AppColors.Border)
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -342,31 +438,53 @@ private fun JourneySummaryCard(
         LocationRow(
             address = dropAddress,
             locationType = "drop",
+            onEditDetails = onEditDrop,
             onChangeLocation = onChangeDrop
         )
     }
 }
 
 /**
- * Location Row with Icon and Address
+ * Location Row with Icon, Address, Edit and Change buttons
  */
 @Composable
 private fun LocationRow(
     address: SavedAddress,
     locationType: String,
+    onEditDetails: () -> Unit,
     onChangeLocation: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        LocationTypeIcon(
-            locationType = locationType,
-            size = 40.dp
-        )
+        // Location Type Icon
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = if (locationType == "pickup")
+                        AppColors.Pickup.copy(alpha = 0.1f)
+                    else
+                        AppColors.Drop.copy(alpha = 0.1f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (locationType == "pickup")
+                    Icons.Default.TripOrigin
+                else
+                    Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = if (locationType == "pickup") AppColors.Pickup else AppColors.Drop,
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.width(12.dp))
 
+        // Address Info
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (locationType == "pickup") "Pickup" else "Drop",
@@ -381,20 +499,57 @@ private fun LocationRow(
                 color = AppColors.TextPrimary,
                 maxLines = 2
             )
+            // Show contact info if available
             address.contactName?.let { name ->
                 Spacer(modifier = Modifier.height(4.dp))
-                LabeledIcon(
-                    icon = Icons.Default.Person,
-                    text = "$name • ${address.contactPhone}"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = AppColors.TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$name • ${address.contactPhone ?: ""}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+            }
+            // Show coordinates if available
+            if (address.latitude != 0.0 && address.longitude != 0.0) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "📍 ${String.format("%.4f", address.latitude)}, ${String.format("%.4f", address.longitude)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextHint
                 )
             }
         }
 
-        IconButton(onClick = onChangeLocation) {
+        // Edit button - Edit details (name, phone, flat, etc.)
+        IconButton(
+            onClick = onEditDetails,
+            modifier = Modifier.size(36.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.Edit,
-                contentDescription = "Change",
+                contentDescription = "Edit Details",
                 tint = AppColors.Primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // Change button - Change location
+        IconButton(
+            onClick = onChangeLocation,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = "Change Location",
+                tint = AppColors.TextSecondary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -402,12 +557,13 @@ private fun LocationRow(
 }
 
 /**
- * Vehicle Option Card - Updated to use VehicleTypeResponse
+ * Vehicle Option Card
  */
 @Composable
 private fun VehicleOptionCard(
     vehicle: VehicleTypeResponse,
     isSelected: Boolean,
+    isPreSelected: Boolean = false,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -417,10 +573,10 @@ private fun VehicleOptionCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        border = if (isSelected) {
-            BorderStroke(2.dp, AppColors.Primary)
-        } else {
-            BorderStroke(1.dp, AppColors.Border)
+        border = when {
+            isSelected -> BorderStroke(2.dp, AppColors.Primary)
+            isPreSelected && !isSelected -> BorderStroke(2.dp, AppColors.Primary.copy(alpha = 0.5f))
+            else -> BorderStroke(1.dp, AppColors.Border)
         },
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isSelected) 4.dp else 2.dp
@@ -455,12 +611,31 @@ private fun VehicleOptionCard(
 
             // Vehicle Info
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = vehicle.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = vehicle.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    // "Previous" badge for pre-selected vehicle
+                    if (isPreSelected) {
+                        Surface(
+                            color = AppColors.Primary.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Previous",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = vehicle.capacity,
@@ -593,6 +768,73 @@ private fun LocationDetailsBottomSheet(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+/**
+ * Location Detail Item for Bottom Sheet
+ */
+@Composable
+private fun LocationDetailItem(
+    address: SavedAddress,
+    type: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = if (type == "Pickup") Icons.Default.TripOrigin else Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = type,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = address.address,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppColors.TextPrimary
+        )
+        address.contactName?.let { name ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "$name • ${address.contactPhone ?: ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+        }
+        // Show full address details if available
+        val details = listOfNotNull(
+            address.flatNumber,
+            address.buildingName,
+            address.landmark?.let { "Near $it" },
+            address.pincode
+        )
+        if (details.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = details.joinToString(", "),
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextHint
+            )
+        }
+        // Show coordinates
+        if (address.latitude != 0.0 && address.longitude != 0.0) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Lat: ${address.latitude}, Lng: ${address.longitude}",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextHint
+            )
+        }
     }
 }
 

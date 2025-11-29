@@ -6,7 +6,13 @@ import com.google.gson.annotations.SerializedName
 import kotlinx.parcelize.Parcelize
 
 /**
- * Saved address from user
+ * Saved Address Model
+ * Used for both booking flow (pickup/drop addresses) and account saved addresses
+ *
+ * This model supports:
+ * - Booking flow: pickup and drop location details
+ * - Account flow: saved addresses for quick selection
+ * - Book Again: prefilling from previous orders
  */
 @Parcelize
 data class SavedAddress(
@@ -14,7 +20,7 @@ data class SavedAddress(
     val addressId: String,
 
     @SerializedName("address_type")
-    val addressType: String, // "home", "shop", "other"
+    val addressType: String = "other", // "home", "shop", "other"
 
     @SerializedName("label")
     val label: String,
@@ -23,7 +29,7 @@ data class SavedAddress(
     val address: String,
 
     @SerializedName("landmark")
-    val landmark: String?,
+    val landmark: String? = null,
 
     @SerializedName("latitude")
     val latitude: Double,
@@ -32,11 +38,21 @@ data class SavedAddress(
     val longitude: Double,
 
     @SerializedName("contact_name")
-    val contactName: String?,
+    val contactName: String? = null,
 
     @SerializedName("contact_phone")
-    val contactPhone: String?,
+    val contactPhone: String? = null,
 
     @SerializedName("is_default")
-    val isDefault: Boolean = false
-) : Parcelable
+    val isDefault: Boolean = false,
+
+    // Additional address details for more precise location
+    @SerializedName("flat_number")
+    val flatNumber: String? = null,
+
+    @SerializedName("building_name")
+    val buildingName: String? = null,
+
+    @SerializedName("pincode")
+    val pincode: String? = null
+) : Parcelable {}
