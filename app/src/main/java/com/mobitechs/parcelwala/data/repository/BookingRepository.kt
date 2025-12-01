@@ -256,54 +256,27 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Save new address
-     */
     fun saveAddress(address: SavedAddress): Flow<NetworkResult<SavedAddress>> = flow {
         emit(NetworkResult.Loading())
 
         try {
             if (USE_MOCK_DATA) {
                 delay(500)
-
                 // Generate new ID for new addresses
-                val newAddress = if (address.addressId.startsWith("addr_") ||
-                    address.addressId.startsWith("map_") ||
-                    address.addressId == "0" ||
-                    address.addressId.isBlank()) {
-                    address.copy(addressId = MockAccountData.generateAddressId())
-                } else {
-                    address
-                }
+                val newAddress = address.copy(
+                    addressId = MockAccountData.generateAddressId()
+                )
 
-                // Add to cache
                 if (cachedSavedAddresses == null) {
                     cachedSavedAddresses = mutableListOf()
                 }
-
-                // Check if updating existing or adding new
-                val existingIndex = cachedSavedAddresses!!.indexOfFirst { it.addressId == newAddress.addressId }
-                if (existingIndex >= 0) {
-                    cachedSavedAddresses!![existingIndex] = newAddress
-                } else {
-                    cachedSavedAddresses!!.add(newAddress)
-                }
+                cachedSavedAddresses!!.add(newAddress)
 
                 emit(NetworkResult.Success(newAddress))
             } else {
                 val response = apiService.saveAddress(address)
                 if (response.success && response.data != null) {
-                    // Update cache
-                    if (cachedSavedAddresses == null) {
-                        cachedSavedAddresses = mutableListOf()
-                    }
-                    val existingIndex = cachedSavedAddresses!!.indexOfFirst { it.addressId == response.data.addressId }
-                    if (existingIndex >= 0) {
-                        cachedSavedAddresses!![existingIndex] = response.data
-                    } else {
-                        cachedSavedAddresses!!.add(response.data)
-                    }
-
+                    cachedSavedAddresses?.add(response.data)
                     emit(NetworkResult.Success(response.data))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to save address"))
@@ -314,10 +287,52 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Delete saved address
-     */
-    fun deleteAddress(addressId: Int): Flow<NetworkResult<Unit>> = flow {
+
+    fun updateAddress(address: SavedAddress): Flow<NetworkResult<SavedAddress>> = flow {
+        emit(NetworkResult.Loading())
+
+        try {
+            if (USE_MOCK_DATA) {
+                delay(500)
+
+                if (cachedSavedAddresses == null) {
+                    emit(NetworkResult.Error("No addresses found"))
+                    return@flow
+                }
+
+                val existingIndex = cachedSavedAddresses!!.indexOfFirst {
+                    it.addressId == address.addressId
+                }
+
+                if (existingIndex >= 0) {
+                    cachedSavedAddresses!![existingIndex] = address
+                    emit(NetworkResult.Success(address))
+                } else {
+                    emit(NetworkResult.Error("Address not found"))
+                }
+            } else {
+                val response = apiService.updateAddress(address.addressId, address)
+                if (response.success && response.data != null) {
+                    // Update cache
+                    val existingIndex = cachedSavedAddresses?.indexOfFirst {
+                        it.addressId == response.data.addressId
+                    } ?: -1
+
+                    if (existingIndex >= 0) {
+                        cachedSavedAddresses!![existingIndex] = response.data
+                    }
+
+                    emit(NetworkResult.Success(response.data))
+                } else {
+                    emit(NetworkResult.Error(response.message ?: "Failed to update address"))
+                }
+            }
+        } catch (e: Exception) {
+            emit(NetworkResult.Error(e.message ?: "Network error"))
+        }
+    }
+
+    fun deleteAddress(addressId: String): Flow<NetworkResult<Unit>> = flow {
         emit(NetworkResult.Loading())
 
         try {

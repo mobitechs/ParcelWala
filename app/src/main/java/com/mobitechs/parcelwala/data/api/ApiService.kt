@@ -7,15 +7,22 @@ import retrofit2.http.*
 
 interface ApiService {
 
-    @POST("auth/customer/send-otp")
+    @POST("auth/customer/send-otp")  // working
     suspend fun sendOtp(
         @Body request: SendOtpRequest
     ): Response<ApiResponse<OtpData>>
 
-    @POST("auth/customer/verify-otp")
+    @POST("auth/customer/verify-otp")   // working
     suspend fun verifyOtp(
         @Body request: VerifyOtpRequest
     ): Response<ApiResponse<LoginData>>
+
+
+    @PUT("auth/customer/complete-profile")  // working
+    suspend fun completeProfile(
+        @Body request: CompleteProfileRequest
+    ): Response<ApiResponse<User>>
+
 
     @POST("auth/refresh-token")
     suspend fun refreshToken(
@@ -27,94 +34,69 @@ interface ApiService {
         @Body request: Map<String, String>
     ): Response<ApiResponse<Unit>>
 
-    @PUT("auth/customer/complete-profile")
-    suspend fun completeProfile(
-        @Body request: CompleteProfileRequest
-    ): Response<ApiResponse<User>>
 
 
-
-    /**
-     * Get available vehicle types
-     */
-
+    //Get available vehicle types
     @GET("vehicles/types")
     suspend fun getVehicleTypes(): ApiResponse<List<VehicleTypeResponse>>
 
-    /**
-     * Get Goods Types
-     */
+    // Get Goods Types
     @GET("goods/types")
     suspend fun getGoodsTypes(): ApiResponse<List<GoodsTypeResponse>>
 
-    /**
-     * Get Restricted Items
-     */
+//    Get Restricted Items
     @GET("items/restricted")
     suspend fun getRestrictedItems(): ApiResponse<List<RestrictedItemResponse>>
 
-    /**
-     * Get Available Coupons
-     */
+//    Get Available Coupons
     @GET("coupons/available")
     suspend fun getAvailableCoupons(): ApiResponse<List<CouponResponse>>
 
-    /**
-     * Validate Coupon
-     */
+
+//    Validate Coupon
     @POST("coupons/validate")
     suspend fun validateCoupon(@Body request: ValidateCouponRequest): ApiResponse<CouponResponse>
 
 
-
-    /**
-     * Get saved addresses
-     */
+//  Get saved addresses
     @GET("customer/addresses")
     suspend fun getSavedAddresses(): ApiResponse<List<SavedAddress>>
 
-    /**
-     * Save new address
-     */
+//    Save new address
     @POST("customer/addresses")
     suspend fun saveAddress(@Body address: SavedAddress): ApiResponse<SavedAddress>
 
-    /**
-     * Delete saved address
-     */
-    @DELETE("customer/addresses/{addressId}")
-    suspend fun deleteAddress(@Path("addressId") addressId: Int): ApiResponse<Unit>
+    @PUT("customer/addresses/{addressId}")
+    suspend fun updateAddress(
+        @Path("addressId") addressId: String,
+        @Body address: SavedAddress
+    ): ApiResponse<SavedAddress>
 
-    /**
-     * Calculate fare
-     */
+//    Delete saved address
+    @DELETE("customer/addresses/{addressId}")
+    suspend fun deleteAddress(@Path("addressId") addressId: String): ApiResponse<Unit>
+
+//    Calculate fare
     @POST("bookings/calculate-fare")
     suspend fun calculateFare(@Body request: CalculateFareRequest): FareCalculationResponse
 
-    /**
-     * Create new booking
-     */
+//    Create new booking
     @POST("bookings")
     suspend fun createBooking(@Body request: CreateBookingRequest): CreateBookingResponse
 
-    /**
-     * Get booking details
-     */
+//    Get booking details
     @GET("bookings/{bookingId}")
     suspend fun getBookingDetails(@Path("bookingId") bookingId: Int): ApiResponse<BookingResponse>
 
-    /**
-     * Get my bookings list
-     */
+
+//    Get my bookings list
     @GET("customer/bookings")
     suspend fun getMyBookings(
         @Query("status") status: String? = null,
         @Query("page") page: Int = 1
     ): ApiResponse<List<BookingResponse>>
 
-    /**
-     * Cancel booking
-     */
+//    Cancel booking
     @POST("bookings/{bookingId}/cancel")
     suspend fun cancelBooking(
         @Path("bookingId") bookingId: Int,
@@ -130,9 +112,8 @@ interface ApiService {
         @Query("limit") limit: Int = 20
     ): OrdersListResponse
 
-    /**
-     * Get single order details
-     */
+
+//    Get single order details
     @GET("orders/{orderId}")
     suspend fun getOrderDetails(
         @Path("orderId") orderId: Int

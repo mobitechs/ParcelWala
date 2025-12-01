@@ -89,7 +89,7 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    painter = painterResource(R.drawable.logo_pw),
                     contentDescription = "App Logo",
                     modifier = Modifier.fillMaxSize()
                 )

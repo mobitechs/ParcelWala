@@ -198,30 +198,25 @@ class AccountViewModel @Inject constructor(
      */
     fun updateAddress(address: SavedAddress) {
         viewModelScope.launch {
-            bookingRepository.saveAddress(address).collect { result ->
+            bookingRepository.updateAddress(address).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
-                        _uiState.update { it.copy(isSavingAddress = true) }
+                        _uiState.update { it.copy(isLoading = true) }
                     }
                     is NetworkResult.Success -> {
-                        // Update in local list
-                        _savedAddresses.update { currentList ->
-                            currentList.map {
-                                if (it.addressId == address.addressId) address else it
-                            }
-                        }
                         _uiState.update {
                             it.copy(
-                                isSavingAddress = false,
+                                isLoading = false,
                                 addressSaveSuccess = true,
                                 error = null
                             )
                         }
+                        loadSavedAddresses() // Refresh list
                     }
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
-                                isSavingAddress = false,
+                                isLoading = false,
                                 error = result.message
                             )
                         }
@@ -231,14 +226,15 @@ class AccountViewModel @Inject constructor(
         }
     }
 
+
     /**
      * Delete saved address
      */
     fun deleteAddress(addressId: String) {
         viewModelScope.launch {
-            val addressIdInt = addressId.toIntOrNull() ?: return@launch
 
-            bookingRepository.deleteAddress(addressIdInt).collect { result ->
+
+            bookingRepository.deleteAddress(addressId).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isDeletingAddress = true) }

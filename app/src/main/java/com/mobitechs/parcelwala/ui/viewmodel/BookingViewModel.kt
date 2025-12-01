@@ -596,7 +596,6 @@ data class BookingUiState(
     val pickupAddress: SavedAddress? = null,
     val dropAddress: SavedAddress? = null,
 
-    // ✅ Pending address - used to pass address between screens (MapPicker → AddressConfirm)
     val pendingAddress: SavedAddress? = null,
 
     // Selected options
