@@ -11,7 +11,7 @@ import javax.inject.Singleton
 
 /**
  * Hilt Module for providing services
- * Provides LocationService and other service dependencies
+ * Provides LocationService and Other service dependencies
  */
 @Module
 @InstallIn(SingletonComponent::class)

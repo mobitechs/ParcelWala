@@ -17,7 +17,7 @@ object MockAccountData {
         return listOf(
             SavedAddress(
                 addressId = "1",
-                addressType = "shop",
+                addressType = "Shop",
                 label = "Shop",
                 address = "Narayan Smruti, Star Colony, Gandhi Nagar, Dombivli, Maharashtra 421201, India",
                 landmark = "Near Gandhi Nagar Chowk",
@@ -29,7 +29,7 @@ object MockAccountData {
             ),
             SavedAddress(
                 addressId = "2",
-                addressType = "home",
+                addressType = "Home",
                 label = "Home",
                 address = "Narayan Smruti, Gandhi Nagar Internal Road, Star Colony, Gandhi Nagar, Dombivli East, Dombivli, Maharashtra 421201, India",
                 landmark = "Opposite Main Gate",
@@ -50,7 +50,7 @@ object MockAccountData {
         return listOf(
             SavedAddress(
                 addressId = "recent_1",
-                addressType = "other",
+                addressType = "Other",
                 label = "BNP Paribas India Solutions Private Li...",
                 address = "NIRLON KNOWLEDGE PARK, Pahadi Road, Goregaon East, Mumbai, Maharashtra 400063",
                 landmark = null,
@@ -62,7 +62,7 @@ object MockAccountData {
             ),
             SavedAddress(
                 addressId = "recent_2",
-                addressType = "other",
+                addressType = "Other",
                 label = "2R3H+76P, Lower Parel",
                 address = "Mumbai, Maharashtra 400013, India",
                 landmark = null,

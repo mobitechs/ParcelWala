@@ -492,7 +492,7 @@ class BookingViewModel @Inject constructor(
             // Create pickup address from order with ALL fields including lat/lng
             val pickupAddress = SavedAddress(
                 addressId = "pickup_${order.bookingId}",
-                addressType = "other",
+                addressType = "Other",
                 label = order.pickupContactName ?: "Pickup",
                 address = order.pickupAddress,
                 landmark = null,
@@ -501,15 +501,14 @@ class BookingViewModel @Inject constructor(
                 contactName = order.pickupContactName,
                 contactPhone = order.pickupContactPhone,
                 isDefault = false,
-                flatNumber = null,
-                buildingName = null,
+                buildingDetails = null,
                 pincode = null
             )
 
             // Create drop address from order with ALL fields including lat/lng
             val dropAddress = SavedAddress(
                 addressId = "drop_${order.bookingId}",
-                addressType = "other",
+                addressType = "Other",
                 label = order.dropContactName ?: "Drop",
                 address = order.dropAddress,
                 landmark = null,
@@ -518,8 +517,7 @@ class BookingViewModel @Inject constructor(
                 contactName = order.dropContactName,
                 contactPhone = order.dropContactPhone,
                 isDefault = false,
-                flatNumber = null,
-                buildingName = null,
+                buildingDetails = null,
                 pincode = null
             )
 

@@ -150,7 +150,7 @@ data class AddressConfirmUiState(
     val flatBuilding: String = "",
     val senderName: String = "",
     val senderMobile: String = "",
-    val saveAs: String = "home", // home, shop, other
+    val saveAs: String = "Home", // Home, Shop, Other
     val saveLabel: String = "",
     val error: String? = null
 )

@@ -27,12 +27,6 @@ import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 /**
  * Saved Addresses Screen
  * Displays list of saved addresses with edit and delete options
- *
- * Features:
- * - List of saved addresses with type icons (Home/Shop/Other)
- * - Edit and Delete actions for each address
- * - Add new address button
- * - Empty state when no addresses
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +80,6 @@ fun SavedAddressesScreen(
         )
     }
 
-    // Handle delete success
     LaunchedEffect(uiState.addressDeleteSuccess) {
         if (uiState.addressDeleteSuccess) {
             viewModel.clearAddressDeleteSuccess()
@@ -113,7 +106,6 @@ fun SavedAddressesScreen(
                     }
                 },
                 actions = {
-                    // Add button
                     OutlinedButton(
                         onClick = onAddAddress,
                         modifier = Modifier.padding(end = 8.dp),
@@ -191,7 +183,6 @@ fun SavedAddressesScreen(
                         )
                     }
 
-                    // Bottom spacing for navigation bar
                     item {
                         Spacer(modifier = Modifier.height(80.dp))
                     }
@@ -202,8 +193,7 @@ fun SavedAddressesScreen(
 }
 
 /**
- * Saved Address Card
- * Individual address item with edit/delete actions
+ * Saved Address Card - Updated to use getDisplayLabel()
  */
 @Composable
 private fun SavedAddressCard(
@@ -222,29 +212,37 @@ private fun SavedAddressCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header Row - Type icon, Label, Contact
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Address Type Icon
                 AddressTypeIcon(
                     addressType = address.addressType,
                     modifier = Modifier.size(48.dp)
                 )
 
-                // Label and Contact Info
                 Column(modifier = Modifier.weight(1f)) {
+                    // Use getDisplayLabel() for proper "Other (label)" format
                     Text(
-                        text = address.label.replaceFirstChar { it.uppercase() },
+                        text = address.getDisplayLabel(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
                     )
-                    address.contactName?.let { name ->
+
+                    // Contact info
+                    val contactInfo = buildString {
+                        address.contactName?.takeIf { it.isNotEmpty() }?.let { append(it) }
+                        address.contactPhone?.takeIf { it.isNotEmpty() }?.let {
+                            if (isNotEmpty()) append(" • ")
+                            append(it)
+                        }
+                    }
+                    if (contactInfo.isNotEmpty()) {
                         Text(
-                            text = "$name • ${address.contactPhone ?: ""}",
+                            text = contactInfo,
                             style = MaterialTheme.typography.bodySmall,
                             color = AppColors.TextSecondary
                         )
@@ -263,11 +261,74 @@ private fun SavedAddressCard(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = address.address,
+                    text = address.address.ifEmpty { "No address details" },
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary,
                     maxLines = 2
                 )
+            }
+
+            // Building Details & Landmark if available
+            if (!address.buildingDetails.isNullOrEmpty() || !address.landmark.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    address.buildingDetails?.let { details ->
+                        if (details.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AppColors.Primary.copy(alpha = 0.1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Apartment,
+                                        contentDescription = null,
+                                        tint = AppColors.Primary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = details,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppColors.Primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    address.landmark?.let { lm ->
+                        if (lm.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AppColors.TextSecondary.copy(alpha = 0.1f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Place,
+                                        contentDescription = null,
+                                        tint = AppColors.TextSecondary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = lm,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppColors.TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -277,7 +338,6 @@ private fun SavedAddressCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Edit Button
                 TextButton(
                     onClick = onEdit,
                     modifier = Modifier.weight(1f)
@@ -296,7 +356,6 @@ private fun SavedAddressCard(
                     )
                 }
 
-                // Divider
                 Box(
                     modifier = Modifier
                         .width(1.dp)
@@ -304,7 +363,6 @@ private fun SavedAddressCard(
                         .background(AppColors.Divider)
                 )
 
-                // Delete Button
                 TextButton(
                     onClick = onDelete,
                     modifier = Modifier.weight(1f)
@@ -329,20 +387,22 @@ private fun SavedAddressCard(
 
 /**
  * Address Type Icon
- * Shows appropriate icon based on address type (Home/Shop/Other)
  */
 @Composable
 fun AddressTypeIcon(
     addressType: String,
     modifier: Modifier = Modifier
 ) {
-    val (icon, backgroundColor) = when (addressType.lowercase()) {
+    // Handle both capitalized and lowercase
+    val type = addressType.lowercase()
+
+    val (icon, backgroundColor) = when (type) {
         "home" -> Icons.Default.Home to AppColors.Primary.copy(alpha = 0.1f)
         "shop" -> Icons.Default.Store to AppColors.Pickup.copy(alpha = 0.1f)
         else -> Icons.Default.Place to AppColors.TextSecondary.copy(alpha = 0.1f)
     }
 
-    val iconTint = when (addressType.lowercase()) {
+    val iconTint = when (type) {
         "home" -> AppColors.Primary
         "shop" -> AppColors.Pickup
         else -> AppColors.TextSecondary

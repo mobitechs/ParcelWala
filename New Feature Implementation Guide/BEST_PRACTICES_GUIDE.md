@@ -469,7 +469,7 @@ fun MyScreen() {
         processData(rawData)
     }
     
-    // Derive state from other state
+    // Derive state from Other state
     val hasData by remember {
         derivedStateOf { bookings.isNotEmpty() }
     }

@@ -1,6 +1,11 @@
 // ui/screens/booking/AddressConfirmationScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -34,16 +39,6 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 /**
  * Address Confirmation Screen
  * Used for both booking flow and account saved addresses
- *
- * @param address The address to confirm/edit (for account flow)
- * @param locationType Type of location - "pickup", "drop", or "save" (for account)
- * @param onConfirm Callback when address is confirmed
- * @param onChangeLocation Callback to change location (goes to LocationSearchScreen)
- * @param onBack Callback for back navigation
- * @param isEditMode Whether editing an existing saved address
- * @param userPhoneNumber User's phone number for "Use my number" feature (optional)
- * @param showSaveLocationBadge Whether to show "This location will be saved" badge (optional)
- * @param viewModel BookingViewModel for booking flow (optional, for reading pendingAddress)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,42 +48,29 @@ fun AddressConfirmationScreen(
     onConfirm: (SavedAddress) -> Unit,
     onChangeLocation: () -> Unit,
     onBack: () -> Unit,
-    // Optional parameters for account flow
     isEditMode: Boolean = false,
     userPhoneNumber: String? = null,
     showSaveLocationBadge: Boolean = false,
-    // Optional ViewModel for booking flow
     viewModel: BookingViewModel? = null
 ) {
     val focusManager = LocalFocusManager.current
 
-    // Determine if this is for saving address (account flow) or booking flow
     val isSaveAddressMode = locationType == "save" || showSaveLocationBadge
 
     // ============ GET ACTUAL ADDRESS ============
-    // For booking flow with ViewModel, observe the state directly to handle async updates
     val uiState = viewModel?.uiState?.collectAsState()?.value
 
-    // Determine which address to use:
-    // 1. If pendingAddress exists, use that (Change location / MapPicker / LocationSearch)
-    // 2. If isEditMode=true AND NO pendingAddress, use existing pickup/drop address (Edit button)
-    // 3. Otherwise use the passed address parameter (for account flow)
-    // NOTE: No remember{} here - we want this to always reflect the latest state
     val actualAddress = when {
-        // For booking flow - if pendingAddress exists, always use it (from MapPicker/LocationSearch)
         viewModel != null && uiState?.pendingAddress != null -> {
             uiState.pendingAddress
         }
-        // For booking flow editing existing address (Edit button, no pending address)
         viewModel != null && isEditMode -> {
             if (locationType == "pickup") uiState?.pickupAddress else uiState?.dropAddress
         }
-        // For account flow or fallback
         else -> address
     }
 
     // ============ FORM STATE ============
-    // Use key based on address ID and coordinates so fields update when address changes
     val addressKey = "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
 
     // Contact Details
@@ -99,12 +81,9 @@ fun AddressConfirmationScreen(
         mutableStateOf(actualAddress?.contactPhone ?: "")
     }
 
-    // Address Details - Using correct fields from SavedAddress
-    var flatNumber by remember(addressKey) {
-        mutableStateOf(actualAddress?.flatNumber ?: "")
-    }
-    var buildingName by remember(addressKey) {
-        mutableStateOf(actualAddress?.buildingName ?: "")
+    // Address Details
+    var buildingDetails by remember(addressKey) {
+        mutableStateOf(actualAddress?.buildingDetails ?: "")
     }
     var landmark by remember(addressKey) {
         mutableStateOf(actualAddress?.landmark ?: "")
@@ -113,9 +92,34 @@ fun AddressConfirmationScreen(
         mutableStateOf(actualAddress?.pincode ?: "")
     }
 
-    // Address Type Selection
+    // Address Type Selection - Handle both "Other" and "other"
     var selectedType by remember(addressKey) {
-        mutableStateOf(actualAddress?.addressType?.replaceFirstChar { it.uppercase() } ?: "Home")
+        mutableStateOf(
+            when (actualAddress?.addressType?.lowercase()) {
+                "home" -> "Home"
+                "shop" -> "Shop"
+                else -> "Other"
+            }
+        )
+    }
+
+    // ✅ FIX 1: Custom label for "Other" type - properly check and pre-fill
+    var customLabel by remember(addressKey) {
+        mutableStateOf(
+            // Check if addressType is "Other" (case-insensitive)
+            if (actualAddress?.addressType?.equals("other", ignoreCase = true) == true) {
+                // If label is different from "Other" and "Selected Location", use it
+                val label = actualAddress.label
+                if (!label.equals("other", ignoreCase = true) &&
+                    !label.equals("selected location", ignoreCase = true)) {
+                    label
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
+        )
     }
 
     // UI State
@@ -137,14 +141,12 @@ fun AddressConfirmationScreen(
     val defaultLat = actualAddress?.latitude ?: 19.0760
     val defaultLng = actualAddress?.longitude ?: 72.8777
 
-    // Use key to force recreation when coordinates change significantly
     val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${actualAddress?.longitude?.toString()?.take(8)}"
 
     val cameraPositionState = rememberCameraPositionState(key = mapKey) {
         position = CameraPosition.fromLatLngZoom(LatLng(defaultLat, defaultLng), 16f)
     }
 
-    // Move camera when address coordinates change
     LaunchedEffect(actualAddress?.latitude, actualAddress?.longitude) {
         if (actualAddress?.latitude != null && actualAddress.longitude != null &&
             actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0) {
@@ -274,7 +276,6 @@ fun AddressConfirmationScreen(
                             )
                         }
                     } else {
-                        // No coordinates - show placeholder
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -298,7 +299,6 @@ fun AddressConfirmationScreen(
                         }
                     }
 
-                    // "This location will be saved" badge for save mode
                     if (isSaveAddressMode) {
                         Surface(
                             modifier = Modifier
@@ -316,7 +316,6 @@ fun AddressConfirmationScreen(
                         }
                     }
 
-                    // Change Location Button overlay
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -392,11 +391,10 @@ fun AddressConfirmationScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = actualAddress.address,
+                                text = actualAddress.address.ifEmpty { "Address not available" },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = AppColors.TextPrimary
                             )
-                            // Show coordinates for verification
                             if (hasCoordinates) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
@@ -494,7 +492,7 @@ fun AddressConfirmationScreen(
                     )
                 )
 
-                // "Use my mobile number" checkbox - only for save address mode
+                // "Use my mobile number" checkbox
                 if (isSaveAddressMode && userPhoneNumber != null) {
                     Row(
                         modifier = Modifier
@@ -532,41 +530,12 @@ fun AddressConfirmationScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Flat/House Number
+                // Building Details
                 OutlinedTextField(
-                    value = flatNumber,
-                    onValueChange = { flatNumber = it },
-                    label = { Text("Flat / House No.") },
-                    placeholder = { Text("e.g., Flat 101, House 25") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Building Name
-                OutlinedTextField(
-                    value = buildingName,
-                    onValueChange = { buildingName = it },
-                    label = { Text("Building / Society Name") },
-                    placeholder = { Text("e.g., Sun Tower, Green Valley") },
+                    value = buildingDetails,
+                    onValueChange = { buildingDetails = it },
+                    label = { Text("Building Details") },
+                    placeholder = { Text("Flat no, Building name") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Apartment,
@@ -653,7 +622,7 @@ fun AddressConfirmationScreen(
                     )
                 )
 
-                // ============ SAVE AS SECTION (for Save Address Mode) ============
+                // ============ SAVE AS SECTION ============
                 if (isSaveAddressMode) {
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -678,23 +647,66 @@ fun AddressConfirmationScreen(
                             text = "Home",
                             icon = Icons.Default.Home,
                             isSelected = selectedType == "Home",
-                            onClick = { selectedType = "Home" },
+                            onClick = {
+                                selectedType = "Home"
+                                customLabel = ""
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
                             text = "Shop",
                             icon = Icons.Default.Store,
                             isSelected = selectedType == "Shop",
-                            onClick = { selectedType = "Shop" },
+                            onClick = {
+                                selectedType = "Shop"
+                                customLabel = ""
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
                             text = "Other",
-                            icon = Icons.Default.Place,
+                            icon = Icons.Default.MoreHoriz,
                             isSelected = selectedType == "Other",
                             onClick = { selectedType = "Other" },
                             modifier = Modifier.weight(1f)
                         )
+                    }
+
+                    // ✅ Custom Label Input for "Other" type (NOT mandatory)
+                    AnimatedVisibility(
+                        visible = selectedType == "Other",
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = customLabel,
+                                onValueChange = { customLabel = it },
+                                label = { Text("Label Name (Optional)") },  // ✅ Changed to Optional
+                                placeholder = { Text("e.g., Office, Gym, Friend's Place") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Label,
+                                        contentDescription = null,
+                                        tint = AppColors.Primary
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AppColors.Primary,
+                                    unfocusedBorderColor = AppColors.Border
+                                ),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(
+                                    onDone = { focusManager.clearFocus() }
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -722,20 +734,30 @@ fun AddressConfirmationScreen(
                             isValid = false
                         }
 
+                        // ✅ FIX 2: Removed validation for customLabel - it's now optional
+
                         if (isValid) {
-                            // Create updated address with ALL fields including lat/lng
+                            // ✅ Determine label based on type
+                            // If Other and customLabel is blank, just use "Other"
+                            val finalLabel = when (selectedType) {
+                                "Home" -> "Home"
+                                "Shop" -> "Shop"
+                                "Other" -> customLabel.trim().ifEmpty { "Other" }
+                                else -> actualAddress.label.ifEmpty { "Other" }
+                            }
+
+                            // Create updated address
                             val confirmedAddress = actualAddress.copy(
-                                addressType = if (isSaveAddressMode) selectedType.lowercase() else actualAddress.addressType,
-                                label = if (isSaveAddressMode) selectedType else actualAddress.label,
+                                addressType = if (isSaveAddressMode) selectedType else actualAddress.addressType,
+                                label = if (isSaveAddressMode) finalLabel else actualAddress.label.ifEmpty { "Address" },
                                 contactName = contactName.trim(),
                                 contactPhone = contactPhone.trim(),
-                                flatNumber = flatNumber.trim().ifEmpty { null },
-                                buildingName = buildingName.trim().ifEmpty { null },
+                                buildingDetails = buildingDetails.trim().ifEmpty { null },
                                 landmark = landmark.trim().ifEmpty { null },
                                 pincode = pincode.trim().ifEmpty { null },
-                                // Explicitly preserve coordinates
                                 latitude = actualAddress.latitude,
-                                longitude = actualAddress.longitude
+                                longitude = actualAddress.longitude,
+                                address = actualAddress.address
                             )
                             onConfirm(confirmedAddress)
                         }

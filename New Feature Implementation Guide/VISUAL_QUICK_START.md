@@ -424,7 +424,7 @@ Day 4-5: Full Feature
 7. Read error messages carefully
 8. Use TODO comments for later
 9. Commit often with clear messages
-10. Help others when you can
+10. Help Others when you can
 ```
 
 ---

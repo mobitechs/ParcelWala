@@ -813,8 +813,7 @@ private fun LocationDetailItem(
         }
         // Show full address details if available
         val details = listOfNotNull(
-            address.flatNumber,
-            address.buildingName,
+            address.buildingDetails,
             address.landmark?.let { "Near $it" },
             address.pincode
         )

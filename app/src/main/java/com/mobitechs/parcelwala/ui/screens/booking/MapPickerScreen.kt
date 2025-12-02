@@ -248,17 +248,16 @@ fun MapPickerScreen(
                             // ✅ Create SavedAddress with PROPER latitude and longitude
                             val savedAddress = SavedAddress(
                                 addressId = "map_${System.currentTimeMillis()}",
-                                addressType = "other",
+                                addressType = "Other",
                                 label = "Selected Location",
                                 address = currentAddress,
                                 landmark = null,
-                                latitude = selectedLocation.latitude,    // ✅ IMPORTANT
-                                longitude = selectedLocation.longitude,  // ✅ IMPORTANT
+                                latitude = selectedLocation.latitude,
+                                longitude = selectedLocation.longitude,
                                 contactName = null,
                                 contactPhone = null,
                                 isDefault = false,
-                                flatNumber = null,
-                                buildingName = null,
+                                buildingDetails = null,
                                 pincode = null
                             )
                             onLocationSelected(savedAddress)

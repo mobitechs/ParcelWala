@@ -719,7 +719,7 @@ private fun CancellationReasonBottomSheet(
     onConfirmCancel: (String) -> Unit
 ) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
-    var otherReason by remember { mutableStateOf("") }
+    var OtherReason by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     // Keyboard and focus management
@@ -753,7 +753,7 @@ private fun CancellationReasonBottomSheet(
             icon = Icons.Default.ErrorOutline
         ),
         CancellationReason(
-            id = "other",
+            id = "Other",
             title = "Other reason",
             icon = Icons.Default.MoreHoriz
         )
@@ -830,9 +830,9 @@ private fun CancellationReasonBottomSheet(
                         isSelected = selectedReason == reason.id,
                         onClick = {
                             selectedReason = reason.id
-                            if (reason.id != "other") {
-                                // Clear other reason when selecting different option
-                                otherReason = ""
+                            if (reason.id != "Other") {
+                                // Clear Other reason when selecting different option
+                                OtherReason = ""
                                 keyboardController?.hide()
                                 focusManager.clearFocus()
                             }
@@ -842,11 +842,11 @@ private fun CancellationReasonBottomSheet(
                 }
 
                 // Other Reason Text Field - FIXED: Don't close on keyboard action
-                if (selectedReason == "other") {
+                if (selectedReason == "Other") {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = otherReason,
-                        onValueChange = { otherReason = it },
+                        value = OtherReason,
+                        onValueChange = { OtherReason = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Please specify") },
                         placeholder = { Text("Enter your reason...") },
@@ -943,7 +943,7 @@ private fun CancellationReasonBottomSheet(
                     Button(
                         onClick = {
                             if (selectedReason != null &&
-                                (selectedReason != "other" || otherReason.isNotBlank())) {
+                                (selectedReason != "Other" || OtherReason.isNotBlank())) {
                                 showConfirmDialog = true
                             }
                         },
@@ -956,7 +956,7 @@ private fun CancellationReasonBottomSheet(
                         ),
                         shape = RoundedCornerShape(16.dp),
                         enabled = selectedReason != null &&
-                                (selectedReason != "other" || otherReason.isNotBlank())
+                                (selectedReason != "Other" || OtherReason.isNotBlank())
                     ) {
                         Text(
                             text = "Cancel Trip",
@@ -998,8 +998,8 @@ private fun CancellationReasonBottomSheet(
             confirmButton = {
                 Button(
                     onClick = {
-                        val reason = if (selectedReason == "other") {
-                            otherReason.ifBlank { "Other" }
+                        val reason = if (selectedReason == "Other") {
+                            OtherReason.ifBlank { "Other" }
                         } else {
                             cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled by user"
                         }

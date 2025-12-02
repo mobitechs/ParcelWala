@@ -328,7 +328,7 @@ UI → hiltViewModel()
 - [ ] Handle complex states
 - [ ] Optimize performance
 - [ ] Write tests
-- [ ] Help others
+- [ ] Help Others
 
 ---
 

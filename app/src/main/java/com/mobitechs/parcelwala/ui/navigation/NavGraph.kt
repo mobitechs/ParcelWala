@@ -270,8 +270,7 @@ fun NavGraph(
                                 label = addressToEdit!!.label,
                                 contactName = addressToEdit!!.contactName,
                                 contactPhone = addressToEdit!!.contactPhone,
-                                flatNumber = addressToEdit!!.flatNumber,
-                                buildingName = addressToEdit!!.buildingName,
+                                buildingDetails = addressToEdit!!.buildingDetails,  // Updated field
                                 landmark = addressToEdit!!.landmark,
                                 pincode = addressToEdit!!.pincode,
                                 isDefault = addressToEdit!!.isDefault
@@ -320,12 +319,10 @@ fun NavGraph(
                                 label = addressToEdit!!.label,
                                 contactName = addressToEdit!!.contactName,
                                 contactPhone = addressToEdit!!.contactPhone,
-                                flatNumber = addressToEdit!!.flatNumber,
-                                buildingName = addressToEdit!!.buildingName,
+                                buildingDetails = addressToEdit!!.buildingDetails,  // Updated field
                                 landmark = addressToEdit!!.landmark,
                                 pincode = addressToEdit!!.pincode,
                                 isDefault = addressToEdit!!.isDefault
-                                // latitude, longitude, address come from the new map selection
                             )
                         } else {
                             address
@@ -468,8 +465,7 @@ fun NavGraph(
                             address.copy(
                                 contactName = existingAddress.contactName,
                                 contactPhone = existingAddress.contactPhone,
-                                flatNumber = existingAddress.flatNumber,
-                                buildingName = existingAddress.buildingName,
+                                buildingDetails  = existingAddress.buildingDetails,
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )
@@ -540,8 +536,7 @@ fun NavGraph(
                             address.copy(
                                 contactName = existingAddress.contactName,
                                 contactPhone = existingAddress.contactPhone,
-                                flatNumber = existingAddress.flatNumber,
-                                buildingName = existingAddress.buildingName,
+                                buildingDetails  = existingAddress.buildingDetails,
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )

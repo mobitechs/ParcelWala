@@ -17,25 +17,25 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class SavedAddress(
     @SerializedName("address_id")
-    val addressId: String,
+    val addressId: String = "",
 
     @SerializedName("address_type")
-    val addressType: String = "other", // "home", "shop", "other"
+    val addressType: String = "Other", // "home", "shop", "Other"
 
     @SerializedName("label")
-    val label: String,
+    val label: String = "Other", // For "Other" type, stores custom label; Otherwise stores type name
 
     @SerializedName("address")
-    val address: String,
+    val address: String = "", // Complete address from map/search
 
     @SerializedName("landmark")
     val landmark: String? = null,
 
     @SerializedName("latitude")
-    val latitude: Double,
+    val latitude: Double = 0.0,
 
     @SerializedName("longitude")
-    val longitude: Double,
+    val longitude: Double = 0.0,
 
     @SerializedName("contact_name")
     val contactName: String? = null,
@@ -46,13 +46,33 @@ data class SavedAddress(
     @SerializedName("is_default")
     val isDefault: Boolean = false,
 
-    // Additional address details for more precise location
-    @SerializedName("flat_number")
-    val flatNumber: String? = null,
-
-    @SerializedName("building_name")
-    val buildingName: String? = null,
+    // Combined building details field (Flat no, Building name)
+    @SerializedName("building_details")
+    val buildingDetails: String? = null,
 
     @SerializedName("pincode")
     val pincode: String? = null
-) : Parcelable {}
+) : Parcelable {
+
+    /**
+     * Returns display label for UI
+     * For "Other" type: "Other (custom label)"
+     * For home/shop: "Home" or "Shop"
+     */
+    fun getDisplayLabel(): String {
+        return when (addressType) {
+            "Home", "home" -> "Home"
+            "Shop", "shop" -> "Shop"
+            "Other", "other" -> {
+                if (label.isNotBlank() &&
+                    !label.equals("other", ignoreCase = true) &&
+                    !label.equals("selected location", ignoreCase = true)) {
+                    "Other ($label)"
+                } else {
+                    "Other"
+                }
+            }
+            else -> label.ifBlank { "Address" }
+        }
+    }
+}
