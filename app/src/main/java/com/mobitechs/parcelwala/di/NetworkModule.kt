@@ -1,6 +1,7 @@
 package com.mobitechs.parcelwala.di
 
 import com.mobitechs.parcelwala.data.api.ApiService
+import com.mobitechs.parcelwala.data.api.TokenAuthenticator
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.utils.Constants
 import dagger.Module
@@ -30,9 +31,11 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         preferencesManager: PreferencesManager,
+        tokenAuthenticator: TokenAuthenticator,  // Add this
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            // Interceptor to add auth header to all requests
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
                 val token = preferencesManager.getAccessToken()
@@ -48,6 +51,7 @@ object NetworkModule {
                 chain.proceed(request)
             }
             .addInterceptor(loggingInterceptor)
+            .authenticator(tokenAuthenticator)  // Add authenticator for 401 handling
             .connectTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(Constants.TIMEOUT_SECONDS, TimeUnit.SECONDS)

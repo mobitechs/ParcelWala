@@ -6,14 +6,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.remote.firebase.FCMTokenManager
 import com.mobitechs.parcelwala.ui.navigation.NavGraph
+import com.mobitechs.parcelwala.ui.navigation.Screen
 import com.mobitechs.parcelwala.ui.theme.ParcelWalaTheme
+import com.mobitechs.parcelwala.utils.AuthEventManager
 import com.mobitechs.parcelwala.utils.RequestNotificationPermission
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -27,12 +33,16 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var fcmTokenManager: FCMTokenManager
+    @Inject
+    lateinit var authEventManager: AuthEventManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Handle notification tap data
         handleNotificationIntent()
+
+
 
         setContent {
 
@@ -50,6 +60,35 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
+//                    LaunchedEffect(Unit) {
+//                        authEventManager.sessionExpiredEvent.collect {
+//                            // Navigate to login and clear entire back stack
+//                            navController.navigate(Screen.Login.route) {
+//                                popUpTo(0) { inclusive = true }  // Clear ALL screens
+//                            }
+//                        }
+//                    }
+
+//                    if  you want to show snack bar session expired then un comment this and comment above code
+                                    val snackbarHostState = remember { SnackbarHostState() }
+
+                                    // ✅ Observe session expired events
+                                    LaunchedEffect(Unit) {
+                                        authEventManager.sessionExpiredEvent.collect {
+                                            // Show message
+                                            snackbarHostState.showSnackbar(
+                                                message = "Session expired. Please login again.",
+                                                duration = SnackbarDuration.Short
+                                            )
+
+                                            // Navigate to login
+                                            navController.navigate(Screen.Login.route) {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    }
+
+
                     NavGraph(
                         navController = navController,
                         preferencesManager = preferencesManager
@@ -59,6 +98,7 @@ class MainActivity : ComponentActivity() {
         }
 
     }
+
 
     fun initializeFCM() {
         lifecycleScope.launch {

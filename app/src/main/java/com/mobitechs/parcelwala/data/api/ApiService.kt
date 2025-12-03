@@ -37,44 +37,48 @@ interface ApiService {
 
 
     //Get available vehicle types
-    @GET("vehicles/types")
+    @GET("vehicles/types")  // working
     suspend fun getVehicleTypes(): ApiResponse<List<VehicleTypeResponse>>
 
     // Get Goods Types
-    @GET("goods/types")
+    @GET("goods/types") // working
     suspend fun getGoodsTypes(): ApiResponse<List<GoodsTypeResponse>>
 
 //    Get Restricted Items
-    @GET("items/restricted")
+    @GET("items/restricted")    // working
     suspend fun getRestrictedItems(): ApiResponse<List<RestrictedItemResponse>>
 
-//    Get Available Coupons
-    @GET("coupons/available")
-    suspend fun getAvailableCoupons(): ApiResponse<List<CouponResponse>>
-
-
-//    Validate Coupon
-    @POST("coupons/validate")
-    suspend fun validateCoupon(@Body request: ValidateCouponRequest): ApiResponse<CouponResponse>
 
 
 //  Get saved addresses
-    @GET("customer/addresses")
+    @GET("customer/addresses")  // working
     suspend fun getSavedAddresses(): ApiResponse<List<SavedAddress>>
 
 //    Save new address
-    @POST("customer/addresses")
+    @POST("customer/addresses") // working
     suspend fun saveAddress(@Body address: SavedAddress): ApiResponse<SavedAddress>
 
-    @PUT("customer/addresses/{addressId}")
+    @PUT("customer/addresses/{addressId}")  // working
     suspend fun updateAddress(
         @Path("addressId") addressId: String,
         @Body address: SavedAddress
     ): ApiResponse<SavedAddress>
 
 //    Delete saved address
-    @DELETE("customer/addresses/{addressId}")
+    @DELETE("customer/addresses/{addressId}")   // working
     suspend fun deleteAddress(@Path("addressId") addressId: String): ApiResponse<Unit>
+
+
+
+
+    //    Get Available Coupons
+    @GET("coupons/available")
+    suspend fun getAvailableCoupons(): ApiResponse<List<CouponResponse>>
+
+
+    //    Validate Coupon
+    @POST("coupons/validate")
+    suspend fun validateCoupon(@Body request: ValidateCouponRequest): ApiResponse<CouponResponse>
 
 //    Calculate fare
     @POST("bookings/calculate-fare")
