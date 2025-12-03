@@ -3,12 +3,28 @@ package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mobitechs.parcelwala.data.model.request.*
-import com.mobitechs.parcelwala.data.model.response.*
+import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
+import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
+import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.CouponResponse
+import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.data.repository.BookingRepository
+import com.mobitechs.parcelwala.data.repository.DirectionsRepository
+import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,7 +35,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class BookingViewModel @Inject constructor(
-    private val bookingRepository: BookingRepository
+    private val bookingRepository: BookingRepository,
+    private val directionsRepository: DirectionsRepository
 ) : ViewModel() {
 
     // ============ UI STATE ============
@@ -43,6 +60,14 @@ class BookingViewModel @Inject constructor(
     private val _navigationEvent = MutableSharedFlow<BookingNavigationEvent>()
     val navigationEvent: SharedFlow<BookingNavigationEvent> = _navigationEvent.asSharedFlow()
 
+    // ============ ROUTE INFO STATE ============
+    private val _routeInfo = MutableStateFlow<RouteInfo?>(null)
+    val routeInfo: StateFlow<RouteInfo?> = _routeInfo.asStateFlow()
+
+    private val _isRouteLoading = MutableStateFlow(false)
+    val isRouteLoading: StateFlow<Boolean> = _isRouteLoading.asStateFlow()
+
+
     init {
         // Load static data on initialization
         loadVehicleTypes()
@@ -61,10 +86,12 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _vehicleTypes.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -88,10 +115,12 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _goodsTypes.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -115,10 +144,12 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _restrictedItems.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -142,10 +173,12 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _availableCoupons.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -217,6 +250,7 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         result.data?.let { coupon ->
                             val discount = calculateDiscount(coupon, orderValue)
@@ -231,6 +265,7 @@ class BookingViewModel @Inject constructor(
                             }
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -283,7 +318,8 @@ class BookingViewModel @Inject constructor(
 
             // Ensure we have valid coordinates
             if (pickup.latitude == 0.0 || pickup.longitude == 0.0 ||
-                drop.latitude == 0.0 || drop.longitude == 0.0) {
+                drop.latitude == 0.0 || drop.longitude == 0.0
+            ) {
                 return@launch
             }
 
@@ -300,6 +336,7 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         result.data?.let { fareDetails ->
                             _uiState.update {
@@ -312,6 +349,7 @@ class BookingViewModel @Inject constructor(
                             }
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -338,6 +376,7 @@ class BookingViewModel @Inject constructor(
                     discount
                 }
             }
+
             "fixed" -> coupon.discountValue
             else -> 0
         }
@@ -350,6 +389,41 @@ class BookingViewModel @Inject constructor(
         val discount = _uiState.value.discount
         return maxOf(0, baseFare - discount)
     }
+
+
+    fun calculateRoute(
+        pickupLat: Double,
+        pickupLng: Double,
+        dropLat: Double,
+        dropLng: Double
+    ) {
+        viewModelScope.launch {
+            _isRouteLoading.value = true
+
+            directionsRepository.getRouteInfo(
+                pickupLat = pickupLat,
+                pickupLng = pickupLng,
+                dropLat = dropLat,
+                dropLng = dropLng
+            ).onSuccess { route ->
+                _routeInfo.value = route
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(error = "Failed to calculate route: ${error.message}")
+                }
+            }
+
+            _isRouteLoading.value = false
+        }
+    }
+
+    /**
+     * Clear route info
+     */
+    fun clearRouteInfo() {
+        _routeInfo.value = null
+    }
+
 
     /**
      * Confirm booking and create order
@@ -389,6 +463,7 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
                             _uiState.update {
@@ -405,6 +480,7 @@ class BookingViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -431,6 +507,7 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(isLoading = false, error = null)
@@ -438,6 +515,7 @@ class BookingViewModel @Inject constructor(
                         // Navigate back to home
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -577,9 +655,10 @@ class BookingViewModel @Inject constructor(
                 .filter { it.isNotEmpty() }
                 .take(1)
                 .collect { vehicles ->
-                    vehicles.find { it.name.equals(vehicleTypeName, ignoreCase = true) }?.let { vehicle ->
-                        setSelectedVehicle(vehicle)
-                    }
+                    vehicles.find { it.name.equals(vehicleTypeName, ignoreCase = true) }
+                        ?.let { vehicle ->
+                            setSelectedVehicle(vehicle)
+                        }
                 }
         }
     }

@@ -9,19 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,16 +19,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -48,18 +34,21 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.*
+import com.google.maps.android.compose.*
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
-import com.mobitechs.parcelwala.ui.components.IconButtonWithBackground
+import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.components.JourneyConnector
-import com.mobitechs.parcelwala.ui.components.SecondaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
  * Searching for Rider Screen
- * Shows animated search state while finding nearby riders
+ * Shows map with route in top 50%, booking details below
+ * Final screen before driver is assigned
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,28 +64,35 @@ fun SearchingRiderScreen(
     viewModel: BookingViewModel = hiltViewModel()
 ) {
     var showCancelSheet by remember { mutableStateOf(false) }
-    var showGSTBanner by remember { mutableStateOf(true) }
 
-    // Animation for pulse effect
+    // Observe route info from ViewModel
+    val routeInfo by viewModel.routeInfo.collectAsState()
+    val isRouteLoading by viewModel.isRouteLoading.collectAsState()
+
+    // Calculate route when screen loads
+    LaunchedEffect(pickupAddress, dropAddress) {
+        if (pickupAddress.latitude != 0.0 && pickupAddress.longitude != 0.0 &&
+            dropAddress.latitude != 0.0 && dropAddress.longitude != 0.0
+        ) {
+            viewModel.calculateRoute(
+                pickupLat = pickupAddress.latitude,
+                pickupLng = pickupAddress.longitude,
+                dropLat = dropAddress.latitude,
+                dropLng = dropAddress.longitude
+            )
+        }
+    }
+
+    // Animation for pulse effect (for searching indicator)
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val scale by infiniteTransition.animateFloat(
+    val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.2f,
+        targetValue = 1.3f,
         animationSpec = infiniteRepeatable(
             animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "scale"
-    )
-
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
+        label = "pulseScale"
     )
 
     Scaffold(
@@ -109,11 +105,23 @@ fun SearchingRiderScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = "Finding your rider...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Animated dot
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .scale(pulseScale)
+                                    .background(AppColors.Primary, CircleShape)
+                            )
+                            Text(
+                                text = "Finding your rider...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Primary
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -121,13 +129,6 @@ fun SearchingRiderScreen(
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share",
-                            tint = AppColors.Primary
-                        )
-                    }
-                    IconButton(onClick = { /* Info */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
                             tint = AppColors.Primary
                         )
                     }
@@ -139,34 +140,136 @@ fun SearchingRiderScreen(
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            // ============ TOP 50%: MAP WITH ROUTE ============
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.45f) // 45% for map
+            ) {
+                RouteMapView(
+                    pickupAddress = pickupAddress,
+                    dropAddress = dropAddress,
+                    routeInfo = routeInfo,
+                    isLoading = isRouteLoading,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Distance & Time Overlay Card
+                routeInfo?.let { route ->
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Distance
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Route,
+                                    contentDescription = null,
+                                    tint = AppColors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = route.distanceText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppColors.TextPrimary
+                                )
+                            }
+
+                            // Divider
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(24.dp)
+                                    .background(AppColors.Border)
+                            )
+
+                            // Duration
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = AppColors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = route.durationText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppColors.TextPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Loading indicator for route
+                if (isRouteLoading) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .background(
+                                color = Color.White.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                                color = AppColors.Primary
+                            )
+                            Text(
+                                text = "Loading route...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AppColors.TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ============ BOTTOM 55%: SCROLLABLE DETAILS ============
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                // GST Benefits Banner (Collapsible)
-                if (showGSTBanner) {
-                    GSTBenefitsBanner(
-                        onClose = { showGSTBanner = false },
-                        onAddGSTIN = { /* Navigate to GST */ }
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Searching Animation Card
-                SearchingAnimationCard(
-                    scale = scale,
-                    alpha = alpha,
+                // Searching Status Card
+                SearchingStatusCard(
+                    pulseScale = pulseScale,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Journey Details Card
                 JourneyDetailsCard(
@@ -178,64 +281,88 @@ fun SearchingRiderScreen(
                         .padding(horizontal = 16.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Vehicle Info Card
-                VehicleInfoCard(
-                    vehicle = selectedVehicle,
+                // Vehicle & Payment Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Payment Summary
-                PaymentSummaryCard(
-                    paymentMethod = "Cash",
-                    amount = fare,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Support Section
-                SupportSection(
-                    onContactSupport = onContactSupport,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                )
-
-                // Cancel Trip Button
-                OutlinedButton(
-                    onClick = { showCancelSheet = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = AppColors.Drop
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Drop)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Cancel",
-                        modifier = Modifier.size(20.dp)
+                    // Vehicle Info Card
+                    VehicleInfoCompactCard(
+                        vehicle = selectedVehicle,
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Cancel Trip",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
+
+                    // Payment Card
+                    PaymentCompactCard(
+                        paymentMethod = "Cash",
+                        amount = fare,
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(80.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Support & Cancel Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Contact Support Button
+                    OutlinedButton(
+                        onClick = onContactSupport,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Primary
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Headset,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Support",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Cancel Trip Button
+                    OutlinedButton(
+                        onClick = { showCancelSheet = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Drop
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Drop)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Cancel",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -253,176 +380,162 @@ fun SearchingRiderScreen(
 }
 
 /**
- * GST Benefits Banner
+ * Route Map View with Polyline
  */
 @Composable
-private fun GSTBenefitsBanner(
-    onClose: () -> Unit,
-    onAddGSTIN: () -> Unit
+private fun RouteMapView(
+    pickupAddress: SavedAddress,
+    dropAddress: SavedAddress,
+    routeInfo: RouteInfo?,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.Primary
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "DON'T MISS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-                Text(
-                    text = "GST Benefits!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onAddGSTIN,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = AppColors.Primary
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                ) {
-                    Text(
-                        text = "Add GSTIN →",
-                        fontWeight = FontWeight.Bold
-                    )
+    val pickupLatLng = LatLng(pickupAddress.latitude, pickupAddress.longitude)
+    val dropLatLng = LatLng(dropAddress.latitude, dropAddress.longitude)
+
+    // Calculate bounds
+    val boundsBuilder = remember(pickupLatLng, dropLatLng, routeInfo) {
+        LatLngBounds.builder()
+            .include(pickupLatLng)
+            .include(dropLatLng)
+            .apply {
+                routeInfo?.polylinePoints?.forEach { point ->
+                    include(point)
                 }
             }
+    }
 
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier.align(Alignment.TopEnd)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = Color.White
-                )
-            }
+    val cameraPositionState = rememberCameraPositionState()
+
+    // Animate camera to show full route
+    LaunchedEffect(routeInfo, pickupLatLng, dropLatLng) {
+        try {
+            val bounds = boundsBuilder.build()
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngBounds(bounds, 80),
+                durationMs = 1000
+            )
+        } catch (e: Exception) {
+            // Fallback to center between points
+            val centerLat = (pickupLatLng.latitude + dropLatLng.latitude) / 2
+            val centerLng = (pickupLatLng.longitude + dropLatLng.longitude) / 2
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(LatLng(centerLat, centerLng), 13f)
+            )
+        }
+    }
+
+    GoogleMap(
+        modifier = modifier.clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+        cameraPositionState = cameraPositionState,
+        properties = MapProperties(
+            mapType = MapType.NORMAL,
+            isMyLocationEnabled = false
+        ),
+        uiSettings = MapUiSettings(
+            zoomControlsEnabled = false,
+            myLocationButtonEnabled = false,
+            mapToolbarEnabled = false,
+            compassEnabled = false
+        )
+    ) {
+        // Pickup Marker (Green)
+        Marker(
+            state = MarkerState(position = pickupLatLng),
+            title = "Pickup",
+            snippet = pickupAddress.address.take(50),
+            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+        )
+
+        // Drop Marker (Red)
+        Marker(
+            state = MarkerState(position = dropLatLng),
+            title = "Drop",
+            snippet = dropAddress.address.take(50),
+            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+        )
+
+        // Draw Route Polyline
+        routeInfo?.let { route ->
+            // Shadow/border polyline (darker, thicker)
+            Polyline(
+                points = route.polylinePoints,
+                color = Color(0xFF1565C0), // Darker blue
+                width = 14f,
+                jointType = JointType.ROUND,
+                startCap = RoundCap(),
+                endCap = RoundCap(),
+                zIndex = 0f
+            )
+
+            // Main route polyline
+            Polyline(
+                points = route.polylinePoints,
+                color = Color(0xFF2196F3), // Blue like Ola/Uber
+                width = 10f,
+                jointType = JointType.ROUND,
+                startCap = RoundCap(),
+                endCap = RoundCap(),
+                zIndex = 1f
+            )
         }
     }
 }
 
 /**
- * Searching Animation Card
+ * Compact Searching Status Card
  */
 @Composable
-private fun SearchingAnimationCard(
-    scale: Float,
-    alpha: Float,
+private fun SearchingStatusCard(
+    pulseScale: Float,
     modifier: Modifier = Modifier
 ) {
-    InfoCard(
-        modifier = modifier,
-        elevation = 4.dp
-    ) {
+    InfoCard(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Animated Pulse Circle
             Box(
-                modifier = Modifier.size(60.dp),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 // Outer pulse
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
-                        .scale(scale)
-                        .alpha(alpha * 0.3f)
-                        .background(
-                            color = AppColors.Primary,
-                            shape = CircleShape
-                        )
+                        .size(48.dp)
+                        .scale(pulseScale)
+                        .alpha(0.3f)
+                        .background(AppColors.Primary, CircleShape)
                 )
                 // Inner circle
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = AppColors.Primary,
-                            shape = CircleShape
-                        ),
+                        .size(32.dp)
+                        .background(AppColors.Primary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = Icons.Default.LocalShipping,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Searching for drivers nearby ...",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "Searching for drivers nearby",
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Finding partner near you.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "Usually takes 1-3 minutes",
+                    style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary
-                )
-            }
-
-            // Expand Map Icon
-            IconButtonWithBackground(
-                icon = Icons.Default.Fullscreen,
-                contentDescription = "Expand Map",
-                onClick = { /* Expand map */ },
-                size = 40.dp,
-                backgroundColor = AppColors.Primary.copy(alpha = 0.1f),
-                iconTint = AppColors.Primary
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Mini Map Preview
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .background(
-                    color = AppColors.Background,
-                    shape = RoundedCornerShape(12.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Map,
-                    contentDescription = "Map",
-                    tint = AppColors.TextHint,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    text = "Map View",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextHint
                 )
             }
         }
@@ -430,7 +543,7 @@ private fun SearchingAnimationCard(
 }
 
 /**
- * Journey Details Card
+ * Compact Journey Details Card
  */
 @Composable
 private fun JourneyDetailsCard(
@@ -440,277 +553,147 @@ private fun JourneyDetailsCard(
     modifier: Modifier = Modifier
 ) {
     InfoCard(modifier = modifier) {
+        // Pickup
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(AppColors.Pickup, CircleShape)
-                    )
-                    Text(
-                        text = pickupAddress.contactName ?: "Pickup",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(AppColors.Pickup, CircleShape)
+            )
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = pickupAddress.address.take(40) + if (pickupAddress.address.length > 40) "..." else "",
+                    text = pickupAddress.contactName ?: "Pickup",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+                Text(
+                    text = pickupAddress.address.take(45) + if (pickupAddress.address.length > 45) "..." else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary,
-                    modifier = Modifier.padding(start = 16.dp)
+                    maxLines = 1
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // Connector
+        Box(
+            modifier = Modifier
+                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
+                .width(2.dp)
+                .height(16.dp)
+                .background(AppColors.Border)
+        )
 
-        JourneyConnector(modifier = Modifier.padding(start = 4.dp))
-
-        Spacer(modifier = Modifier.height(8.dp))
-
+        // Drop
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(AppColors.Drop, CircleShape)
-                    )
-                    Text(
-                        text = dropAddress.contactName ?: "Drop",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(AppColors.Drop, CircleShape)
+            )
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = dropAddress.address.take(40) + if (dropAddress.address.length > 40) "..." else "",
+                    text = dropAddress.contactName ?: "Drop",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+                Text(
+                    text = dropAddress.address.take(45) + if (dropAddress.address.length > 45) "..." else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary,
-                    modifier = Modifier.padding(start = 16.dp)
+                    maxLines = 1
                 )
             }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        TextButton(
-            onClick = onViewDetails,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.List,
-                contentDescription = null,
-                tint = AppColors.Primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "View Details",
-                color = AppColors.Primary,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
 
 /**
- * Vehicle Info Card
+ * Compact Vehicle Info Card
  */
 @Composable
-private fun VehicleInfoCard(
+private fun VehicleInfoCompactCard(
     vehicle: VehicleTypeResponse,
     modifier: Modifier = Modifier
 ) {
     InfoCard(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(
-                            color = AppColors.Primary.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = vehicle.icon,
-                        style = MaterialTheme.typography.headlineLarge
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = vehicle.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = vehicle.capacity,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "Searching",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
-                )
-                Text(
-                    text = "nearby",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
-                )
-            }
+            Text(
+                text = vehicle.icon,
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = vehicle.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
+            )
+            Text(
+                text = vehicle.capacity,
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextSecondary
+            )
         }
     }
 }
 
 /**
- * Payment Summary Card
+ * Compact Payment Card
  */
 @Composable
-private fun PaymentSummaryCard(
+private fun PaymentCompactCard(
     paymentMethod: String,
     amount: Int,
     modifier: Modifier = Modifier
 ) {
     InfoCard(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
         ) {
+            Text(
+                text = "₹$amount",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Wallet,
-                    contentDescription = "Payment",
+                    contentDescription = null,
                     tint = AppColors.Pickup,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(16.dp)
                 )
-                Column {
-                    Text(
-                        text = paymentMethod,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = "Payment Method",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextSecondary
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "₹$amount",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Primary
+                    text = paymentMethod,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
                 )
-                TextButton(
-                    onClick = { /* View breakup */ },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(
-                        text = "View Breakup",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.Primary
-                    )
-                }
             }
         }
     }
 }
 
 /**
- * Support Section
- */
-@Composable
-private fun SupportSection(
-    onContactSupport: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    InfoCard(
-        modifier = modifier,
-        elevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Facing issue in this order?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = AppColors.TextPrimary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                TextButton(
-                    onClick = onContactSupport,
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Headset,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Contact Support",
-                        color = AppColors.Primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = AppColors.TextHint
-            )
-        }
-    }
-}
-
-/**
- * Cancellation Reason Bottom Sheet - FIXED VERSION
+ * Cancellation Reason Bottom Sheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -719,68 +702,38 @@ private fun CancellationReasonBottomSheet(
     onConfirmCancel: (String) -> Unit
 ) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
-    var OtherReason by remember { mutableStateOf("") }
+    var otherReason by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
-    // Keyboard and focus management
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
     val cancellationReasons = listOf(
-        CancellationReason(
-            id = "driver_delayed",
-            title = "Driver is taking too long",
-            icon = Icons.Default.Timer
-        ),
-        CancellationReason(
-            id = "change_plans",
-            title = "Change of plans",
-            icon = Icons.Default.EventBusy
-        ),
-        CancellationReason(
-            id = "wrong_address",
-            title = "Wrong pickup/drop location",
-            icon = Icons.Default.LocationOff
-        ),
-        CancellationReason(
-            id = "price_high",
-            title = "Price is too high",
-            icon = Icons.Default.MoneyOff
-        ),
-        CancellationReason(
-            id = "booking_mistake",
-            title = "Booked by mistake",
-            icon = Icons.Default.ErrorOutline
-        ),
-        CancellationReason(
-            id = "Other",
-            title = "Other reason",
-            icon = Icons.Default.MoreHoriz
-        )
+        CancellationReason("driver_delayed", "Driver is taking too long", Icons.Default.Timer),
+        CancellationReason("change_plans", "Change of plans", Icons.Default.EventBusy),
+        CancellationReason("wrong_address", "Wrong pickup/drop location", Icons.Default.LocationOff),
+        CancellationReason("price_high", "Price is too high", Icons.Default.MoneyOff),
+        CancellationReason("booking_mistake", "Booked by mistake", Icons.Default.ErrorOutline),
+        CancellationReason("other", "Other reason", Icons.Default.MoreHoriz)
     )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
-        sheetState = rememberModalBottomSheetState(
-            skipPartiallyExpanded = true // FULL HEIGHT
-        ),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(vertical = 12.dp)
                     .width(40.dp)
                     .height(4.dp)
-                    .background(
-                        color = AppColors.Border,
-                        shape = RoundedCornerShape(2.dp)
-                    )
+                    .background(AppColors.Border, RoundedCornerShape(2.dp))
             )
         }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxHeight(0.92f) // FULL HEIGHT
+                .fillMaxHeight(0.9f)
                 .fillMaxWidth()
         ) {
             // Header
@@ -804,17 +757,10 @@ private fun CancellationReasonBottomSheet(
                         color = AppColors.TextSecondary
                     )
                 }
-
                 IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = AppColors.TextSecondary
-                    )
+                    Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary)
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             // Scrollable Content
             Column(
@@ -823,16 +769,14 @@ private fun CancellationReasonBottomSheet(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
             ) {
-                // Cancellation Reasons List
                 cancellationReasons.forEach { reason ->
                     CancellationReasonItem(
                         reason = reason,
                         isSelected = selectedReason == reason.id,
                         onClick = {
                             selectedReason = reason.id
-                            if (reason.id != "Other") {
-                                // Clear Other reason when selecting different option
-                                OtherReason = ""
+                            if (reason.id != "other") {
+                                otherReason = ""
                                 keyboardController?.hide()
                                 focusManager.clearFocus()
                             }
@@ -841,28 +785,23 @@ private fun CancellationReasonBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Other Reason Text Field - FIXED: Don't close on keyboard action
-                if (selectedReason == "Other") {
+                // Other Reason TextField
+                if (selectedReason == "other") {
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = OtherReason,
-                        onValueChange = { OtherReason = it },
+                        value = otherReason,
+                        onValueChange = { otherReason = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Please specify") },
                         placeholder = { Text("Enter your reason...") },
                         minLines = 3,
                         maxLines = 5,
                         shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                // FIXED: Just hide keyboard, don't close sheet
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                            }
-                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                        }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AppColors.Primary,
                             focusedLabelColor = AppColors.Primary
@@ -872,17 +811,15 @@ private fun CancellationReasonBottomSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Warning Message
-                InfoCard(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+                // Warning
+                InfoCard {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.Top
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
+                            Icons.Default.Warning,
+                            null,
                             tint = Color(0xFFFF9800),
                             modifier = Modifier.size(24.dp)
                         )
@@ -893,9 +830,8 @@ private fun CancellationReasonBottomSheet(
                                 fontWeight = FontWeight.Bold,
                                 color = AppColors.TextPrimary
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Frequent cancellations may result in temporary suspension of your account.",
+                                text = "Frequent cancellations may result in temporary suspension.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppColors.TextSecondary
                             )
@@ -906,44 +842,31 @@ private fun CancellationReasonBottomSheet(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Bottom Action Buttons - FIXED SIZE AND TEXT
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
+            // Bottom Buttons
+            Surface(color = Color.White, shadowElevation = 8.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Keep Trip Button
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            width = 1.dp,
-                            color = AppColors.Primary
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Primary
-                        )
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)
                     ) {
-                        Text(
-                            text = "Keep Trip",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Keep Trip", fontWeight = FontWeight.Bold)
                     }
 
-                    // Cancel Trip Button
                     Button(
                         onClick = {
                             if (selectedReason != null &&
-                                (selectedReason != "Other" || OtherReason.isNotBlank())) {
+                                (selectedReason != "other" || otherReason.isNotBlank())
+                            ) {
                                 showConfirmDialog = true
                             }
                         },
@@ -956,41 +879,24 @@ private fun CancellationReasonBottomSheet(
                         ),
                         shape = RoundedCornerShape(16.dp),
                         enabled = selectedReason != null &&
-                                (selectedReason != "Other" || OtherReason.isNotBlank())
+                                (selectedReason != "other" || otherReason.isNotBlank())
                     ) {
-                        Text(
-                            text = "Cancel Trip",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Cancel Trip", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     }
 
-    // Final Confirmation Dialog
+    // Confirmation Dialog
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.ErrorOutline,
-                    contentDescription = null,
-                    tint = AppColors.Drop,
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = "Confirm Cancellation",
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-            },
+            icon = { Icon(Icons.Default.ErrorOutline, null, tint = AppColors.Drop, modifier = Modifier.size(32.dp)) },
+            title = { Text("Confirm Cancellation", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    text = "Are you sure you want to cancel this trip? This action cannot be undone.",
+                    "Are you sure you want to cancel this trip?",
                     color = AppColors.TextSecondary,
                     textAlign = TextAlign.Center
                 )
@@ -998,17 +904,15 @@ private fun CancellationReasonBottomSheet(
             confirmButton = {
                 Button(
                     onClick = {
-                        val reason = if (selectedReason == "Other") {
-                            OtherReason.ifBlank { "Other" }
+                        val reason = if (selectedReason == "other") {
+                            otherReason.ifBlank { "Other" }
                         } else {
-                            cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled by user"
+                            cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled"
                         }
                         onConfirmCancel(reason)
                         showConfirmDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Drop
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop)
                 ) {
                     Text("Yes, Cancel")
                 }
@@ -1037,9 +941,7 @@ private fun CancellationReasonItem(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
             color = if (isSelected) AppColors.Primary else AppColors.Border
@@ -1054,11 +956,10 @@ private fun CancellationReasonItem(
         ) {
             Icon(
                 imageVector = reason.icon,
-                contentDescription = reason.title,
+                contentDescription = null,
                 tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
                 modifier = Modifier.size(24.dp)
             )
-
             Text(
                 text = reason.title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -1066,7 +967,6 @@ private fun CancellationReasonItem(
                 color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
                 modifier = Modifier.weight(1f)
             )
-
             RadioButton(
                 selected = isSelected,
                 onClick = onClick,
@@ -1079,9 +979,6 @@ private fun CancellationReasonItem(
     }
 }
 
-/**
- * Cancellation Reason Data Class
- */
 data class CancellationReason(
     val id: String,
     val title: String,

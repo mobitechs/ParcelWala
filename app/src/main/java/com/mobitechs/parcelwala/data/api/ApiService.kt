@@ -1,5 +1,8 @@
 package com.mobitechs.parcelwala.data.api
 
+import com.mobitechs.parcelwala.data.model.DistanceMatrixRequest
+import com.mobitechs.parcelwala.data.model.DistanceMatrixResponse
+import com.mobitechs.parcelwala.data.model.GoogleDirectionsResponse
 import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
 import retrofit2.Response
@@ -123,8 +126,23 @@ interface ApiService {
         @Path("orderId") orderId: Int
     ): OrderDetailsResponse
 
+//--------------------------------------------------------------------------------------------------------
 
+    // Option 1: Call your backend API
+    @POST("bookings/distance-matrix")
+    suspend fun getDistanceMatrix(
+        @Header("Authorization") token: String,
+        @Body request: DistanceMatrixRequest
+    ): Response<DistanceMatrixResponse>
 
+    // Option 2: Call Google Directions API directly
+    @GET("https://maps.googleapis.com/maps/api/directions/json")
+    suspend fun getDirections(
+        @Query("origin") origin: String,           // "lat,lng"
+        @Query("destination") destination: String,  // "lat,lng"
+        @Query("mode") mode: String = "driving",
+        @Query("key") apiKey: String
+    ): Response<GoogleDirectionsResponse>
 
 
 }

@@ -113,9 +113,6 @@ dependencies {
     // Image Loading - Coil
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Google Location Services
-    implementation("com.google.android.gms:play-services-location:21.1.0")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
 
 
     // DataStore
@@ -135,6 +132,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.libraries.places:places:3.5.0")
     implementation("com.google.android.gms:play-services-location:21.1.0")
+
+    // For polyline utilities (decode polyline)
+    implementation("com.google.maps.android:android-maps-utils:3.8.2")
 
 
     // Firebase BOM (manages versions)
