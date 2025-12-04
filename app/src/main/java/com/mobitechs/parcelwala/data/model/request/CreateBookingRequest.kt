@@ -66,8 +66,8 @@ data class CreateBookingRequest(
  * Fare calculation request
  */
 data class CalculateFareRequest(
-    @SerializedName("vehicle_type_id")
-    val vehicleTypeId: Int,
+//    @SerializedName("vehicle_type_id")
+//    val vehicleTypeId: Int,
 
     @SerializedName("pickup_latitude")
     val pickupLatitude: Double,

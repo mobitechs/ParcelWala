@@ -17,14 +17,6 @@ import javax.inject.Singleton
 /**
  * Repository for booking operations
  * Handles both mock and real API calls with caching
- *
- * Features:
- * - Vehicle types management
- * - Goods types management
- * - Coupon validation
- * - Address CRUD operations
- * - Fare calculation
- * - Booking creation and management
  */
 @Singleton
 class BookingRepository @Inject constructor(
@@ -40,16 +32,10 @@ class BookingRepository @Inject constructor(
     private var cacheTimestamp: Long = 0L
     private val CACHE_DURATION = 30 * 60 * 1000L // 30 minutes
 
-    /**
-     * Check if cache is valid
-     */
     private fun isCacheValid(): Boolean {
         return System.currentTimeMillis() - cacheTimestamp < CACHE_DURATION
     }
 
-    /**
-     * Clear all cached data
-     */
     fun clearCache() {
         cachedVehicleTypes = null
         cachedGoodsTypes = null
@@ -61,21 +47,17 @@ class BookingRepository @Inject constructor(
 
     // ============ STATIC DATA APIs ============
 
-    /**
-     * Get available vehicle types (with caching)
-     */
     fun getVehicleTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<VehicleTypeResponse>>> = flow {
         emit(NetworkResult.Loading())
 
         try {
-            // Return cached data if available and valid
             if (!forceRefresh && isCacheValid() && cachedVehicleTypes != null) {
                 emit(NetworkResult.Success(cachedVehicleTypes!!))
                 return@flow
             }
 
             if (USE_MOCK_DATA) {
-                delay(800) // Simulate network delay
+                delay(800)
                 val mockData = MockBookingData.getVehicleTypes()
                 cachedVehicleTypes = mockData
                 cacheTimestamp = System.currentTimeMillis()
@@ -95,9 +77,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get goods types (with caching)
-     */
     fun getGoodsTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<GoodsTypeResponse>>> = flow {
         emit(NetworkResult.Loading())
 
@@ -128,9 +107,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get restricted items (with caching)
-     */
     fun getRestrictedItems(forceRefresh: Boolean = false): Flow<NetworkResult<List<RestrictedItemResponse>>> = flow {
         emit(NetworkResult.Loading())
 
@@ -161,9 +137,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get available coupons (with caching)
-     */
     fun getAvailableCoupons(forceRefresh: Boolean = false): Flow<NetworkResult<List<CouponResponse>>> = flow {
         emit(NetworkResult.Loading())
 
@@ -194,9 +167,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Validate coupon
-     */
     fun validateCoupon(code: String, orderValue: Int): Flow<NetworkResult<CouponResponse>> = flow {
         emit(NetworkResult.Loading())
 
@@ -225,22 +195,15 @@ class BookingRepository @Inject constructor(
 
     // ============ SAVED ADDRESSES APIs ============
 
-    /**
-     * Get saved addresses
-     * Returns cached addresses if available, Otherwise fetches from API/Mock
-     */
     fun getSavedAddresses(): Flow<NetworkResult<List<SavedAddress>>> = flow {
         emit(NetworkResult.Loading())
 
         try {
             if (USE_MOCK_DATA) {
                 delay(600)
-
-                // Initialize cache from mock data if empty
                 if (cachedSavedAddresses == null) {
                     cachedSavedAddresses = MockAccountData.getSavedAddresses().toMutableList()
                 }
-
                 emit(NetworkResult.Success(cachedSavedAddresses!!.toList()))
             } else {
                 val response = apiService.getSavedAddresses()
@@ -262,16 +225,13 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(500)
-                // Generate new ID for new addresses
                 val newAddress = address.copy(
                     addressId = MockAccountData.generateAddressId()
                 )
-
                 if (cachedSavedAddresses == null) {
                     cachedSavedAddresses = mutableListOf()
                 }
                 cachedSavedAddresses!!.add(newAddress)
-
                 emit(NetworkResult.Success(newAddress))
             } else {
                 val response = apiService.saveAddress(address)
@@ -287,23 +247,19 @@ class BookingRepository @Inject constructor(
         }
     }
 
-
     fun updateAddress(address: SavedAddress): Flow<NetworkResult<SavedAddress>> = flow {
         emit(NetworkResult.Loading())
 
         try {
             if (USE_MOCK_DATA) {
                 delay(500)
-
                 if (cachedSavedAddresses == null) {
                     emit(NetworkResult.Error("No addresses found"))
                     return@flow
                 }
-
                 val existingIndex = cachedSavedAddresses!!.indexOfFirst {
                     it.addressId == address.addressId
                 }
-
                 if (existingIndex >= 0) {
                     cachedSavedAddresses!![existingIndex] = address
                     emit(NetworkResult.Success(address))
@@ -313,15 +269,12 @@ class BookingRepository @Inject constructor(
             } else {
                 val response = apiService.updateAddress(address.addressId, address)
                 if (response.success && response.data != null) {
-                    // Update cache
                     val existingIndex = cachedSavedAddresses?.indexOfFirst {
                         it.addressId == response.data.addressId
                     } ?: -1
-
                     if (existingIndex >= 0) {
                         cachedSavedAddresses!![existingIndex] = response.data
                     }
-
                     emit(NetworkResult.Success(response.data))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to update address"))
@@ -338,17 +291,12 @@ class BookingRepository @Inject constructor(
         try {
             if (USE_MOCK_DATA) {
                 delay(400)
-
-                // Remove from cache
-                cachedSavedAddresses?.removeIf { it.addressId == addressId.toString() }
-
+                cachedSavedAddresses?.removeIf { it.addressId == addressId }
                 emit(NetworkResult.Success(Unit))
             } else {
                 val response = apiService.deleteAddress(addressId)
                 if (response.success) {
-                    // Update cache
-                    cachedSavedAddresses?.removeIf { it.addressId == addressId.toString() }
-
+                    cachedSavedAddresses?.removeIf { it.addressId == addressId }
                     emit(NetworkResult.Success(Unit))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to delete address"))
@@ -359,26 +307,33 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    // ============ BOOKING APIs ============
+    // ============ FARE CALCULATION APIs ============
 
     /**
-     * Calculate fare
+     * Calculate fares for ALL vehicle types based on pickup/drop locations
+     * Returns List<FareDetails> - one for each vehicle type
      */
-    fun calculateFare(request: CalculateFareRequest): Flow<NetworkResult<FareDetails>> = flow {
+    fun calculateFaresForAllVehicles(
+        request: CalculateFareRequest
+    ): Flow<NetworkResult<List<FareDetails>>> = flow {
         emit(NetworkResult.Loading())
 
         try {
             if (USE_MOCK_DATA) {
-                delay(700)
-                val distanceKm = 8.5 // Mock distance
-                val mockFare = MockBookingData.calculateFare(request.vehicleTypeId, distanceKm)
-                emit(NetworkResult.Success(mockFare))
+                delay(1200)
+                val mockFares = MockBookingData.calculateFaresForAllVehicles(
+                    pickupLat = request.pickupLatitude,
+                    pickupLng = request.pickupLongitude,
+                    dropLat = request.dropLatitude,
+                    dropLng = request.dropLongitude
+                )
+                emit(NetworkResult.Success(mockFares))
             } else {
                 val response = apiService.calculateFare(request)
-                if (response.success && response.data != null) {
+                if (response.success && response.data.isNotEmpty()) {
                     emit(NetworkResult.Success(response.data))
                 } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to calculate fare"))
+                    emit(NetworkResult.Error(response.message ?: "Failed to calculate fares"))
                 }
             }
         } catch (e: Exception) {
@@ -387,8 +342,34 @@ class BookingRepository @Inject constructor(
     }
 
     /**
-     * Create new booking
+     * Calculate fare - Legacy single vehicle (calls multi-vehicle API internally)
      */
+//    fun calculateFare(request: CalculateFareRequest): Flow<NetworkResult<FareDetails>> = flow {
+//        emit(NetworkResult.Loading())
+//
+//        try {
+//            if (USE_MOCK_DATA) {
+//                delay(700)
+//                val distanceKm = 8.5
+//                val mockFare = MockBookingData.calculateFare(request.vehicleTypeId, distanceKm)
+//                emit(NetworkResult.Success(mockFare))
+//            } else {
+//                val response = apiService.calculateFare(request)
+//                if (response.success && response.data.isNotEmpty()) {
+//                    val vehicleFare = response.data.find { it.vehicleTypeId == request.vehicleTypeId }
+//                        ?: response.data.first()
+//                    emit(NetworkResult.Success(vehicleFare))
+//                } else {
+//                    emit(NetworkResult.Error(response.message ?: "Failed to calculate fare"))
+//                }
+//            }
+//        } catch (e: Exception) {
+//            emit(NetworkResult.Error(e.message ?: "Network error"))
+//        }
+//    }
+
+    // ============ BOOKING APIs ============
+
     fun createBooking(request: CreateBookingRequest): Flow<NetworkResult<BookingResponse>> = flow {
         emit(NetworkResult.Loading())
 
@@ -403,7 +384,7 @@ class BookingRepository @Inject constructor(
                 emit(NetworkResult.Success(mockBooking))
             } else {
                 val response = apiService.createBooking(request)
-                if (response.success && response.data != null) {
+                if (response.success) {
                     emit(NetworkResult.Success(response.data))
                 } else {
                     emit(NetworkResult.Error(response.message ?: "Failed to create booking"))
@@ -414,9 +395,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get my bookings
-     */
     fun getMyBookings(status: String? = null): Flow<NetworkResult<List<BookingResponse>>> = flow {
         emit(NetworkResult.Loading())
 
@@ -437,9 +415,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get booking details
-     */
     fun getBookingDetails(bookingId: Int): Flow<NetworkResult<BookingResponse>> = flow {
         emit(NetworkResult.Loading())
 
@@ -461,9 +436,6 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Cancel booking with reason
-     */
     fun cancelBooking(bookingId: Int, reason: String): Flow<NetworkResult<Unit>> = flow {
         emit(NetworkResult.Loading())
 

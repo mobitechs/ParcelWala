@@ -19,20 +19,20 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
-import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
  * Review Booking Screen
- * Final review before confirming the booking
+ * Shows fare summary from FareDetails (API response)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewBookingScreen(
-    selectedVehicle: VehicleTypeResponse,
+    selectedFareDetails: FareDetails,
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
     onConfirmBooking: () -> Unit,
@@ -45,893 +45,338 @@ fun ReviewBookingScreen(
     viewModel: BookingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showTermsDialog by remember { mutableStateOf(false) }
+    var showFareBreakdown by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
 
-    // Load coupons and goods types when screen opens
     LaunchedEffect(Unit) {
         viewModel.loadAvailableCoupons()
-        if (viewModel.goodsTypes.value.isEmpty()) {
-            viewModel.loadGoodsTypes()
-        }
+        if (viewModel.goodsTypes.value.isEmpty()) viewModel.loadGoodsTypes()
     }
 
-    // Use actual values from ViewModel state
-    val baseFare = uiState.baseFare
+    val baseFare = selectedFareDetails.roundedFare
     val discount = uiState.discount
-    val finalFare = uiState.finalFare
+    val finalFare = if (discount > 0) baseFare - discount else baseFare
     val appliedCoupon = uiState.appliedCoupon
     val selectedPaymentMethod = uiState.paymentMethod
-    val selectedGoodsTypeId = uiState.selectedGoodsTypeId
 
-    // Get selected goods type from ViewModel
     val goodsTypes by viewModel.goodsTypes.collectAsState()
-    val selectedGoodsType = goodsTypes.find { it.goodsTypeId == selectedGoodsTypeId }
+    val selectedGoodsType = goodsTypes.find { it.goodsTypeId == uiState.selectedGoodsTypeId }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Review Booking",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = AppColors.TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
+                title = { Text("Review Booking", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back", tint = AppColors.TextPrimary) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (uiState.isLoading) {
-                LoadingIndicator(
-                    message = "Creating booking...",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp)
-                )
+                LoadingIndicator(message = "Creating booking...", modifier = Modifier.fillMaxSize().padding(32.dp))
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Scrollable Content
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        // Vehicle Info Card
-                        VehicleInfoCard(
-                            vehicle = selectedVehicle,
-                            onViewAddressDetails = onViewAddressDetails,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        )
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        // Vehicle & Trip Info
+                        VehicleTripInfoCard(fareDetails = selectedFareDetails, onViewAddressDetails = onViewAddressDetails, modifier = Modifier.fillMaxWidth().padding(16.dp))
 
-                        // Offers and Discounts
-                        SectionHeader(
-                            text = "Offers and Discounts",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
+                        // Offers
+                        SectionHeader(text = "Offers and Discounts", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        ApplyCouponCard(
-                            appliedCoupon = appliedCoupon,
-                            onApplyCoupon = onApplyCoupon,
-                            onRemoveCoupon = { viewModel.removeCoupon() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        )
+                        ApplyCouponCard(appliedCoupon = appliedCoupon, onApplyCoupon = onApplyCoupon, onRemoveCoupon = { viewModel.removeCoupon() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
 
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // Fare Summary
-                        SectionHeader(
-                            text = "Fare Summary",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
+                        SectionHeader(text = "Fare Summary", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        FareSummaryCard(
-                            baseFare = baseFare,
-                            discount = discount,
-                            finalFare = finalFare,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        )
+                        FareSummaryCard(fareDetails = selectedFareDetails, additionalDiscount = discount, finalFare = finalFare, onViewBreakdown = { showFareBreakdown = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // GST Details
-                        SectionHeader(
-                            text = "GST Details",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
+                        // GST
+                        SectionHeader(text = "GST Details", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        GSTCard(
-                            gstin = uiState.gstin,
-                            onAddGSTIN = onAddGSTIN,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        )
+                        GSTCard(gstin = uiState.gstin, onAddGSTIN = onAddGSTIN, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Goods Description
-                        SectionHeader(
-                            text = "Goods Description",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
+                        // Goods
+                        SectionHeader(text = "Goods Description", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        GoodsDescriptionCard(
-                            selectedGoodsType = selectedGoodsType,
-                            onSelectGoodsType = onSelectGoodsType,
-                            onViewRestrictions = onViewRestrictions,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        )
+                        GoodsDescriptionCard(selectedGoodsType = selectedGoodsType, onSelectGoodsType = onSelectGoodsType, onViewRestrictions = onViewRestrictions, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Read Before Booking
-                        SectionHeader(
-                            text = "Read before Booking",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-
+                        // Terms
+                        SectionHeader(text = "Read before Booking", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        InfoCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            BookingTermsList()
-                        }
+                        InfoCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { BookingTermsList(freeLoadingMins = selectedFareDetails.freeLoadingTimeMins ?: 25) }
 
                         Spacer(modifier = Modifier.height(16.dp))
-
-                        // Terms Agreement
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "By booking you agree to our ",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
-                            Text(
-                                text = "terms of service",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.Primary,
-                                textDecoration = TextDecoration.Underline,
-                                modifier = Modifier.clickable { showTermsDialog = true }
-                            )
-                            Text(
-                                text = " and ",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
-                            Text(
-                                text = "privacy policy",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.Primary,
-                                textDecoration = TextDecoration.Underline,
-                                modifier = Modifier.clickable { showTermsDialog = true }
-                            )
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.Center) {
+                            Text("By booking you agree to our ", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                            Text("terms of service", style = MaterialTheme.typography.bodySmall, color = AppColors.Primary, textDecoration = TextDecoration.Underline, modifier = Modifier.clickable { })
                         }
-
                         Spacer(modifier = Modifier.height(100.dp))
                     }
 
-                    // Bottom Payment Section
-                    Surface(
-                        color = Color.White,
-                        shadowElevation = 8.dp
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            // Payment Method Selection
+                    // Bottom Payment
+                    Surface(color = Color.White, shadowElevation = 8.dp) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showPaymentSheet = true }
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier.fillMaxWidth().clickable { showPaymentSheet = true }.padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Wallet,
-                                        contentDescription = "Payment",
-                                        tint = AppColors.Pickup,
-                                        modifier = Modifier.size(32.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Icon(Icons.Default.Wallet, "Payment", tint = AppColors.Pickup, modifier = Modifier.size(32.dp))
                                     Column {
-                                        Text(
-                                            text = "Choose Payment Method",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = AppColors.TextSecondary
-                                        )
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = selectedPaymentMethod,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = AppColors.TextPrimary
-                                            )
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = null,
-                                                tint = AppColors.TextSecondary
-                                            )
+                                        Text("Payment Method", style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(selectedPaymentMethod, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+                                            Icon(Icons.Default.ArrowDropDown, null, tint = AppColors.TextSecondary)
                                         }
                                     }
                                 }
-
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = "₹$finalFare",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AppColors.Primary
-                                    )
-                                    TextButton(
-                                        onClick = { /* Show fare breakup */ },
-                                        contentPadding = PaddingValues(0.dp)
-                                    ) {
-                                        Text(
-                                            text = "View Breakup",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = AppColors.Primary
-                                        )
-                                    }
+                                    Text("₹$finalFare", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                                    if (discount > 0) Text("You save ₹$discount", style = MaterialTheme.typography.labelSmall, color = AppColors.Pickup)
                                 }
                             }
-
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            // Confirm Button
-                            PrimaryButton(
-                                text = "Book ${selectedVehicle.name}",
-                                onClick = onConfirmBooking,
-                                icon = Icons.Default.Check,
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !uiState.isLoading
-                            )
+                            PrimaryButton(text = "Book ${selectedFareDetails.vehicleTypeName}", onClick = onConfirmBooking, icon = Icons.Default.Check, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isLoading)
                         }
                     }
                 }
             }
 
-            // Show error
             uiState.error?.let { error ->
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.clearError() }) {
-                            Text("Dismiss")
-                        }
-                    }
-                ) {
-                    Text(error)
-                }
+                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).padding(bottom = 80.dp), action = { TextButton(onClick = { viewModel.clearError() }) { Text("Dismiss") } }) { Text(error) }
             }
         }
     }
 
-    // Payment Method Bottom Sheet
+    if (showFareBreakdown) {
+        ModalBottomSheet(onDismissRequest = { showFareBreakdown = false }, containerColor = Color.White) {
+            FareBreakdownBottomSheet(fareDetails = selectedFareDetails, additionalDiscount = discount, onDismiss = { showFareBreakdown = false })
+        }
+    }
+
     if (showPaymentSheet) {
-        PaymentMethodBottomSheet(
-            selectedMethod = selectedPaymentMethod,
-            onMethodSelected = { method ->
-                viewModel.setPaymentMethod(method)
-                showPaymentSheet = false
-            },
-            onDismiss = { showPaymentSheet = false }
+        PaymentMethodBottomSheet(selectedMethod = selectedPaymentMethod, onMethodSelected = { viewModel.setPaymentMethod(it); showPaymentSheet = false }, onDismiss = { showPaymentSheet = false })
+    }
+}
+
+@Composable
+private fun VehicleTripInfoCard(fareDetails: FareDetails, onViewAddressDetails: () -> Unit, modifier: Modifier = Modifier) {
+    InfoCard(modifier = modifier, elevation = 4.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(60.dp).background(AppColors.Primary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.displaySmall)
+                }
+                Column {
+                    Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+                    TextButton(onClick = onViewAddressDetails, contentPadding = PaddingValues(0.dp)) {
+                        Text("View Trip Details", style = MaterialTheme.typography.bodyMedium, color = AppColors.Primary)
+                    }
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Route, null, tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp))
+                    Text(String.format("%.1f km", fareDetails.distanceKm), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.Timer, null, tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp))
+                    Text(fareDetails.getEtaText(), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth().background(AppColors.Primary.copy(alpha = 0.05f), RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+            Text("Free ${fareDetails.freeLoadingTimeMins ?: 25} mins of loading-unloading time included", style = MaterialTheme.typography.bodySmall, color = AppColors.TextPrimary)
+        }
+        if (fareDetails.hasSurgePricing()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF3E0), RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.TrendingUp, null, tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
+                Text("High demand: ${fareDetails.getSurgePercentage()}% surge pricing applied", style = MaterialTheme.typography.bodySmall, color = Color(0xFFE65100))
+            }
+        }
+    }
+}
+
+@Composable
+private fun FareSummaryCard(fareDetails: FareDetails, additionalDiscount: Int, finalFare: Int, onViewBreakdown: () -> Unit, modifier: Modifier = Modifier) {
+    InfoCard(modifier = modifier) {
+        FareRow("Base Fare (incl. ${fareDetails.freeDistanceKm.toInt()} km)", fareDetails.baseFare.toInt())
+        if (fareDetails.distanceFare > 0) { Spacer(Modifier.height(8.dp)); FareRow("Distance (${String.format("%.1f", fareDetails.chargeableDistanceKm)} km)", fareDetails.distanceFare.toInt()) }
+        if (fareDetails.platformFee > 0) { Spacer(Modifier.height(8.dp)); FareRow("Platform Fee", fareDetails.platformFee.toInt()) }
+        if (fareDetails.surgeAmount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Surge (${fareDetails.getSurgePercentage()}%)", fareDetails.surgeAmount.toInt(), isSurge = true) }
+        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp))
+        FareRow("Subtotal", fareDetails.subTotal.toInt())
+        Spacer(Modifier.height(8.dp)); FareRow("GST (${fareDetails.gstPercentage}%)", fareDetails.gstAmount.toInt())
+        if (fareDetails.discount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Discount", -fareDetails.discount.toInt(), isDiscount = true) }
+        if (additionalDiscount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Coupon Discount", -additionalDiscount, isDiscount = true) }
+        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider, thickness = 2.dp); Spacer(Modifier.height(8.dp))
+        FareRow("Amount Payable", finalFare, isBold = true, isTotal = true)
+        Spacer(Modifier.height(12.dp))
+        TextButton(onClick = onViewBreakdown, modifier = Modifier.fillMaxWidth()) {
+            Text("View Detailed Breakdown", color = AppColors.Primary, fontWeight = FontWeight.Medium)
+            Icon(Icons.Default.ChevronRight, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun FareBreakdownBottomSheet(fareDetails: FareDetails, additionalDiscount: Int, onDismiss: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Fare Breakdown", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(modifier = Modifier.fillMaxWidth().background(AppColors.Background, RoundedCornerShape(8.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("${String.format("%.1f", fareDetails.distanceKm)} km • ${fareDetails.estimatedDurationMinutes} mins", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+            }
+            Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.headlineMedium)
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // Use fare_breakdown from API if available
+        if (fareDetails.fareBreakdown.isNotEmpty()) {
+            fareDetails.fareBreakdown.forEach { item ->
+                BreakdownRow(item.label, item.value, item.type)
+                Spacer(Modifier.height(8.dp))
+            }
+        } else {
+            BreakdownRow("Base Fare", fareDetails.baseFare)
+            Spacer(Modifier.height(8.dp))
+            if (fareDetails.distanceFare > 0) { BreakdownRow("Distance Fare", fareDetails.distanceFare); Spacer(Modifier.height(8.dp)) }
+            if (fareDetails.platformFee > 0) { BreakdownRow("Platform Fee", fareDetails.platformFee); Spacer(Modifier.height(8.dp)) }
+            if (fareDetails.surgeAmount > 0) { BreakdownRow("Surge", fareDetails.surgeAmount, "surge"); Spacer(Modifier.height(8.dp)) }
+            BreakdownRow("GST (${fareDetails.gstPercentage}%)", fareDetails.gstAmount)
+        }
+
+        if (additionalDiscount > 0) {
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = AppColors.Divider)
+            Spacer(Modifier.height(8.dp))
+            BreakdownRow("Coupon Discount", -additionalDiscount.toDouble(), "discount")
+        }
+
+        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Primary, thickness = 2.dp); Spacer(Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Total Amount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+            Text("₹${fareDetails.roundedFare - additionalDiscount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+        }
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun BreakdownRow(label: String, amount: Double, type: String = "charge") {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+        Text(
+            if (type == "discount") "-₹${(-amount).toInt()}" else "₹${amount.toInt()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = when (type) { "discount" -> AppColors.Pickup; "surge" -> Color(0xFFE65100); else -> AppColors.TextPrimary }
         )
     }
 }
 
-/**
- * Vehicle Info Card
- */
 @Composable
-private fun VehicleInfoCard(
-    vehicle: VehicleTypeResponse,
-    onViewAddressDetails: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    InfoCard(
-        modifier = modifier,
-        elevation = 4.dp
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .background(
-                            color = AppColors.Primary.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = vehicle.icon,
-                        style = MaterialTheme.typography.displaySmall
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = vehicle.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    TextButton(
-                        onClick = onViewAddressDetails,
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "View Address Details",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.Primary
-                        )
-                    }
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "1 min",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Pickup
-                )
-                Text(
-                    text = "away",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Free Loading Time Info
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = AppColors.Primary.copy(alpha = 0.05f),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Timer,
-                contentDescription = null,
-                tint = AppColors.Primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = "Free 25 mins of loading-unloading time included.",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextPrimary
-            )
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = AppColors.Primary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+private fun FareRow(label: String, amount: Int, isBold: Boolean = false, isDiscount: Boolean = false, isSurge: Boolean = false, isTotal: Boolean = false) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = AppColors.TextPrimary)
+        Text(if (amount < 0) "-₹${-amount}" else "₹$amount", style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = when { isDiscount -> AppColors.Pickup; isSurge -> Color(0xFFE65100); isTotal -> AppColors.Primary; else -> AppColors.TextPrimary })
     }
 }
 
-/**
- * Apply Coupon Card with Remove Option
- */
 @Composable
-private fun ApplyCouponCard(
-    appliedCoupon: String?,
-    onApplyCoupon: () -> Unit,
-    onRemoveCoupon: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .clickable(
-                enabled = appliedCoupon == null,
-                onClick = onApplyCoupon
-            ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocalOffer,
-                    contentDescription = "Coupon",
-                    tint = if (appliedCoupon != null) AppColors.Pickup else AppColors.Primary,
-                    modifier = Modifier.size(24.dp)
-                )
-
+private fun ApplyCouponCard(appliedCoupon: String?, onApplyCoupon: () -> Unit, onRemoveCoupon: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.clickable(enabled = appliedCoupon == null, onClick = onApplyCoupon), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.LocalOffer, "Coupon", tint = if (appliedCoupon != null) AppColors.Pickup else AppColors.Primary, modifier = Modifier.size(24.dp))
                 if (appliedCoupon != null) {
                     Column {
-                        Text(
-                            text = appliedCoupon,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.Pickup
-                        )
-                        Text(
-                            text = "Coupon Applied",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
-                        )
+                        Text(appliedCoupon, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.Pickup)
+                        Text("Coupon Applied", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
                     }
-                } else {
-                    Text(
-                        text = "Apply Coupon",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppColors.TextPrimary
-                    )
-                }
+                } else Text("Apply Coupon", style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary)
             }
-
-            if (appliedCoupon != null) {
-                IconButton(onClick = onRemoveCoupon) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove",
-                        tint = AppColors.Drop
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Apply",
-                    tint = AppColors.TextSecondary
-                )
-            }
+            if (appliedCoupon != null) IconButton(onClick = onRemoveCoupon) { Icon(Icons.Default.Close, "Remove", tint = AppColors.Drop) }
+            else Icon(Icons.Default.ChevronRight, "Apply", tint = AppColors.TextSecondary)
         }
     }
 }
 
-/**
- * Fare Summary Card
- */
 @Composable
-private fun FareSummaryCard(
-    baseFare: Int,
-    discount: Int,
-    finalFare: Int,
-    modifier: Modifier = Modifier
-) {
+private fun GSTCard(gstin: String?, onAddGSTIN: () -> Unit, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        FareRow(label = "Trip Fare (incl. Toll)", amount = baseFare)
-
-        if (discount > 0) {
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = AppColors.Divider)
-            Spacer(modifier = Modifier.height(12.dp))
-            FareRow(
-                label = "Coupon Discount",
-                amount = -discount,
-                isDiscount = true
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider(color = AppColors.Divider)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        FareRow(
-            label = "Net Fare",
-            amount = if (discount > 0) baseFare - discount else baseFare,
-            isBold = false
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider(color = AppColors.Divider)
-        Spacer(modifier = Modifier.height(12.dp))
-
-        FareRow(
-            label = "Amount Payable (rounded)",
-            amount = finalFare,
-            isBold = true,
-            isTotal = true
-        )
-    }
-}
-
-/**
- * Fare Row Item
- */
-@Composable
-private fun FareRow(
-    label: String,
-    amount: Int,
-    isBold: Boolean = false,
-    isDiscount: Boolean = false,
-    isTotal: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = AppColors.TextPrimary
-        )
-        Text(
-            text = "₹${if (amount < 0) "-${-amount}" else amount}",
-            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = when {
-                isDiscount -> AppColors.Pickup
-                isTotal -> AppColors.Primary
-                else -> AppColors.TextPrimary
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.Receipt, "GST", tint = AppColors.Primary, modifier = Modifier.size(24.dp))
+                if (gstin != null) Column { Text("GSTIN Added", style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary); Text(gstin, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary) }
+                else Text("Have a GST Number?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
             }
-        )
+            TextButton(onClick = onAddGSTIN) { Text(if (gstin != null) "Change" else "Add GSTIN", color = AppColors.Primary, fontWeight = FontWeight.Bold) }
+        }
+        if (gstin == null) { Spacer(Modifier.height(8.dp)); Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Info, null, tint = AppColors.Primary, modifier = Modifier.size(16.dp)); Text("Get invoices with GSTIN for Input Tax Credit", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) } }
     }
 }
 
-/**
- * GST Card
- */
 @Composable
-private fun GSTCard(
-    gstin: String?,
-    onAddGSTIN: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun GoodsDescriptionCard(selectedGoodsType: GoodsTypeResponse?, onSelectGoodsType: () -> Unit, onViewRestrictions: () -> Unit, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Receipt,
-                    contentDescription = "GST",
-                    tint = AppColors.Primary,
-                    modifier = Modifier.size(24.dp)
-                )
-
-                if (gstin != null) {
-                    Column {
-                        Text(
-                            text = "GSTIN Added",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.TextSecondary
-                        )
-                        Text(
-                            text = gstin,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary
-                        )
-                    }
-                } else {
-                    Text(
-                        text = "Have a GST Number?",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                }
-            }
-
-            TextButton(onClick = onAddGSTIN) {
-                Text(
-                    text = if (gstin != null) "Change" else "Add GSTIN",
-                    color = AppColors.Primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        if (gstin == null) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = AppColors.Primary,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = "Get invoices with GSTIN for Input Tax Credit",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Goods Description Card
- */
-@Composable
-private fun GoodsDescriptionCard(
-    selectedGoodsType: GoodsTypeResponse?,
-    onSelectGoodsType: () -> Unit,
-    onViewRestrictions: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    InfoCard(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onSelectGoodsType),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onSelectGoodsType), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = selectedGoodsType?.name ?: "Select Goods Type",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-
-                selectedGoodsType?.let { goods ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${goods.defaultWeight} Kg • ${goods.defaultPackages.toString().padStart(2, '0')} Package • ₹${goods.defaultValue} (Default)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
-                }
+                Text(selectedGoodsType?.name ?: "Select Goods Type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+                selectedGoodsType?.let { Spacer(Modifier.height(4.dp)); Text("${it.defaultWeight} Kg • ${it.defaultPackages.toString().padStart(2, '0')} Package • ₹${it.defaultValue} (Default)", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) }
             }
-
-            TextButton(onClick = onSelectGoodsType) {
-                Text(
-                    text = if (selectedGoodsType != null) "Change" else "Select",
-                    color = AppColors.Primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            TextButton(onClick = onSelectGoodsType) { Text(if (selectedGoodsType != null) "Change" else "Select", color = AppColors.Primary, fontWeight = FontWeight.Bold) }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Restricted Items Warning
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = Color(0xFFFFF9E6),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .clickable(onClick = onViewRestrictions)
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = Color(0xFFFF9800),
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Do not send restricted items",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = AppColors.TextPrimary
-                )
-            }
-
-            TextButton(
-                onClick = onViewRestrictions,
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    text = "View List",
-                    color = AppColors.Primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = AppColors.Primary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+        Spacer(Modifier.height(12.dp))
+        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF9E6), RoundedCornerShape(8.dp)).clickable(onClick = onViewRestrictions).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp)); Text("Do not send restricted items", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = AppColors.TextPrimary) }
+            TextButton(onClick = onViewRestrictions, contentPadding = PaddingValues(0.dp)) { Text("View", color = AppColors.Primary, fontWeight = FontWeight.Bold) }
         }
     }
 }
 
-/**
- * Booking Terms List
- */
 @Composable
-private fun BookingTermsList() {
-    val terms = listOf(
-        "Fare includes 25 mins free loading/unloading time.",
-        "₹ 2.0/min for additional loading/unloading time.",
-        "Fare may change if route or location changes.",
-        "Parking charges to be paid by customer.",
-        "Fare includes toll and permit charges, if any.",
-        "We don't allow overloading."
-    )
-
-    Column {
-        terms.forEach { term ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = term,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
+private fun BookingTermsList(freeLoadingMins: Int = 25) {
+    val terms = listOf("Fare includes $freeLoadingMins mins free loading/unloading time.", "₹ 2.0/min for additional loading/unloading time.", "Fare may change if route or location changes.", "Parking charges to be paid by customer.", "Fare includes toll and permit charges, if any.", "We don't allow overloading.")
+    Column { terms.forEach { Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text("•", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary, modifier = Modifier.padding(end = 8.dp)); Text(it, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary) } } }
 }
 
-/**
- * Payment Method Bottom Sheet
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaymentMethodBottomSheet(
-    selectedMethod: String,
-    onMethodSelected: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val paymentMethods = listOf("Cash", "Card", "UPI", "Wallet")
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Choose Payment Method",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            paymentMethods.forEach { method ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onMethodSelected(method) }
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = when (method) {
-                                "Cash" -> Icons.Default.Money
-                                "Card" -> Icons.Default.CreditCard
-                                "UPI" -> Icons.Default.Payment
-                                "Wallet" -> Icons.Default.Wallet
-                                else -> Icons.Default.Payment
-                            },
-                            contentDescription = method,
-                            tint = AppColors.Primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = method,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = AppColors.TextPrimary
-                        )
+private fun PaymentMethodBottomSheet(selectedMethod: String, onMethodSelected: (String) -> Unit, onDismiss: () -> Unit) {
+    val methods = listOf("Cash", "Card", "UPI", "Wallet")
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text("Choose Payment Method", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+            Spacer(Modifier.height(24.dp))
+            methods.forEach { method ->
+                Row(modifier = Modifier.fillMaxWidth().clickable { onMethodSelected(method) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(when (method) { "Cash" -> Icons.Default.Money; "Card" -> Icons.Default.CreditCard; "UPI" -> Icons.Default.Payment; else -> Icons.Default.Wallet }, method, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
+                        Text(method, style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary)
                     }
-
-                    if (selectedMethod == method) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Selected",
-                            tint = AppColors.Primary
-                        )
-                    }
+                    if (selectedMethod == method) Icon(Icons.Default.CheckCircle, "Selected", tint = AppColors.Primary)
                 }
-                if (method != paymentMethods.last()) {
-                    HorizontalDivider(color = AppColors.Divider)
-                }
+                if (method != methods.last()) HorizontalDivider(color = AppColors.Divider)
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp))
         }
     }
 }

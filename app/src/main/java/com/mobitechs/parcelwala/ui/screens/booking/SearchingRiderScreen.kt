@@ -38,10 +38,9 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
-import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+import com.mobitechs.parcelwala.data.model.response.FareDetails  // ✅ Changed import
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.InfoCard
-import com.mobitechs.parcelwala.ui.components.JourneyConnector
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
@@ -56,7 +55,7 @@ fun SearchingRiderScreen(
     bookingId: String,
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
-    selectedVehicle: VehicleTypeResponse,
+    selectedFareDetails: FareDetails,  // ✅ Changed from VehicleTypeResponse
     fare: Int,
     onRiderFound: () -> Unit,
     onContactSupport: () -> Unit,
@@ -145,11 +144,11 @@ fun SearchingRiderScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // ============ TOP 50%: MAP WITH ROUTE ============
+            // ============ TOP 45%: MAP WITH ROUTE ============
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.45f) // 45% for map
+                    .fillMaxHeight(0.45f)
             ) {
                 RouteMapView(
                     pickupAddress = pickupAddress,
@@ -290,9 +289,9 @@ fun SearchingRiderScreen(
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Vehicle Info Card
+                    // Vehicle Info Card - ✅ Changed to use FareDetails
                     VehicleInfoCompactCard(
-                        vehicle = selectedVehicle,
+                        fareDetails = selectedFareDetails,
                         modifier = Modifier.weight(1f)
                     )
 
@@ -460,7 +459,7 @@ private fun RouteMapView(
             // Shadow/border polyline (darker, thicker)
             Polyline(
                 points = route.polylinePoints,
-                color = Color(0xFF1565C0), // Darker blue
+                color = Color(0xFF1565C0),
                 width = 14f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
@@ -471,7 +470,7 @@ private fun RouteMapView(
             // Main route polyline
             Polyline(
                 points = route.polylinePoints,
-                color = Color(0xFF2196F3), // Blue like Ola/Uber
+                color = Color(0xFF2196F3),
                 width = 10f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
@@ -617,11 +616,11 @@ private fun JourneyDetailsCard(
 }
 
 /**
- * Compact Vehicle Info Card
+ * Compact Vehicle Info Card - ✅ Updated to use FareDetails
  */
 @Composable
 private fun VehicleInfoCompactCard(
-    vehicle: VehicleTypeResponse,
+    fareDetails: FareDetails,
     modifier: Modifier = Modifier
 ) {
     InfoCard(modifier = modifier) {
@@ -631,18 +630,18 @@ private fun VehicleInfoCompactCard(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = vehicle.icon,
+                text = fareDetails.vehicleTypeIcon ?: "🚚",
                 style = MaterialTheme.typography.headlineMedium
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = vehicle.name,
+                text = fareDetails.vehicleTypeName ?: "Vehicle",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
             )
             Text(
-                text = vehicle.capacity,
+                text = fareDetails.capacity ?: "",
                 style = MaterialTheme.typography.labelSmall,
                 color = AppColors.TextSecondary
             )

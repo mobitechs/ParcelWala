@@ -1,21 +1,124 @@
 // data/mock/MockBookingData.kt
 package com.mobitechs.parcelwala.data.mock
 
-import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.response.*
-import java.util.*
-import kotlin.math.ceil
-import kotlin.math.roundToInt
+import kotlin.math.*
 
 /**
  * Mock Booking Data
- * Provides realistic test data for booking flow (Porter-style)
+ * Provides mock data for testing without backend dependency
  */
 object MockBookingData {
 
-    /**
-     * Mock Vehicle Types with realistic pricing
-     */
+    // ============================================================
+    // Calculate Fares for All Vehicles - Returns List<FareDetails>
+    // ============================================================
+
+    fun calculateFaresForAllVehicles(
+        pickupLat: Double,
+        pickupLng: Double,
+        dropLat: Double,
+        dropLng: Double
+    ): List<FareDetails> {
+        val distanceKm = calculateDistance(pickupLat, pickupLng, dropLat, dropLng)
+        val estimatedMinutes = ((distanceKm / 25.0) * 60).toInt().coerceIn(15, 180)
+
+        val vehicleConfigs = listOf(
+            VehicleConfig(1, "2 Wheeler", "🏍️", "Perfect for small packages", "Up to 10 kg", 50.0, 8.0, 2.0, 5.0),
+            VehicleConfig(4, "3 Wheeler", "🛺", "Ideal for medium loads", "Up to 100 kg", 80.0, 10.0, 2.0, 8.0),
+            VehicleConfig(8, "Hamal", "🚶", "Labor assistance for loading/unloading", "Manual labor", 150.0, 0.0, 0.0, 10.0),
+            VehicleConfig(5, "Tata Ace", "🚚", "Best for furniture & boxes", "Up to 750 kg", 200.0, 15.0, 3.0, 15.0),
+            VehicleConfig(6, "Pickup", "🚙", "Large item transportation", "Up to 1000 kg", 300.0, 18.0, 3.0, 20.0),
+            VehicleConfig(7, "Tempo", "🚛", "House shifting & bulk items", "Up to 2000 kg", 500.0, 25.0, 5.0, 30.0)
+        )
+
+        return vehicleConfigs.map { config ->
+            calculateVehicleFare(config, distanceKm, estimatedMinutes)
+        }
+    }
+
+    private fun calculateVehicleFare(
+        config: VehicleConfig,
+        distanceKm: Double,
+        estimatedMinutes: Int
+    ): FareDetails {
+        val chargeableDistance = maxOf(0.0, distanceKm - config.freeDistanceKm)
+        val distanceFare = chargeableDistance * config.perKmRate
+        val subTotal = config.baseFare + distanceFare + config.platformFee
+        val gstPercentage = 5.0
+        val gstAmount = subTotal * (gstPercentage / 100)
+        val totalFare = subTotal + gstAmount
+        val roundedFare = ((totalFare / 5).roundToInt() * 5)
+
+        val fareBreakdown = mutableListOf(
+            FareBreakdownItem("Base Fare (incl. ${config.freeDistanceKm.toInt()} km)", config.baseFare, "charge")
+        )
+
+        if (distanceFare > 0) {
+            fareBreakdown.add(
+                FareBreakdownItem("Distance Charges (${String.format("%.1f", chargeableDistance)} km)", distanceFare, "charge")
+            )
+        }
+
+        fareBreakdown.add(FareBreakdownItem("Platform Fee", config.platformFee, "charge"))
+        fareBreakdown.add(FareBreakdownItem("GST ($gstPercentage%)", gstAmount, "tax"))
+
+        return FareDetails(
+            vehicleTypeId = config.id,
+            vehicleTypeName = config.name,
+            vehicleTypeDescription = config.description,
+            vehicleTypeIcon = config.icon,
+            capacity = config.capacity,
+            baseFare = config.baseFare,
+            distanceKm = distanceKm,
+            freeDistanceKm = config.freeDistanceKm,
+            chargeableDistanceKm = chargeableDistance,
+            distanceFare = distanceFare,
+            loadingCharges = 0.0,
+            freeLoadingTimeMins = 25,
+            waitingCharges = 0.0,
+            tollCharges = 0.0,
+            platformFee = config.platformFee,
+            surgeMultiplier = 1.0,
+            surgeAmount = 0.0,
+            subTotal = subTotal,
+            gstPercentage = gstPercentage,
+            gstAmount = gstAmount,
+            discount = 0.0,
+            totalFare = totalFare,
+            roundedFare = roundedFare,
+            estimatedDurationMinutes = estimatedMinutes,
+            currency = "INR",
+            promoApplied = null,
+            fareBreakdown = fareBreakdown
+        )
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val earthRadius = 6371.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+        val c = 2 * asin(sqrt(a))
+        return (earthRadius * c * 1.2).coerceIn(1.0, 500.0)
+    }
+
+    private data class VehicleConfig(
+        val id: Int,
+        val name: String,
+        val icon: String,
+        val description: String,
+        val capacity: String,
+        val baseFare: Double,
+        val perKmRate: Double,
+        val freeDistanceKm: Double,
+        val platformFee: Double
+    )
+
+    // ============================================================
+    // Vehicle Types
+    // ============================================================
+
     fun getVehicleTypes(): List<VehicleTypeResponse> {
         return listOf(
             VehicleTypeResponse(
@@ -123,334 +226,88 @@ object MockBookingData {
         )
     }
 
-    /**
-     * Calculate Mock Fare - REALISTIC PORTER-STYLE CALCULATION
-     */
-    fun calculateFare(
-        vehicleTypeId: Int,
-        distanceKm: Double,
-        waitingTimeMins: Int = 0,
-        applyPromo: PromoInfo? = null,
-        isPeakHour: Boolean = false
-    ): FareDetails {
-        val vehicle = getVehicleTypes().find { it.vehicleTypeId == vehicleTypeId }
-            ?: getVehicleTypes().first()
+    // ============================================================
+    // Goods Types - FIXED: Matching actual GoodsTypeResponse model
+    // ============================================================
 
-        // 1. Base Fare (includes free distance)
-        val baseFare = vehicle.basePrice
-
-        // 2. Distance Calculation
-        val chargeableDistance = maxOf(0.0, distanceKm - vehicle.freeDistanceKm)
-        val distanceFare = (chargeableDistance * vehicle.pricePerKm).roundToInt()
-
-        // 3. Platform Fee
-        val platformFee = vehicle.platformFee
-
-        // 4. Waiting/Loading Charges
-        val extraWaitingTime = maxOf(0, waitingTimeMins - vehicle.freeWaitingTimeMins)
-        val waitingCharges = (extraWaitingTime * vehicle.waitingChargePerMin).roundToInt()
-
-        // 5. Toll Charges (mock - could be calculated based on route)
-        val tollCharges = if (distanceKm > 10) 40 else 0
-
-        // 6. Calculate Subtotal
-        var subTotal = baseFare + distanceFare + platformFee + waitingCharges + tollCharges
-
-        // 7. Surge Pricing (Peak Hours)
-        val surgeMultiplier = if (isPeakHour && vehicle.surgeEnabled) {
-            1.5 // 1.5x during peak hours
-        } else {
-            1.0
-        }
-        val surgeAmount = if (surgeMultiplier > 1.0) {
-            (subTotal * (surgeMultiplier - 1.0)).roundToInt()
-        } else {
-            0
-        }
-        subTotal += surgeAmount
-
-        // 8. Apply Minimum Fare
-        subTotal = maxOf(subTotal, vehicle.minFare)
-
-        // 9. GST Calculation (5%)
-        val gstPercentage = 5.0
-        val gstAmount = (subTotal * gstPercentage / 100).roundToInt()
-
-        // 10. Total before discount
-        var totalBeforeDiscount = subTotal + gstAmount
-
-        // 11. Apply Promo/Discount
-        val discount = applyPromo?.discountAmount ?: 0
-        val totalAfterDiscount = maxOf(0, totalBeforeDiscount - discount)
-
-        // 12. Round to nearest ₹5 (like Porter does)
-        val roundedFare = roundToNearest5(totalAfterDiscount)
-
-        // 13. Estimated Duration (3 mins per km + 5 mins buffer)
-        val estimatedDuration = (distanceKm * 3 + 5).roundToInt()
-
-        // 14. Build Fare Breakdown
-        val fareBreakdown = buildFareBreakdown(
-            baseFare = baseFare,
-            freeDistance = vehicle.freeDistanceKm,
-            chargeableDistance = chargeableDistance,
-            distanceFare = distanceFare,
-            platformFee = platformFee,
-            waitingCharges = waitingCharges,
-            tollCharges = tollCharges,
-            surgeAmount = surgeAmount,
-            gstAmount = gstAmount,
-            discount = discount
-        )
-
-        return FareDetails(
-            baseFare = baseFare,
-            distanceKm = distanceKm,
-            freeDistanceKm = vehicle.freeDistanceKm,
-            chargeableDistanceKm = chargeableDistance,
-            distanceFare = distanceFare,
-            loadingCharges = 0,
-            freeLoadingTimeMins = vehicle.freeWaitingTimeMins,
-            waitingCharges = waitingCharges,
-            tollCharges = tollCharges,
-            platformFee = platformFee,
-            surgeMultiplier = surgeMultiplier,
-            surgeAmount = surgeAmount,
-            subTotal = subTotal,
-            gstPercentage = gstPercentage,
-            gstAmount = gstAmount,
-            discount = discount,
-            totalFare = totalAfterDiscount,
-            roundedFare = roundedFare,
-            estimatedDurationMinutes = estimatedDuration,
-            currency = "INR",
-            promoApplied = applyPromo,
-            fareBreakdown = fareBreakdown
-        )
-    }
-
-    /**
-     * Build detailed fare breakdown for UI display
-     */
-    private fun buildFareBreakdown(
-        baseFare: Int,
-        freeDistance: Double,
-        chargeableDistance: Double,
-        distanceFare: Int,
-        platformFee: Int,
-        waitingCharges: Int,
-        tollCharges: Int,
-        surgeAmount: Int,
-        gstAmount: Int,
-        discount: Int
-    ): List<FareBreakdownItem> {
-        val breakdown = mutableListOf<FareBreakdownItem>()
-
-        // Base fare
-        breakdown.add(
-            FareBreakdownItem(
-                label = "Base Fare (incl. ${freeDistance}km)",
-                value = baseFare,
-                type = "charge"
-            )
-        )
-
-        // Distance charges
-        if (distanceFare > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Distance Charges (${String.format("%.1f", chargeableDistance)}km)",
-                    value = distanceFare,
-                    type = "charge"
-                )
-            )
-        }
-
-        // Platform fee
-        if (platformFee > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Platform Fee",
-                    value = platformFee,
-                    type = "charge"
-                )
-            )
-        }
-
-        // Waiting charges
-        if (waitingCharges > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Extra Loading/Unloading Time",
-                    value = waitingCharges,
-                    type = "charge"
-                )
-            )
-        }
-
-        // Toll charges
-        if (tollCharges > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Toll Charges",
-                    value = tollCharges,
-                    type = "charge"
-                )
-            )
-        }
-
-        // Surge pricing
-        if (surgeAmount > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Peak Hour Charge (1.5x)",
-                    value = surgeAmount,
-                    type = "charge"
-                )
-            )
-        }
-
-        // GST
-        breakdown.add(
-            FareBreakdownItem(
-                label = "GST (5%)",
-                value = gstAmount,
-                type = "tax"
-            )
-        )
-
-        // Discount
-        if (discount > 0) {
-            breakdown.add(
-                FareBreakdownItem(
-                    label = "Discount Applied",
-                    value = -discount,
-                    type = "discount"
-                )
-            )
-        }
-
-        return breakdown
-    }
-
-    /**
-     * Round to nearest ₹5 (Porter-style rounding)
-     */
-    private fun roundToNearest5(amount: Int): Int {
-        return (ceil(amount / 5.0) * 5).toInt()
-    }
-
-    /**
-     * Check if current time is peak hour (7-10 AM, 5-9 PM)
-     */
-    fun isPeakHour(): Boolean {
-        val calendar = Calendar.getInstance()
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        return hour in 7..9 || hour in 17..20
-    }
-
-    /**
-     * Mock Goods Types (same as before)
-     */
     fun getGoodsTypes(): List<GoodsTypeResponse> {
         return listOf(
             GoodsTypeResponse(
                 goodsTypeId = 1,
-                name = "Homemade / Prepared / Fresh Food",
-                icon = "🍲",
+                name = "Electronics",
+                icon = "📱",
                 defaultWeight = 5.0,
+                defaultPackages = 1,
+                defaultValue = 10000,
+                isActive = true
+            ),
+            GoodsTypeResponse(
+                goodsTypeId = 2,
+                name = "Furniture",
+                icon = "🪑",
+                defaultWeight = 50.0,
+                defaultPackages = 3,
+                defaultValue = 15000,
+                isActive = true
+            ),
+            GoodsTypeResponse(
+                goodsTypeId = 3,
+                name = "Documents",
+                icon = "📄",
+                defaultWeight = 2.0,
                 defaultPackages = 1,
                 defaultValue = 500,
                 isActive = true
             ),
             GoodsTypeResponse(
-                goodsTypeId = 2,
-                name = "Furnitures / Home Furnishings",
-                icon = "🛋️",
-                defaultWeight = 50.0,
-                defaultPackages = 1,
+                goodsTypeId = 4,
+                name = "Clothing",
+                icon = "👕",
+                defaultWeight = 10.0,
+                defaultPackages = 2,
                 defaultValue = 5000,
                 isActive = true
             ),
             GoodsTypeResponse(
-                goodsTypeId = 3,
-                name = "General Goods",
-                icon = "📦",
-                defaultWeight = 20.0,
-                defaultPackages = 1,
-                defaultValue = 1500,
-                isActive = true
-            ),
-            GoodsTypeResponse(
-                goodsTypeId = 4,
-                name = "Hardwares",
-                icon = "🔧",
+                goodsTypeId = 5,
+                name = "Food Items",
+                icon = "🍕",
                 defaultWeight = 15.0,
-                defaultPackages = 1,
+                defaultPackages = 2,
                 defaultValue = 2000,
                 isActive = true
             ),
             GoodsTypeResponse(
-                goodsTypeId = 5,
-                name = "House Shifting / Packers and Movers",
-                icon = "🏠",
-                defaultWeight = 100.0,
-                defaultPackages = 10,
-                defaultValue = 10000,
-                isActive = true
-            ),
-            GoodsTypeResponse(
                 goodsTypeId = 6,
-                name = "Logistics Service Providers",
-                icon = "🚚",
-                defaultWeight = 75.0,
-                defaultPackages = 5,
-                defaultValue = 7500,
-                isActive = true
-            ),
-            GoodsTypeResponse(
-                goodsTypeId = 7,
-                name = "Machines / Equipments / Spare Parts",
-                icon = "⚙️",
-                defaultWeight = 30.0,
+                name = "Others",
+                icon = "📦",
+                defaultWeight = 10.0,
                 defaultPackages = 1,
-                defaultValue = 3000,
+                defaultValue = 5000,
                 isActive = true
             )
         )
     }
 
-    /**
-     * Mock Restricted Items (same as before)
-     */
+    // ============================================================
+    // Restricted Items
+    // ============================================================
+
     fun getRestrictedItems(): List<RestrictedItemResponse> {
         return listOf(
-            RestrictedItemResponse(1, "Pornographic Materials", "Adult content", "Illegal"),
-            RestrictedItemResponse(2, "Dry Ice", "Hazardous material", "Dangerous"),
-            RestrictedItemResponse(3, "Human Body Parts", "Medical waste", "Illegal"),
-            RestrictedItemResponse(4, "Explosives", "Bombs, fireworks", "Dangerous"),
-            RestrictedItemResponse(5, "Fire Arms", "Guns, weapons", "Illegal"),
-            RestrictedItemResponse(6, "Flammables", "Petrol, gas", "Dangerous"),
-            RestrictedItemResponse(7, "Livestock", "Live animals", "Prohibited"),
-            RestrictedItemResponse(8, "Pets & Animals", "Dogs, cats", "Prohibited"),
-            RestrictedItemResponse(9, "Dangerous Goods", "Chemicals", "Dangerous"),
-            RestrictedItemResponse(10, "Hazardous Goods", "Toxic materials", "Dangerous"),
-            RestrictedItemResponse(11, "Illegal Goods", "Contraband", "Illegal"),
-            RestrictedItemResponse(12, "Radioactive Materials", "Nuclear", "Dangerous"),
-            RestrictedItemResponse(13, "Precious Jewelleries", "High value items", "Restricted"),
-            RestrictedItemResponse(14, "Currencies & Coins", "Cash, gold", "Restricted"),
-            RestrictedItemResponse(15, "Stones and Gems", "Diamonds", "Restricted"),
-            RestrictedItemResponse(16, "Gambling Devices", "Slot machines", "Illegal"),
-            RestrictedItemResponse(17, "Lottery Tickets", "Gambling", "Illegal"),
-            RestrictedItemResponse(18, "Fire Extinguishers", "Pressurized", "Dangerous"),
-            RestrictedItemResponse(19, "Cigarettes & Alcohols", "Tobacco, liquor", "Restricted"),
-            RestrictedItemResponse(20, "Narcotics and Illegal Drugs", "Drugs", "Illegal")
+            RestrictedItemResponse(1, "Illegal Substances", "🚫", "Drugs, narcotics, and illegal items"),
+            RestrictedItemResponse(2, "Weapons", "🔫", "Firearms, explosives, ammunition"),
+            RestrictedItemResponse(3, "Hazardous Materials", "☢️", "Flammable, toxic, or radioactive materials"),
+            RestrictedItemResponse(4, "Live Animals", "🐕", "Pets and livestock"),
+            RestrictedItemResponse(5, "Perishables", "🥩", "Items requiring refrigeration"),
+            RestrictedItemResponse(6, "Cash & Jewelry", "💎", "Large amounts of cash or valuables")
         )
     }
 
-    /**
-     * Mock Coupons (same as before)
-     */
+    // ============================================================
+    // Coupons
+    // ============================================================
+
     fun getAvailableCoupons(): List<CouponResponse> {
         return listOf(
             CouponResponse(
@@ -501,81 +358,66 @@ object MockBookingData {
         )
     }
 
-    /**
-     * Mock Saved Addresses (same as before)
-     */
-    fun getSavedAddresses(): List<SavedAddress> {
-        return listOf(
-            SavedAddress(
-                addressId = "1",
-                label = "Home",
-                addressType = "Home",
-                landmark = "Near City Park",
-                address = "Shop - Narayan Smruti, Star Colony, Gandhinagar, Kalyan",
-                latitude = 19.0760,
-                longitude = 72.8777,
-                contactName = "Pratik Sonawane",
-                contactPhone = "8655883062",
-                isDefault = true
-            ),
-            SavedAddress(
-                addressId = "2",
-                label = "Office",
-                addressType = "Office",
-                landmark = "Near Market",
-                address = "Amit Garments, Ramayan Nagar, Ulhasnagar",
-                latitude = 19.2183,
-                longitude = 73.1318,
-                contactName = "Warma",
-                contactPhone = "9284669692",
-                isDefault = false
-            )
+    fun validateCoupon(code: String, orderValue: Int): CouponResponse? {
+        val coupon = getAvailableCoupons().find { it.code.equals(code, ignoreCase = true) && it.isActive }
+        return if (coupon != null && orderValue >= coupon.minOrderValue) coupon else null
+    }
+
+    // ============================================================
+    // Legacy: Calculate fare for single vehicle
+    // ============================================================
+
+    fun calculateFare(vehicleTypeId: Int, distanceKm: Double): FareDetails {
+        val vehicle = getVehicleTypes().find { it.vehicleTypeId == vehicleTypeId } ?: getVehicleTypes().first()
+        val baseFare = vehicle.basePrice.toDouble()
+        val freeDistanceKm = 2.0
+        val chargeableDistance = maxOf(0.0, distanceKm - freeDistanceKm)
+        val distanceFare = chargeableDistance * vehicle.pricePerKm
+        val platformFee = 10.0
+        val subTotal = baseFare + distanceFare + platformFee
+        val gstPercentage = 5.0
+        val gstAmount = subTotal * (gstPercentage / 100)
+        val totalFare = subTotal + gstAmount
+        val roundedFare = ((totalFare / 5).roundToInt() * 5)
+        val estimatedMinutes = ((distanceKm / 25.0) * 60).toInt().coerceIn(15, 180)
+
+        return FareDetails(
+            vehicleTypeId = vehicle.vehicleTypeId,
+            vehicleTypeName = vehicle.name,
+            vehicleTypeDescription = vehicle.description,
+            vehicleTypeIcon = vehicle.icon,
+            capacity = vehicle.capacity,
+            baseFare = baseFare,
+            distanceKm = distanceKm,
+            freeDistanceKm = freeDistanceKm,
+            chargeableDistanceKm = chargeableDistance,
+            distanceFare = distanceFare,
+            platformFee = platformFee,
+            subTotal = subTotal,
+            gstPercentage = gstPercentage,
+            gstAmount = gstAmount,
+            totalFare = totalFare,
+            roundedFare = roundedFare,
+            estimatedDurationMinutes = estimatedMinutes
         )
     }
 
-    /**
-     * Create Mock Booking
-     */
-    fun createBooking(
-        vehicleTypeId: Int,
-        pickupAddress: String,
-        dropAddress: String
-    ): BookingResponse {
-        val bookingId = (100000..999999).random()
-        val fareDetails = calculateFare(vehicleTypeId, 8.5, isPeakHour = isPeakHour())
+    // ============================================================
+    // Booking Operations
+    // ============================================================
 
+    fun createBooking(vehicleTypeId: Int, pickupAddress: String, dropAddress: String): BookingResponse {
+        val vehicle = getVehicleTypes().find { it.vehicleTypeId == vehicleTypeId }
         return BookingResponse(
-            bookingId = bookingId,
-            bookingNumber = "CRN$bookingId",
-            vehicleType = getVehicleTypes().find { it.vehicleTypeId == vehicleTypeId }?.name ?: "2 Wheeler",
+            bookingId = (10000..99999).random(),
+            bookingNumber = "PW${System.currentTimeMillis().toString().takeLast(8)}",
+            vehicleType = vehicle?.name ?: "Vehicle",
             pickupAddress = pickupAddress,
             dropAddress = dropAddress,
-            status = "searching",
-            fare = fareDetails.roundedFare,
-            distance = 8.5,
-            createdAt = System.currentTimeMillis().toString(),
-            driverName = null,
-            driverPhone = null,
-            vehicleNumber = null
+            status = "pending",
+            fare = 500,
+            distance = 10.0,
+            createdAt = System.currentTimeMillis().toString()
         )
-    }
-
-    /**
-     * Validate Mock Coupon
-     */
-    fun validateCoupon(code: String, orderValue: Int): CouponResponse? {
-        val coupon = getAvailableCoupons().find {
-            it.code.equals(code, ignoreCase = true) && it.isActive
-        } ?: return null
-
-        if (orderValue < coupon.minOrderValue) {
-            throw Exception("Minimum order value is ₹${coupon.minOrderValue}")
-        }
-
-        if (coupon.usageLimit != null && coupon.userUsageCount >= coupon.usageLimit) {
-            throw Exception("Coupon usage limit exceeded")
-        }
-
-        return coupon
     }
 }

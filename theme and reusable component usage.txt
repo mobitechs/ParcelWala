@@ -1,0 +1,1186 @@
+# 🎨 Parcel Wala - Component & Theme Usage Guide
+
+**Complete Reference for Consistent UI Development**
+
+---
+
+## 📚 Table of Contents
+
+1. [Theme System](#theme-system)
+2. [Color Usage](#color-usage)
+3. [Typography](#typography)
+4. [Common Components](#common-components)
+5. [Input Components](#input-components)
+6. [Location Components](#location-components)
+7. [Vehicle Components](#vehicle-components)
+8. [Screen Patterns](#screen-patterns)
+9. [Best Practices](#best-practices)
+10. [Common Mistakes](#common-mistakes)
+
+---
+
+## 🎨 Theme System
+
+### Importing Theme
+```kotlin
+import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.theme.ParcelWalaTheme
+```
+
+### Wrapping Your App
+```kotlin
+@Composable
+fun MyApp() {
+    ParcelWalaTheme {
+        // Your app content
+    }
+}
+```
+
+---
+
+## 🌈 Color Usage
+
+### Available Colors
+```kotlin
+// Primary Colors
+AppColors.Primary          // Orange #FF6B35 - Main brand color
+AppColors.PrimaryDark      // Orange #FF5722 - Darker variant
+AppColors.PrimaryLight     // Orange #FFE0B2 - Light variant
+
+// Status Colors
+AppColors.Pickup          // Green #4CAF50 - Pickup locations
+AppColors.Drop            // Red #F44336 - Drop locations
+
+// Text Colors
+AppColors.TextPrimary     // Dark Gray #212121 - Main text
+AppColors.TextSecondary   // Medium Gray #757575 - Secondary text
+AppColors.TextHint        // Light Gray #BDBDBD - Hints, placeholders
+
+// Background Colors
+AppColors.Background      // Light Gray #FAFAFA - Screen background
+AppColors.Surface         // White #FFFFFF - Card, surface background
+
+// Borders & Dividers
+AppColors.Border          // Gray #E0E0E0 - Input borders
+AppColors.Divider         // Gray #EEEEEE - Dividers
+```
+
+### Usage Examples
+```kotlin
+// ✅ CORRECT - Using AppColors
+Text(
+    text = "Hello",
+    color = AppColors.TextPrimary
+)
+
+Card(
+    colors = CardDefaults.cardColors(
+        containerColor = AppColors.Surface
+    )
+) { }
+
+Button(
+    colors = ButtonDefaults.buttonColors(
+        containerColor = AppColors.Primary
+    )
+) { }
+
+// ❌ WRONG - Hardcoded colors
+Text(
+    text = "Hello",
+    color = Color(0xFF212121) // Don't do this!
+)
+
+Button(
+    colors = ButtonDefaults.buttonColors(
+        containerColor = Color(0xFFFF6B35) // Don't do this!
+    )
+) { }
+```
+
+---
+
+## 📝 Typography
+
+### Available Styles
+```kotlin
+// Display (Large titles)
+MaterialTheme.typography.displayLarge    // 32sp, Bold
+MaterialTheme.typography.displayMedium   // 28sp, Bold
+
+// Headlines (Section titles)
+MaterialTheme.typography.headlineLarge   // 24sp, Bold
+MaterialTheme.typography.headlineMedium  // 20sp, SemiBold
+
+// Titles (Card/Component titles)
+MaterialTheme.typography.titleLarge      // 18sp, SemiBold
+MaterialTheme.typography.titleMedium     // 16sp, Medium
+MaterialTheme.typography.titleSmall      // 14sp, Medium
+
+// Body (Regular text)
+MaterialTheme.typography.bodyLarge       // 16sp, Normal
+MaterialTheme.typography.bodyMedium      // 14sp, Normal
+MaterialTheme.typography.bodySmall       // 12sp, Normal
+
+// Labels (Small text, buttons)
+MaterialTheme.typography.labelLarge      // 14sp, Medium
+MaterialTheme.typography.labelMedium     // 12sp, Medium
+MaterialTheme.typography.labelSmall      // 10sp, Medium
+```
+
+### Usage Examples
+```kotlin
+// Screen Title
+Text(
+    text = "Confirm Booking",
+    style = MaterialTheme.typography.titleLarge,
+    fontWeight = FontWeight.Bold,
+    color = AppColors.TextPrimary
+)
+
+// Section Header
+Text(
+    text = "Saved Addresses",
+    style = MaterialTheme.typography.titleMedium,
+    fontWeight = FontWeight.SemiBold,
+    color = AppColors.TextPrimary
+)
+
+// Body Text
+Text(
+    text = "123 Main Street, Mumbai",
+    style = MaterialTheme.typography.bodyMedium,
+    color = AppColors.TextSecondary
+)
+
+// Small Label
+Text(
+    text = "Optional",
+    style = MaterialTheme.typography.labelSmall,
+    color = AppColors.TextHint
+)
+```
+
+---
+
+## 🧩 Common Components
+
+### 1. PrimaryButton
+
+**Orange button for main actions**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
+
+PrimaryButton(
+    text = "Confirm Booking",
+    onClick = { /* Handle click */ },
+    modifier = Modifier.fillMaxWidth(),
+    icon = Icons.Default.Check,        // Optional
+    enabled = true,                     // Optional
+    isLoading = false                   // Optional - shows spinner
+)
+```
+
+**Use Cases:**
+- Submit forms
+- Confirm actions
+- Primary CTAs
+- Navigation to next step
+
+---
+
+### 2. SecondaryButton
+
+**Outlined button for secondary actions**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.SecondaryButton
+
+SecondaryButton(
+    text = "Edit Location",
+    onClick = { /* Handle click */ },
+    modifier = Modifier.fillMaxWidth(),
+    icon = Icons.Default.Edit,          // Optional
+    enabled = true                       // Optional
+)
+```
+
+**Use Cases:**
+- Cancel actions
+- Alternative options
+- Edit functions
+- Less important actions
+
+---
+
+### 3. IconButtonWithBackground
+
+**Circular icon button with colored background**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.IconButtonWithBackground
+
+IconButtonWithBackground(
+    icon = Icons.Default.MyLocation,
+    contentDescription = "Current location",
+    onClick = { /* Handle click */ },
+    modifier = Modifier,
+    backgroundColor = AppColors.Primary.copy(alpha = 0.1f), // Optional
+    iconTint = AppColors.Primary,                            // Optional
+    size = 48.dp                                             // Optional
+)
+```
+
+**Use Cases:**
+- Floating action buttons
+- Quick actions
+- Icon-only buttons
+- Profile pictures
+
+---
+
+### 4. SectionHeader
+
+**Consistent section titles with optional subtitle**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.SectionHeader
+
+SectionHeader(
+    text = "Sender Details",
+    subtitle = "Enter sender information",  // Optional
+    modifier = Modifier.padding(16.dp)
+)
+```
+
+**Use Cases:**
+- Section dividers
+- Form sections
+- List categories
+
+---
+
+### 5. InfoCard
+
+**White card with rounded corners for content grouping**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.InfoCard
+
+InfoCard(
+    modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
+    elevation = 2.dp  // Optional, default 2.dp
+) {
+    // Your content here
+    Text("Card Content")
+}
+```
+
+**Use Cases:**
+- Group related information
+- Display address details
+- Profile information
+- Any grouped content
+
+---
+
+### 6. LabeledIcon
+
+**Small icon with text label**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.LabeledIcon
+
+LabeledIcon(
+    icon = Icons.Default.Person,
+    text = "John Doe",
+    modifier = Modifier,
+    iconTint = AppColors.TextSecondary,    // Optional
+    textColor = AppColors.TextSecondary     // Optional
+)
+```
+
+**Use Cases:**
+- Contact information
+- Status indicators
+- Metadata display
+
+---
+
+### 7. StatusBadge
+
+**Colored badge for status display**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.StatusBadge
+
+StatusBadge(
+    text = "Completed",
+    backgroundColor = AppColors.Pickup,
+    textColor = Color.White,
+    modifier = Modifier
+)
+```
+
+**Use Cases:**
+- Order status
+- Payment status
+- Category tags
+
+---
+
+### 8. EmptyState
+
+**Full empty state with icon, title, and action**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.EmptyState
+
+EmptyState(
+    icon = Icons.Default.Inbox,
+    title = "No bookings yet",
+    subtitle = "Your bookings will appear here",  // Optional
+    actionText = "Book Now",                      // Optional
+    onAction = { /* Navigate */ },                // Optional
+    modifier = Modifier.padding(32.dp)
+)
+```
+
+**Use Cases:**
+- Empty lists
+- No results found
+- Initial states
+
+---
+
+### 9. LoadingIndicator
+
+**Centered loading spinner with message**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.LoadingIndicator
+
+LoadingIndicator(
+    message = "Loading bookings...",
+    modifier = Modifier.padding(32.dp)
+)
+```
+
+**Use Cases:**
+- API calls in progress
+- Data loading
+- Processing states
+
+---
+
+### 10. ErrorMessageCard
+
+**Error display with retry option**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.ErrorMessageCard
+
+ErrorMessageCard(
+    message = "Failed to load data",
+    onRetry = { /* Retry action */ },  // Optional
+    modifier = Modifier.padding(16.dp)
+)
+```
+
+**Use Cases:**
+- API errors
+- Validation errors
+- Network failures
+
+---
+
+## 📥 Input Components
+
+### 1. AppTextField
+
+**Standard text input with validation**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.AppTextField
+
+var text by remember { mutableStateOf("") }
+
+AppTextField(
+    value = text,
+    onValueChange = { text = it },
+    label = "Full Name",
+    placeholder = "Enter your name",
+    leadingIcon = Icons.Default.Person,              // Optional
+    trailingIcon = Icons.Default.Clear,              // Optional
+    onTrailingIconClick = { text = "" },             // Optional
+    keyboardOptions = KeyboardOptions.Default,
+    keyboardActions = KeyboardActions.Default,
+    isError = false,                                  // Optional
+    errorMessage = "",                                // Optional
+    enabled = true,                                   // Optional
+    singleLine = true,                                // Optional
+    maxLines = 1,                                     // Optional
+    maxLength = 50,                                   // Optional
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+---
+
+### 2. PhoneNumberField
+
+**Pre-configured phone input**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.PhoneNumberField
+
+var phone by remember { mutableStateOf("") }
+
+PhoneNumberField(
+    value = phone,
+    onValueChange = { phone = it },
+    label = "Mobile Number",                  // Optional
+    modifier = Modifier.fillMaxWidth(),
+    isError = phone.length != 10,
+    errorMessage = "Enter 10 digits",
+    keyboardActions = KeyboardActions(
+        onDone = { /* Submit */ }
+    )
+)
+```
+
+**Features:**
+- Auto-limits to 10 digits
+- Number-only keyboard
+- Built-in phone icon
+
+---
+
+### 3. NameInputField
+
+**Pre-configured name input**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.NameInputField
+
+var name by remember { mutableStateOf("") }
+
+NameInputField(
+    value = name,
+    onValueChange = { name = it },
+    label = "Full Name",                      // Optional
+    modifier = Modifier.fillMaxWidth(),
+    isError = name.length < 3,
+    errorMessage = "Name too short",
+    keyboardActions = KeyboardActions(
+        onNext = { /* Move to next */ }
+    )
+)
+```
+
+---
+
+### 4. AddressInputField
+
+**Pre-configured address input**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.AddressInputField
+
+var address by remember { mutableStateOf("") }
+
+AddressInputField(
+    value = address,
+    onValueChange = { address = it },
+    label = "House/Flat No.",                 // Optional
+    modifier = Modifier.fillMaxWidth(),
+    isRequired = false,                        // Optional
+    keyboardActions = KeyboardActions(
+        onNext = { /* Move to next */ }
+    )
+)
+```
+
+---
+
+### 5. SearchField
+
+**Search input with clear button**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.SearchField
+
+var query by remember { mutableStateOf("") }
+
+SearchField(
+    value = query,
+    onValueChange = { query = it },
+    placeholder = "Search locations",
+    modifier = Modifier.fillMaxWidth(),
+    onClear = { query = "" }
+)
+```
+
+---
+
+## 📍 Location Components
+
+### 1. MapPreview
+
+**Map with location pin and edit button**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.MapPreview
+
+MapPreview(
+    location = LatLng(19.0760, 72.8777),
+    locationName = "Mumbai",
+    onEdit = { /* Navigate to map */ },
+    modifier = Modifier.fillMaxWidth(),
+    height = 200.dp                          // Optional
+)
+```
+
+---
+
+### 2. LocationSummaryCard
+
+**Display selected address in card**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.LocationSummaryCard
+
+LocationSummaryCard(
+    address = savedAddress,
+    locationType = "pickup",  // or "drop"
+    modifier = Modifier.padding(16.dp)
+)
+```
+
+---
+
+### 3. LocationTypeIcon
+
+**Colored icon based on location type**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.LocationTypeIcon
+
+LocationTypeIcon(
+    locationType = "pickup",  // "pickup" or "drop"
+    modifier = Modifier,
+    size = 40.dp
+)
+```
+
+**Colors:**
+- `"pickup"` = Green
+- `"drop"` = Red
+
+---
+
+### 4. LocationDetailItem
+
+**Full location detail with contact info**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.LocationDetailItem
+
+LocationDetailItem(
+    address = savedAddress,
+    type = "Pickup",
+    color = AppColors.Pickup,
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+---
+
+### 5. JourneyConnector
+
+**Dotted line between pickup and drop**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.JourneyConnector
+
+JourneyConnector(
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+---
+
+### 6. SaveAsSelector
+
+**Home/Shop/Other selector**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.SaveAsSelector
+
+var selectedType by remember { mutableStateOf("Home") }
+
+SaveAsSelector(
+    selected = selectedType,
+    onSelected = { selectedType = it },
+    modifier = Modifier.fillMaxWidth(),
+    options = listOf("Home", "Shop", "Other")  // Optional
+)
+```
+
+---
+
+## 🚗 Vehicle Components
+
+### VehicleSelectionCard
+
+**Vehicle option with selection**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.VehicleSelectionCard
+import com.mobitechs.parcelwala.ui.components.VehicleType
+
+val vehicle = VehicleType(
+    id = "bike",
+    name = "Bike",
+    icon = "🏍️",
+    description = "Small packages",
+    capacity = "Up to 10 kg",
+    price = 50
+)
+
+var selected by remember { mutableStateOf<VehicleType?>(null) }
+
+VehicleSelectionCard(
+    vehicle = vehicle,
+    isSelected = selected == vehicle,
+    onSelect = { selected = vehicle },
+    modifier = Modifier.padding(16.dp)
+)
+```
+
+### Available Vehicles List
+```kotlin
+import com.mobitechs.parcelwala.ui.components.availableVehicles
+
+// Use predefined vehicle list
+LazyColumn {
+    items(availableVehicles) { vehicle ->
+        VehicleSelectionCard(
+            vehicle = vehicle,
+            isSelected = selected == vehicle,
+            onSelect = { selected = vehicle }
+        )
+    }
+}
+```
+
+---
+
+## 📱 Screen Patterns
+
+### Pattern 1: Form Screen
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyFormScreen(
+    onSubmit: () -> Unit,
+    onBack: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+
+    val focusManager = LocalFocusManager.current
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Form Title",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        },
+        containerColor = AppColors.Background
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Scrollable Content
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+            ) {
+                SectionHeader(text = "Personal Information")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                NameInputField(
+                    value = name,
+                    onValueChange = { name = it },
+                    isError = showError && name.isBlank(),
+                    errorMessage = "Name is required",
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                PhoneNumberField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    isError = showError && phone.length != 10,
+                    errorMessage = "Enter valid phone",
+                    keyboardActions = KeyboardActions(
+                        onDone = { focusManager.clearFocus() }
+                    )
+                )
+            }
+
+            // Bottom Button
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                PrimaryButton(
+                    text = "Submit",
+                    onClick = {
+                        if (name.isBlank() || phone.length != 10) {
+                            showError = true
+                        } else {
+                            onSubmit()
+                        }
+                    },
+                    icon = Icons.Default.Check,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                )
+            }
+        }
+    }
+}
+```
+
+---
+
+### Pattern 2: List Screen
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyListScreen(
+    items: List<MyItem>,
+    isLoading: Boolean,
+    onItemClick: (MyItem) -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "My List",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        },
+        containerColor = AppColors.Background
+    ) { paddingValues ->
+        when {
+            isLoading -> {
+                LoadingIndicator(
+                    message = "Loading items...",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                )
+            }
+            items.isEmpty() -> {
+                EmptyState(
+                    icon = Icons.Default.Inbox,
+                    title = "No items found",
+                    subtitle = "Items will appear here",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(32.dp)
+                )
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(items) { item ->
+                        InfoCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onItemClick(item) }
+                        ) {
+                            // Item content
+                            Text(item.title)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+### Pattern 3: Detail Screen
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyDetailScreen(
+    item: MyItem?,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onBack: () -> Unit
+) {
+    if (item == null) {
+        EmptyState(
+            icon = Icons.Default.Warning,
+            title = "Item not found",
+            actionText = "Go Back",
+            onAction = onBack
+        )
+        return
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Details",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = AppColors.Primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
+            )
+        },
+        containerColor = AppColors.Background
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Content Cards
+            InfoCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                SectionHeader(text = "Information")
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(item.description)
+            }
+
+            // Action Buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SecondaryButton(
+                    text = "Delete",
+                    onClick = onDelete,
+                    icon = Icons.Default.Delete,
+                    modifier = Modifier.weight(1f)
+                )
+                PrimaryButton(
+                    text = "Edit",
+                    onClick = onEdit,
+                    icon = Icons.Default.Edit,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+```
+
+---
+
+## ✅ Best Practices
+
+### 1. Always Use Theme Colors
+```kotlin
+// ✅ GOOD
+Text(color = AppColors.TextPrimary)
+
+// ❌ BAD
+Text(color = Color(0xFF000000))
+```
+
+### 2. Use Material Typography
+```kotlin
+// ✅ GOOD
+Text(style = MaterialTheme.typography.bodyMedium)
+
+// ❌ BAD
+Text(fontSize = 14.sp)
+```
+
+### 3. Consistent Spacing
+```kotlin
+// Use multiples of 4dp or 8dp
+Spacer(modifier = Modifier.height(16.dp))  // ✅
+Spacer(modifier = Modifier.height(15.dp))  // ❌
+
+// Standard paddings
+.padding(16.dp)    // Cards, Screens
+.padding(8.dp)     // Small spacing
+.padding(4.dp)     // Minimal spacing
+```
+
+### 4. Reuse Components
+```kotlin
+// ✅ GOOD - Reuse PrimaryButton
+PrimaryButton(
+    text = "Submit",
+    onClick = { },
+    icon = Icons.Default.Check
+)
+
+// ❌ BAD - Create custom button
+Button(
+    onClick = { },
+    colors = ButtonDefaults.buttonColors(
+        containerColor = Color(0xFFFF6B35)
+    ),
+    shape = RoundedCornerShape(16.dp)
+) {
+    Icon(Icons.Default.Check, null)
+    Text("Submit")
+}
+```
+
+### 5. Consistent Corner Radius
+```kotlin
+// Standard radius
+RoundedCornerShape(16.dp)  // Cards
+RoundedCornerShape(12.dp)  // Buttons, Inputs
+RoundedCornerShape(8.dp)   // Small elements
+```
+
+### 6. Error Handling
+```kotlin
+// Always handle states
+when {
+    isLoading -> LoadingIndicator()
+    error != null -> ErrorMessageCard(error)
+    items.isEmpty() -> EmptyState()
+    else -> ContentList()
+}
+```
+
+---
+
+## ❌ Common Mistakes
+
+### Mistake 1: Hardcoding Colors
+```kotlin
+// ❌ WRONG
+Card(colors = CardDefaults.cardColors(
+    containerColor = Color(0xFFFFFFFF)
+))
+
+// ✅ CORRECT
+Card(colors = CardDefaults.cardColors(
+    containerColor = AppColors.Surface
+))
+```
+
+### Mistake 2: Inconsistent Spacing
+```kotlin
+// ❌ WRONG
+Spacer(modifier = Modifier.height(13.dp))
+Spacer(modifier = Modifier.height(7.dp))
+
+// ✅ CORRECT
+Spacer(modifier = Modifier.height(16.dp))
+Spacer(modifier = Modifier.height(8.dp))
+```
+
+### Mistake 3: Not Using Components
+```kotlin
+// ❌ WRONG
+Button(
+    onClick = { },
+    modifier = Modifier.fillMaxWidth().height(56.dp),
+    colors = ButtonDefaults.buttonColors(
+        containerColor = AppColors.Primary
+    ),
+    shape = RoundedCornerShape(16.dp)
+) {
+    Text("Submit")
+}
+
+// ✅ CORRECT
+PrimaryButton(
+    text = "Submit",
+    onClick = { },
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+### Mistake 4: Forgetting Error States
+```kotlin
+// ❌ WRONG
+AppTextField(
+    value = text,
+    onValueChange = { text = it },
+    label = "Name"
+)
+
+// ✅ CORRECT
+AppTextField(
+    value = text,
+    onValueChange = { text = it },
+    label = "Name",
+    isError = text.isBlank() && showError,
+    errorMessage = "Name is required"
+)
+```
+
+### Mistake 5: Ignoring Loading States
+```kotlin
+// ❌ WRONG
+Button(onClick = { submit() }) {
+    Text("Submit")
+}
+
+// ✅ CORRECT
+PrimaryButton(
+    text = "Submit",
+    onClick = { submit() },
+    isLoading = isSubmitting,
+    enabled = !isSubmitting
+)
+```
+
+---
+
+## 🎯 Quick Reference Cheat Sheet
+
+### Most Common Components
+```kotlin
+// Buttons
+PrimaryButton(text, onClick, icon, modifier)
+SecondaryButton(text, onClick, icon, modifier)
+
+// Inputs
+AppTextField(value, onValueChange, label, ...)
+PhoneNumberField(value, onValueChange, ...)
+NameInputField(value, onValueChange, ...)
+
+// Layout
+InfoCard(modifier) { content }
+SectionHeader(text, subtitle)
+
+// Status
+LoadingIndicator(message)
+ErrorMessageCard(message, onRetry)
+EmptyState(icon, title, subtitle, actionText, onAction)
+
+// Location
+LocationSummaryCard(address, locationType)
+MapPreview(location, locationName, onEdit)
+SaveAsSelector(selected, onSelected)
+
+// Vehicle
+VehicleSelectionCard(vehicle, isSelected, onSelect)
+```
+
+### Standard Screen Structure
+```kotlin
+Scaffold(
+    topBar = { /* TopAppBar */ },
+    containerColor = AppColors.Background
+) { paddingValues ->
+    Column(modifier = Modifier.padding(paddingValues)) {
+        // Scrollable content
+        Column(modifier = Modifier.weight(1f).verticalScroll()) {
+            // Content here
+        }
+        
+        // Fixed bottom button
+        Surface(shadowElevation = 8.dp) {
+            PrimaryButton(...)
+        }
+    }
+}
+```
+
+---
+
+## 📞 Support
+
+For questions or issues with components:
+1. Check this guide first
+2. Review component source code
+3. Check existing screens for examples
+4. Ask team lead
+
+---
+
+## 🔄 Updates
+
+**Version 1.0** - Initial component library
+- Common components
+- Input components  
+- Location components
+- Vehicle components
+- Theme system
+
+---
+
+**Last Updated:** November 2024  
+**Maintained By:** Development Team

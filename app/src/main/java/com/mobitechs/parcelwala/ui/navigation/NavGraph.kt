@@ -656,31 +656,30 @@ fun NavGraph(
                     dropAddress = uiState.dropAddress,
                     preSelectedVehicleId = uiState.preferredVehicleTypeId,
                     isPrefilledFromOrder = uiState.isBookAgain,
-                    onVehicleSelected = { vehicle ->
-                        viewModel.setSelectedVehicle(vehicle)
+                    onVehicleSelected = { fareDetails ->  // ✅ Changed: Now receives FareDetails
+                        viewModel.selectFareDetails(fareDetails)  // ✅ Changed: Use new method
                         navController.navigate("review_booking")
                     },
                     // ✅ Edit (✏️): Go to address_confirm to edit details (name, phone, flat, etc.)
                     onEditPickup = {
-                        viewModel.clearPendingAddress() // Clear any stale pending address
+                        viewModel.clearPendingAddress()
                         navController.navigate("address_confirm/pickup?isEdit=true")
                     },
                     onEditDrop = {
-                        viewModel.clearPendingAddress() // Clear any stale pending address
+                        viewModel.clearPendingAddress()
                         navController.navigate("address_confirm/drop?isEdit=true")
                     },
                     // ✅ Change (📍): Go to location_search to change location
                     onChangePickup = {
-                        viewModel.clearPendingAddress() // Clear before new selection
+                        viewModel.clearPendingAddress()
                         navController.navigate("location_search/pickup?isChange=true")
                     },
                     onChangeDrop = {
-                        viewModel.clearPendingAddress() // Clear before new selection
+                        viewModel.clearPendingAddress()
                         navController.navigate("location_search/drop?isChange=true")
                     },
                     onBack = {
                         if (uiState.isBookAgain) {
-                            // Book Again flow: go back to main screen
                             navController.navigate(Screen.Main.route) {
                                 popUpTo("booking_flow") { inclusive = true }
                             }
@@ -701,14 +700,10 @@ fun NavGraph(
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-                val vehicleTypes by viewModel.vehicleTypes.collectAsState()
+                val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()  // ✅ Changed: Use FareDetails
 
                 var showGoodsTypeSheet by remember { mutableStateOf(false) }
                 var showRestrictedItemsSheet by remember { mutableStateOf(false) }
-
-                val selectedVehicle = uiState.selectedVehicleId?.let { id ->
-                    vehicleTypes.find { it.vehicleTypeId == id }
-                }
 
                 LaunchedEffect(Unit) {
                     viewModel.navigationEvent.collect { event ->
@@ -727,13 +722,14 @@ fun NavGraph(
                     }
                 }
 
-                if (uiState.pickupAddress == null || uiState.dropAddress == null || selectedVehicle == null) {
+                // ✅ Changed: Check for selectedFareDetails instead of selectedVehicle
+                if (uiState.pickupAddress == null || uiState.dropAddress == null || selectedFareDetails == null) {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
                     }
                 } else {
                     ReviewBookingScreen(
-                        selectedVehicle = selectedVehicle,
+                        selectedFareDetails = selectedFareDetails!!,  // ✅ Changed: Pass FareDetails
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         onConfirmBooking = { viewModel.confirmBooking() },
@@ -816,11 +812,7 @@ fun NavGraph(
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-                val vehicleTypes by viewModel.vehicleTypes.collectAsState()
-
-                val selectedVehicle = uiState.selectedVehicleId?.let { id ->
-                    vehicleTypes.find { it.vehicleTypeId == id }
-                }
+                val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()  // ✅ Changed
 
                 LaunchedEffect(Unit) {
                     viewModel.navigationEvent.collect { event ->
@@ -835,20 +827,35 @@ fun NavGraph(
                     }
                 }
 
-                if (uiState.pickupAddress != null && uiState.dropAddress != null && selectedVehicle != null) {
+                // ✅ Changed: Use selectedFareDetails instead of selectedVehicle
+                if (uiState.pickupAddress != null && uiState.dropAddress != null && selectedFareDetails != null) {
                     SearchingRiderScreen(
                         bookingId = bookingId,
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
-                        selectedVehicle = selectedVehicle,
+                        selectedFareDetails = selectedFareDetails!!,  // ✅ Changed
                         fare = uiState.finalFare,
                         onRiderFound = {},
                         onContactSupport = {},
                         onViewDetails = {},
                         viewModel = viewModel
                     )
+                } else {
+                    // ✅ Add loading/fallback UI instead of blank screen
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = AppColors.Primary)
+                    }
                 }
             }
+
+
+
+
+
+
         }
     }
 }
