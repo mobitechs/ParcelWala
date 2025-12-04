@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,11 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
+import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
+import kotlinx.coroutines.delay
 
 /**
  * Home Screen
@@ -124,7 +127,8 @@ fun HomeScreen(
                         activeBooking?.let { booking ->
                             ActiveBookingCard(
                                 activeBooking = booking,
-                                onClick = { onNavigateToActiveBooking(booking) }
+                                onClick = { onNavigateToActiveBooking(booking) },
+                                onRetry = { viewModel.retrySearch() }
                             )
                         }
                     }
@@ -209,12 +213,61 @@ fun HomeScreen(
 /**
  * Active Booking Card - Professional Ola/Uber Style
  * Shows complete booking details with pickup/drop addresses
+ * Includes 3-minute countdown timer with progress bar and retry option
  */
 @Composable
 private fun ActiveBookingCard(
     activeBooking: ActiveBooking,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onRetry: () -> Unit
 ) {
+    // ═══════════════════════════════════════════════════════════════
+    // COUNTDOWN TIMER STATE (3 minutes = 180 seconds)
+    // ═══════════════════════════════════════════════════════════════
+    val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS
+
+    // Stable fallback time - only calculated once
+    val fallbackStartTime = remember { System.currentTimeMillis() }
+
+    // Get searchStartTime from activeBooking, with stable fallback
+    val searchStartTime = activeBooking.searchStartTime
+
+    var remainingTimeMs by remember(searchStartTime) {
+        val elapsed = System.currentTimeMillis() - searchStartTime
+        mutableStateOf(maxOf(0L, totalTimeMs - elapsed))
+    }
+    var isTimedOut by remember(searchStartTime) {
+        val elapsed = System.currentTimeMillis() - searchStartTime
+        mutableStateOf(elapsed >= totalTimeMs)
+    }
+
+    // Only run countdown for SEARCHING status
+    val isSearching = activeBooking.status == BookingStatus.SEARCHING
+
+    // Countdown timer effect - synced with searchStartTime
+    LaunchedEffect(searchStartTime, isSearching) {
+        if (!isSearching) return@LaunchedEffect
+
+        // Calculate initial remaining time based on actual elapsed time
+        val initialElapsed = System.currentTimeMillis() - searchStartTime
+        remainingTimeMs = maxOf(0L, totalTimeMs - initialElapsed)
+        isTimedOut = remainingTimeMs <= 0
+
+        // Continue countdown only if not already timed out
+        while (remainingTimeMs > 0) {
+            delay(1000L)
+            val newElapsed = System.currentTimeMillis() - searchStartTime
+            remainingTimeMs = maxOf(0L, totalTimeMs - newElapsed)
+        }
+
+        isTimedOut = true
+    }
+
+    // Format remaining time as MM:SS
+    val minutes = (remainingTimeMs / 60000).toInt()
+    val seconds = ((remainingTimeMs % 60000) / 1000).toInt()
+    val timeText = String.format("%02d:%02d", minutes, seconds)
+
     // Pulse animation for the searching indicator
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -244,7 +297,10 @@ private fun ActiveBookingCard(
             .shadow(
                 elevation = 8.dp,
                 shape = RoundedCornerShape(20.dp),
-                spotColor = AppColors.Primary.copy(alpha = 0.3f)
+                spotColor = if (isTimedOut && isSearching)
+                    Color(0xFFFF9800).copy(alpha = 0.3f)
+                else
+                    AppColors.Primary.copy(alpha = 0.3f)
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
@@ -262,10 +318,17 @@ private fun ActiveBookingCard(
                     .fillMaxWidth()
                     .background(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                AppColors.Primary,
-                                AppColors.Primary.copy(alpha = 0.85f)
-                            )
+                            colors = if (isTimedOut && isSearching) {
+                                listOf(
+                                    Color(0xFFFF9800),
+                                    Color(0xFFFF9800).copy(alpha = 0.85f)
+                                )
+                            } else {
+                                listOf(
+                                    AppColors.Primary,
+                                    AppColors.Primary.copy(alpha = 0.85f)
+                                )
+                            }
                         )
                     )
                     .padding(16.dp)
@@ -279,38 +342,53 @@ private fun ActiveBookingCard(
                         modifier = Modifier.size(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Outer pulse ring
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .scale(pulseScale)
-                                .background(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    shape = CircleShape
-                                )
-                        )
-                        // Middle ring
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    color = Color.White.copy(alpha = 0.2f),
-                                    shape = CircleShape
-                                )
-                        )
-                        // Inner circle with icon
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(Color.White, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocalShipping,
-                                contentDescription = null,
-                                tint = AppColors.Primary,
-                                modifier = Modifier.size(18.dp)
+                        if (!isTimedOut || !isSearching) {
+                            // Searching animation
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .scale(pulseScale)
+                                    .background(
+                                        color = Color.White.copy(alpha = 0.15f),
+                                        shape = CircleShape
+                                    )
                             )
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        shape = CircleShape
+                                    )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalShipping,
+                                    contentDescription = null,
+                                    tint = if (isTimedOut) Color(0xFFFF9800) else AppColors.Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else {
+                            // Timeout warning icon
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SearchOff,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF9800),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     }
 
@@ -323,22 +401,25 @@ private fun ActiveBookingCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .scale(pulseScale)
-                                    .background(
-                                        color = Color.White.copy(alpha = pulseAlpha),
-                                        shape = CircleShape
-                                    )
-                            )
+                            if (!isTimedOut && isSearching) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .scale(pulseScale)
+                                        .background(
+                                            color = Color.White.copy(alpha = pulseAlpha),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
                             Text(
-                                text = when (activeBooking.status) {
-                                    BookingStatus.SEARCHING -> "Finding your rider..."
-                                    BookingStatus.RIDER_ASSIGNED -> "Rider assigned!"
-                                    BookingStatus.RIDER_EN_ROUTE -> "Rider on the way"
-                                    BookingStatus.PICKED_UP -> "Goods picked up"
-                                    BookingStatus.IN_TRANSIT -> "On the way to drop"
+                                text = when {
+                                    isTimedOut && isSearching -> "No riders available"
+                                    activeBooking.status == BookingStatus.SEARCHING -> "Finding your rider..."
+                                    activeBooking.status == BookingStatus.RIDER_ASSIGNED -> "Rider assigned!"
+                                    activeBooking.status == BookingStatus.RIDER_EN_ROUTE -> "Rider on the way"
+                                    activeBooking.status == BookingStatus.PICKED_UP -> "Goods picked up"
+                                    activeBooking.status == BookingStatus.IN_TRANSIT -> "On the way to drop"
                                     else -> "Booking in progress"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
@@ -349,32 +430,142 @@ private fun ActiveBookingCard(
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Trip ID
+                        // Trip ID & Attempt count
                         Text(
-                            text = "Trip #${activeBooking.bookingId}",
+                            text = if (isSearching) {
+                                "Trip #${activeBooking.bookingId} • Attempt ${activeBooking.searchAttempts}"
+                            } else {
+                                "Trip #${activeBooking.bookingId}"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.85f)
                         )
                     }
 
-                    // Tap to View Arrow
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(
-                                color = Color.White.copy(alpha = 0.2f),
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = "View Details",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    // Timer Display (only for searching status)
+                    if (isSearching) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = timeText,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isTimedOut) "Timed out" else "remaining",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                        }
+                    } else {
+                        // Arrow for non-searching states
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = "View Details",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // PROGRESS BAR SECTION (only for searching status)
+            // ═══════════════════════════════════════════════════════════════
+            if (isSearching) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    if (!isTimedOut) {
+                        // Calculate elapsed time
+                        val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
+                        val elapsedMinutes = (elapsedMs / 60000).toInt()
+                        val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
+                        val elapsedTimeText = String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
+
+                        // Progress fills from left to right (0 = empty, 1 = full)
+                        val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
+
+                        // Progress bar
+                        LinearProgressIndicator(
+                            progress = { elapsedProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = when {
+                                elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
+                                elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
+                                else -> AppColors.Primary  // First minute - Primary
+                            },
+                            trackColor = AppColors.Border,
+                            strokeCap = StrokeCap.Round
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Progress labels - elapsed time on left, total time on right
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = elapsedTimeText,  // Shows elapsed time (0:00 → 3:00)
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextSecondary
+                            )
+                            Text(
+                                text = "3:00",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextHint
+                            )
+                        }
+                    } else {
+                        // ═══════════════════════════════════════════════════════════════
+                        // RETRY BUTTON (when timed out)
+                        // ═══════════════════════════════════════════════════════════════
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppColors.Primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Retry Search",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = AppColors.Border
+                )
             }
 
             // ═══════════════════════════════════════════════════════════════

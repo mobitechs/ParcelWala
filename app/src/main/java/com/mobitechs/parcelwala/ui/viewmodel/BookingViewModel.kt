@@ -3,6 +3,7 @@ package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
@@ -47,9 +48,6 @@ class BookingViewModel @Inject constructor(
     private val activeBookingManager: ActiveBookingManager
 ) : ViewModel() {
 
-
-    val activeBooking = activeBookingManager.activeBooking
-
     // ============ UI STATE ============
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState: StateFlow<BookingUiState> = _uiState.asStateFlow()
@@ -90,6 +88,9 @@ class BookingViewModel @Inject constructor(
     private val _isRouteLoading = MutableStateFlow(false)
     val isRouteLoading: StateFlow<Boolean> = _isRouteLoading.asStateFlow()
 
+    // ============ ACTIVE BOOKING ============
+    val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
+
     init {
         loadGoodsTypes()
     }
@@ -120,7 +121,7 @@ class BookingViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val request = CalculateFareRequest(
-//                vehicleTypeId = 0, // 0 = all vehicles
+                //vehicleTypeId = 0, // 0 = all vehicles
                 pickupLatitude = pickup.latitude,
                 pickupLongitude = pickup.longitude,
                 dropLatitude = drop.latitude,
@@ -390,20 +391,19 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
-                            _uiState.update { it.copy(isLoading = false, error = null) }
-
-                            // ✅ Set active booking for tracking
+                            // ✅ Set active booking in manager for tracking
                             if (selectedFare != null) {
                                 activeBookingManager.setActiveBooking(
                                     bookingId = booking.bookingNumber,
                                     pickupAddress = state.pickupAddress,
                                     dropAddress = state.dropAddress,
                                     fareDetails = selectedFare,
-                                    fare = state.finalFare,
+                                    fare = selectedFare.roundedFare,
                                     status = BookingStatus.SEARCHING
                                 )
                             }
 
+                            _uiState.update { it.copy(isLoading = false, error = null) }
                             _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingNumber))
                         }
                     }
@@ -413,6 +413,21 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Retry search for rider
+     * Resets the search timer and increments attempt count
+     */
+    fun retrySearch() {
+        activeBookingManager.retrySearch()
+    }
+
+    /**
+     * Clear active booking
+     */
+    fun clearActiveBooking() {
+        activeBookingManager.clearActiveBooking()
+    }
+
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
             val bookingId = 12345
@@ -420,19 +435,15 @@ class BookingViewModel @Inject constructor(
                 when (result) {
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
+                        // ✅ Clear active booking on successful cancellation
+                        activeBookingManager.clearActiveBooking()
                         _uiState.update { it.copy(isLoading = false, error = null) }
-                        activeBookingManager.clearActiveBooking()  // ✅ Clear on cancel
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
                     is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
         }
-    }
-
-    // ✅ Add method to clear active booking
-    fun clearActiveBooking() {
-        activeBookingManager.clearActiveBooking()
     }
 
     fun clearError() {

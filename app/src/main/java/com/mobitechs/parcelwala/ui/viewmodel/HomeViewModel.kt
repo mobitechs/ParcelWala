@@ -1,6 +1,6 @@
+// ui/viewmodel/HomeViewModel.kt
 package com.mobitechs.parcelwala.ui.viewmodel
 
-// ui/viewmodel/HomeViewModel.kt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
@@ -18,7 +18,7 @@ import javax.inject.Inject
 
 /**
  * ViewModel for Home Screen
- * Manages vehicle types and pickup location
+ * Manages vehicle types, pickup location, and active booking state
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -26,17 +26,19 @@ class HomeViewModel @Inject constructor(
     private val activeBookingManager: ActiveBookingManager
 ) : ViewModel() {
 
+    // UI State
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-    val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
 
+    // Active booking state - exposed from ActiveBookingManager
+    val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
 
     init {
         loadVehicleTypes()
     }
 
     /**
-     * Load vehicle types
+     * Load vehicle types from repository
      */
     private fun loadVehicleTypes() {
         viewModelScope.launch {
@@ -79,6 +81,13 @@ class HomeViewModel @Inject constructor(
      */
     fun hasActiveBooking(): Boolean = activeBookingManager.hasActiveBooking()
 
+    /**
+     * Retry search for rider
+     * Resets the search timer and increments attempt count
+     */
+    fun retrySearch() {
+        activeBookingManager.retrySearch()
+    }
 
     /**
      * Refresh data

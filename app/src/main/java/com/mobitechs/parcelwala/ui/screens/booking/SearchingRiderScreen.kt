@@ -1,12 +1,17 @@
 // ui/screens/booking/SearchingRiderScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,29 +30,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
-import com.mobitechs.parcelwala.data.model.response.FareDetails  // ✅ Changed import
+import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
+import kotlinx.coroutines.delay
 
 /**
  * Searching for Rider Screen
- * Shows map with route in top 50%, booking details below
- * Final screen before driver is assigned
+ * Shows map with route in top 45%, booking details below
+ * Includes 3-minute countdown timer with progress bar
+ * Shows retry option when search times out
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +65,7 @@ fun SearchingRiderScreen(
     bookingId: String,
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
-    selectedFareDetails: FareDetails,  // ✅ Changed from VehicleTypeResponse
+    selectedFareDetails: FareDetails,
     fare: Int,
     onRiderFound: () -> Unit,
     onContactSupport: () -> Unit,
@@ -67,6 +77,54 @@ fun SearchingRiderScreen(
     // Observe route info from ViewModel
     val routeInfo by viewModel.routeInfo.collectAsState()
     val isRouteLoading by viewModel.isRouteLoading.collectAsState()
+    val activeBooking by viewModel.activeBooking.collectAsState()
+
+    // ═══════════════════════════════════════════════════════════════
+    // COUNTDOWN TIMER STATE (3 minutes = 180 seconds)
+    // Synced with activeBooking.searchStartTime from ActiveBookingManager
+    // ═══════════════════════════════════════════════════════════════
+    val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS  // 3 minutes
+
+    // Stable fallback time - only calculated once when composable is first created
+    val fallbackStartTime = remember { System.currentTimeMillis() }
+
+    // Get search start time from active booking (or use stable fallback)
+    val searchStartTime = activeBooking?.searchStartTime ?: fallbackStartTime
+    val searchAttempt = activeBooking?.searchAttempts ?: 1
+
+    // Timer state - keyed on searchStartTime so it resets when retry is clicked
+    var remainingTimeMs by remember(searchStartTime) {
+        val elapsed = System.currentTimeMillis() - searchStartTime
+        mutableStateOf(maxOf(0L, totalTimeMs - elapsed))
+    }
+
+    var isTimedOut by remember(searchStartTime) {
+        val elapsed = System.currentTimeMillis() - searchStartTime
+        mutableStateOf(elapsed >= totalTimeMs)
+    }
+
+    // Countdown timer effect - synced with searchStartTime
+    LaunchedEffect(searchStartTime) {
+        // Calculate initial remaining time based on actual elapsed time
+        val initialElapsed = System.currentTimeMillis() - searchStartTime
+        remainingTimeMs = maxOf(0L, totalTimeMs - initialElapsed)
+        isTimedOut = remainingTimeMs <= 0
+
+        // Continue countdown only if not already timed out
+        while (remainingTimeMs > 0) {
+            delay(1000L)  // Update every second
+            val newElapsed = System.currentTimeMillis() - searchStartTime
+            remainingTimeMs = maxOf(0L, totalTimeMs - newElapsed)
+        }
+
+        // Time's up!
+        isTimedOut = true
+    }
+
+    // Format remaining time as MM:SS
+    val minutes = (remainingTimeMs / 60000).toInt()
+    val seconds = ((remainingTimeMs % 60000) / 1000).toInt()
+    val timeText = String.format("%02d:%02d", minutes, seconds)
 
     // Calculate route when screen loads
     LaunchedEffect(pickupAddress, dropAddress) {
@@ -108,18 +166,33 @@ fun SearchingRiderScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Animated dot
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .scale(pulseScale)
-                                    .background(AppColors.Primary, CircleShape)
-                            )
-                            Text(
-                                text = "Finding your rider...",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.Primary
-                            )
+                            if (!isTimedOut) {
+                                // Animated dot when searching
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .scale(pulseScale)
+                                        .background(AppColors.Primary, CircleShape)
+                                )
+                                Text(
+                                    text = "Finding your rider...",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.Primary
+                                )
+                            } else {
+                                // Warning when timed out
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF9800),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "No drivers found",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFFF9800)
+                                )
+                            }
                         }
                     }
                 },
@@ -260,9 +333,19 @@ fun SearchingRiderScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Searching Status Card
-                SearchingStatusCard(
+                // ═══════════════════════════════════════════════════════════════
+                // SEARCHING STATUS CARD WITH COUNTDOWN TIMER
+                // ═══════════════════════════════════════════════════════════════
+                SearchingStatusCardWithTimer(
+                    isTimedOut = isTimedOut,
+                    remainingTimeMs = remainingTimeMs,
+                    totalTimeMs = totalTimeMs,
+                    timeText = timeText,
+                    searchAttempt = searchAttempt,
                     pulseScale = pulseScale,
+                    onRetry = {
+                        viewModel.retrySearch()  // This updates activeBooking.searchStartTime
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -289,7 +372,7 @@ fun SearchingRiderScreen(
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Vehicle Info Card - ✅ Changed to use FareDetails
+                    // Vehicle Info Card
                     VehicleInfoCompactCard(
                         fareDetails = selectedFareDetails,
                         modifier = Modifier.weight(1f)
@@ -375,6 +458,228 @@ fun SearchingRiderScreen(
                 showCancelSheet = false
             }
         )
+    }
+}
+
+/**
+ * Searching Status Card with Countdown Timer & Progress Bar
+ * Shows either searching state or timeout with retry option
+ */
+@Composable
+private fun SearchingStatusCardWithTimer(
+    isTimedOut: Boolean,
+    remainingTimeMs: Long,
+    totalTimeMs: Long,
+    timeText: String,
+    searchAttempt: Int,
+    pulseScale: Float,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isTimedOut) Color(0xFFFFF3E0) else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // ═══════════════════════════════════════════════════════════════
+            // TOP ROW: Icon + Status + Timer
+            // ═══════════════════════════════════════════════════════════════
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Animated Icon
+                Box(
+                    modifier = Modifier.size(56.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!isTimedOut) {
+                        // Searching animation
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .scale(pulseScale)
+                                .alpha(0.3f)
+                                .background(AppColors.Primary, CircleShape)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(AppColors.Primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalShipping,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    } else {
+                        // Timeout warning icon
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    color = Color(0xFFFF9800).copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SearchOff,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9800),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Status Text
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isTimedOut) "No riders available" else "Searching for drivers",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isTimedOut) Color(0xFFE65100) else AppColors.TextPrimary
+                    )
+                    Text(
+                        text = if (isTimedOut) {
+                            "Try again or wait for availability"
+                        } else {
+                            "Searching nearby... Attempt $searchAttempt"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+
+                // Timer Display
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Calculate elapsed progress for color
+                    val elapsedProgress = ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
+
+                    Text(
+                        text = timeText,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            isTimedOut -> Color(0xFFE65100)
+                            elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
+                            elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
+                            else -> AppColors.Primary  // First minute - Primary
+                        }
+                    )
+                    Text(
+                        text = if (isTimedOut) "Timed out" else "remaining",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ═══════════════════════════════════════════════════════════════
+            // PROGRESS BAR
+            // ═══════════════════════════════════════════════════════════════
+            if (!isTimedOut) {
+                // Calculate elapsed time for left label
+                val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
+                val elapsedMinutes = (elapsedMs / 60000).toInt()
+                val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
+                val elapsedTimeText = String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
+
+                // Progress should fill from left to right (0 = empty, 1 = full)
+                val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
+
+                Column {
+                    // Progress bar
+                    LinearProgressIndicator(
+                        progress = { elapsedProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = when {
+                            elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
+                            elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
+                            else -> AppColors.Primary  // First minute - Primary
+                        },
+                        trackColor = AppColors.Border,
+                        strokeCap = StrokeCap.Round
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Progress labels - elapsed time on left, total time on right
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = elapsedTimeText,  // Shows elapsed time (0:00 → 3:00)
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary
+                        )
+                        Text(
+                            text = "3:00",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextHint
+                        )
+                    }
+                }
+            } else {
+                // ═══════════════════════════════════════════════════════════════
+                // RETRY BUTTON (when timed out)
+                // ═══════════════════════════════════════════════════════════════
+                Button(
+                    onClick = onRetry,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.Primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Retry Search",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Attempt info
+                Text(
+                    text = "Search attempt $searchAttempt completed",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
 }
 
@@ -482,66 +787,6 @@ private fun RouteMapView(
 }
 
 /**
- * Compact Searching Status Card
- */
-@Composable
-private fun SearchingStatusCard(
-    pulseScale: Float,
-    modifier: Modifier = Modifier
-) {
-    InfoCard(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Animated Pulse Circle
-            Box(
-                modifier = Modifier.size(48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Outer pulse
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .scale(pulseScale)
-                        .alpha(0.3f)
-                        .background(AppColors.Primary, CircleShape)
-                )
-                // Inner circle
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(AppColors.Primary, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocalShipping,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Searching for drivers nearby",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-                Text(
-                    text = "Usually takes 1-3 minutes",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
  * Compact Journey Details Card
  */
 @Composable
@@ -616,7 +861,7 @@ private fun JourneyDetailsCard(
 }
 
 /**
- * Compact Vehicle Info Card - ✅ Updated to use FareDetails
+ * Compact Vehicle Info Card
  */
 @Composable
 private fun VehicleInfoCompactCard(

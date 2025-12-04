@@ -325,7 +325,7 @@ private fun VehicleFareCard(
     Card(
         modifier = modifier.alpha(alpha).clickable(onClick = onSelect),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) AppColors.Primary.copy(alpha = 0.05f) else Color.White),
+        colors = CardDefaults.cardColors(containerColor =  Color.White),
         border = when {
             isSelected -> BorderStroke(2.dp, AppColors.Primary)
             isPreSelected -> BorderStroke(2.dp, AppColors.Primary.copy(alpha = 0.4f))
