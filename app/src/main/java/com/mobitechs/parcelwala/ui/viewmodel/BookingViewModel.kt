@@ -3,6 +3,8 @@ package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
+import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -41,8 +43,12 @@ import javax.inject.Inject
 @HiltViewModel
 class BookingViewModel @Inject constructor(
     private val bookingRepository: BookingRepository,
-    private val directionsRepository: DirectionsRepository
+    private val directionsRepository: DirectionsRepository,
+    private val activeBookingManager: ActiveBookingManager
 ) : ViewModel() {
+
+
+    val activeBooking = activeBookingManager.activeBooking
 
     // ============ UI STATE ============
     private val _uiState = MutableStateFlow(BookingUiState())
@@ -385,6 +391,19 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
                             _uiState.update { it.copy(isLoading = false, error = null) }
+
+                            // ✅ Set active booking for tracking
+                            if (selectedFare != null) {
+                                activeBookingManager.setActiveBooking(
+                                    bookingId = booking.bookingNumber,
+                                    pickupAddress = state.pickupAddress,
+                                    dropAddress = state.dropAddress,
+                                    fareDetails = selectedFare,
+                                    fare = state.finalFare,
+                                    status = BookingStatus.SEARCHING
+                                )
+                            }
+
                             _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingNumber))
                         }
                     }
@@ -402,12 +421,18 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         _uiState.update { it.copy(isLoading = false, error = null) }
+                        activeBookingManager.clearActiveBooking()  // ✅ Clear on cancel
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
                     is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
         }
+    }
+
+    // ✅ Add method to clear active booking
+    fun clearActiveBooking() {
+        activeBookingManager.clearActiveBooking()
     }
 
     fun clearError() {

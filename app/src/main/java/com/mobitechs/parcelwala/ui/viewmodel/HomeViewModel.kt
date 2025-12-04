@@ -3,6 +3,8 @@ package com.mobitechs.parcelwala.ui.viewmodel
 // ui/viewmodel/HomeViewModel.kt
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.manager.ActiveBooking
+import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
@@ -20,11 +22,14 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val bookingRepository: BookingRepository
+    private val bookingRepository: BookingRepository,
+    private val activeBookingManager: ActiveBookingManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
+
 
     init {
         loadVehicleTypes()
@@ -68,6 +73,12 @@ class HomeViewModel @Inject constructor(
     fun setPickupLocation(address: String) {
         _uiState.update { it.copy(pickupLocation = address) }
     }
+
+    /**
+     * Check if there's an active booking
+     */
+    fun hasActiveBooking(): Boolean = activeBookingManager.hasActiveBooking()
+
 
     /**
      * Refresh data

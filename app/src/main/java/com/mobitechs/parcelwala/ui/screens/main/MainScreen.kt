@@ -19,6 +19,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mobitechs.parcelwala.data.local.PreferencesManager
+import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.screens.account.AccountScreen
 import com.mobitechs.parcelwala.ui.screens.home.HomeScreen
@@ -81,7 +82,7 @@ fun MainScreen(
     onNavigateToLocationSearch: () -> Unit,
     onNavigateToOrderDetails: (OrderResponse) -> Unit = {},
     onBookAgain: (OrderResponse) -> Unit = {},
-    // ✅ Account navigation callbacks
+    onNavigateToActiveBooking: (ActiveBooking) -> Unit,
     onNavigateToSavedAddresses: () -> Unit = {},
     onNavigateToProfileDetails: () -> Unit = {},
     onNavigateToGSTDetails: () -> Unit = {},
@@ -113,7 +114,11 @@ fun MainScreen(
                 // ============ HOME TAB ============
                 composable(BottomNavItem.Home.route) {
                     HomeScreen(
-                        onNavigateToLocationSearch = onNavigateToLocationSearch
+                        onNavigateToLocationSearch = onNavigateToLocationSearch,
+                        onNavigateToActiveBooking = { activeBooking ->
+                            // Navigate to active booking screen
+                            onNavigateToActiveBooking(activeBooking)
+                        }
                     )
                 }
 

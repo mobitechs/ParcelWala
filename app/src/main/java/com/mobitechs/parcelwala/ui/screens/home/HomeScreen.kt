@@ -1,13 +1,23 @@
 // ui/screens/home/HomeScreen.kt
 package com.mobitechs.parcelwala.ui.screens.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,12 +27,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.data.manager.ActiveBooking
+import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -30,15 +46,17 @@ import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 
 /**
  * Home Screen
- * Main landing screen showing vehicle types and pickup location
+ * Main landing screen showing vehicle types, pickup location, and active booking
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToLocationSearch: () -> Unit,
+    onNavigateToActiveBooking: (ActiveBooking) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val activeBooking by viewModel.activeBooking.collectAsState()
 
     Scaffold(
         containerColor = AppColors.Background,
@@ -97,8 +115,19 @@ fun HomeScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // GST Banner
-                    GSTBenefitsBanner()
+                    // ✅ Active Booking Card (shows when there's an active booking)
+                    AnimatedVisibility(
+                        visible = activeBooking != null,
+                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                    ) {
+                        activeBooking?.let { booking ->
+                            ActiveBookingCard(
+                                activeBooking = booking,
+                                onClick = { onNavigateToActiveBooking(booking) }
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -178,67 +207,429 @@ fun HomeScreen(
 }
 
 /**
- * GST Benefits Banner
+ * Active Booking Card - Professional Ola/Uber Style
+ * Shows complete booking details with pickup/drop addresses
  */
 @Composable
-private fun GSTBenefitsBanner() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = AppColors.Primary
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "DON'T MISS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.8f),
-                    letterSpacing = 1.2.sp
-                )
+private fun ActiveBookingCard(
+    activeBooking: ActiveBooking,
+    onClick: () -> Unit
+) {
+    // Pulse animation for the searching indicator
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
 
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "GST Benefits!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "Get invoices for tax credit",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = AppColors.Primary.copy(alpha = 0.3f)
+            )
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // ═══════════════════════════════════════════════════════════════
+            // TOP SECTION - Status Header with Gradient
+            // ═══════════════════════════════════════════════════════════════
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                AppColors.Primary,
+                                AppColors.Primary.copy(alpha = 0.85f)
+                            )
+                        )
+                    )
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Animated Status Indicator
+                    Box(
+                        modifier = Modifier.size(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Outer pulse ring
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .scale(pulseScale)
+                                .background(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    shape = CircleShape
+                                )
+                        )
+                        // Middle ring
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                )
+                        )
+                        // Inner circle with icon
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalShipping,
+                                contentDescription = null,
+                                tint = AppColors.Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    // Status Info
+                    Column(modifier = Modifier.weight(1f)) {
+                        // Status Text with animated dot
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .scale(pulseScale)
+                                    .background(
+                                        color = Color.White.copy(alpha = pulseAlpha),
+                                        shape = CircleShape
+                                    )
+                            )
+                            Text(
+                                text = when (activeBooking.status) {
+                                    BookingStatus.SEARCHING -> "Finding your rider..."
+                                    BookingStatus.RIDER_ASSIGNED -> "Rider assigned!"
+                                    BookingStatus.RIDER_EN_ROUTE -> "Rider on the way"
+                                    BookingStatus.PICKED_UP -> "Goods picked up"
+                                    BookingStatus.IN_TRANSIT -> "On the way to drop"
+                                    else -> "Booking in progress"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Trip ID
+                        Text(
+                            text = "Trip #${activeBooking.bookingId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+
+                    // Tap to View Arrow
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "View Details",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Button(
-                onClick = { /* TODO: Navigate to GSTIN */ },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = AppColors.Primary
-                ),
-                shape = RoundedCornerShape(24.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+            // ═══════════════════════════════════════════════════════════════
+            // MIDDLE SECTION - Route Details
+            // ═══════════════════════════════════════════════════════════════
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
-                Text(
-                    text = "Add GSTIN",
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
+                // Pickup Location
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Pickup Icon with connector line
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(
+                                    color = AppColors.Pickup.copy(alpha = 0.15f),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    width = 2.dp,
+                                    color = AppColors.Pickup,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(AppColors.Pickup, CircleShape)
+                            )
+                        }
+
+                        // Connector Line
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(32.dp)
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            AppColors.Pickup,
+                                            AppColors.Drop
+                                        )
+                                    )
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Pickup Address Details
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "PICKUP",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Pickup,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = activeBooking.pickupAddress.contactName ?: "Sender",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = activeBooking.pickupAddress.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Drop Location
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Drop Icon
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(
+                                color = AppColors.Drop.copy(alpha = 0.15f),
+                                shape = CircleShape
+                            )
+                            .border(
+                                width = 2.dp,
+                                color = AppColors.Drop,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(AppColors.Drop, CircleShape)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Drop Address Details
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "DROP",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Drop,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = activeBooking.dropAddress.contactName ?: "Receiver",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = activeBooking.dropAddress.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // BOTTOM SECTION - Vehicle & Fare Info
+            // ═══════════════════════════════════════════════════════════════
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = AppColors.Border
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Vehicle Info
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Vehicle Icon
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                color = AppColors.Primary.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = activeBooking.fareDetails.vehicleTypeIcon ?: "🚚",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = activeBooking.fareDetails.vehicleTypeName ?: "Vehicle",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.TextPrimary
+                        )
+                        Text(
+                            text = activeBooking.fareDetails.capacity ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary
+                        )
+                    }
+                }
+
+                // Fare Info
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "₹${activeBooking.fare}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Primary
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Payments,
+                            contentDescription = null,
+                            tint = AppColors.TextSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Cash",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary
+                        )
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // TAP TO VIEW HINT
+            // ═══════════════════════════════════════════════════════════════
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AppColors.Background)
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Tap to view details",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = AppColors.Primary
+                    )
+                    Icon(
+                        imageVector = Icons.Default.TouchApp,
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
@@ -341,7 +732,6 @@ private fun VehicleTypesGrid(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                // Add empty spaces for incomplete rows
                 repeat(3 - rowVehicles.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -377,7 +767,6 @@ private fun VehicleCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Vehicle Emoji Icon
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -394,7 +783,6 @@ private fun VehicleCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Vehicle Name
             Text(
                 text = vehicle.name,
                 style = MaterialTheme.typography.bodyMedium,
@@ -407,7 +795,6 @@ private fun VehicleCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Starting Price
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -550,6 +937,3 @@ private fun MarketingText() {
         )
     }
 }
-
-// Extension function for converting dp to sp
-private fun Float.toSp() = this * 0.75f

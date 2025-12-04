@@ -7,7 +7,13 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,13 +26,25 @@ import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.local.PreferencesManager
+import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
-import com.mobitechs.parcelwala.ui.screens.account.*
+import com.mobitechs.parcelwala.ui.screens.account.AddressSearchScreen
+import com.mobitechs.parcelwala.ui.screens.account.ProfileDetailsScreen
+import com.mobitechs.parcelwala.ui.screens.account.SavedAddressesScreen
 import com.mobitechs.parcelwala.ui.screens.auth.CompleteProfileScreen
 import com.mobitechs.parcelwala.ui.screens.auth.LoginScreen
 import com.mobitechs.parcelwala.ui.screens.auth.OtpScreen
-import com.mobitechs.parcelwala.ui.screens.booking.*
+import com.mobitechs.parcelwala.ui.screens.booking.AddGSTINScreen
+import com.mobitechs.parcelwala.ui.screens.booking.AddressConfirmationScreen
+import com.mobitechs.parcelwala.ui.screens.booking.BookingConfirmationScreen
+import com.mobitechs.parcelwala.ui.screens.booking.CouponScreen
+import com.mobitechs.parcelwala.ui.screens.booking.GoodsTypeBottomSheet
+import com.mobitechs.parcelwala.ui.screens.booking.LocationSearchScreen
+import com.mobitechs.parcelwala.ui.screens.booking.MapPickerScreen
+import com.mobitechs.parcelwala.ui.screens.booking.RestrictedItemsBottomSheet
+import com.mobitechs.parcelwala.ui.screens.booking.ReviewBookingScreen
+import com.mobitechs.parcelwala.ui.screens.booking.SearchingRiderScreen
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
@@ -72,6 +90,10 @@ fun NavGraph(
 
     // ✅ State to hold address selected from search/map picker (account flow)
     var pendingAccountAddress by remember { mutableStateOf<SavedAddress?>(null) }
+
+// Add state for active booking navigation
+    var activeBookingToResume by remember { mutableStateOf<ActiveBooking?>(null) }
+
 
     NavHost(
         navController = navController,
@@ -163,6 +185,11 @@ fun NavGraph(
                     isBookAgainFlow = true
                     navController.navigate("booking_flow")
                 },
+                onNavigateToActiveBooking = { activeBooking ->
+                    activeBookingToResume = activeBooking
+                    navController.navigate("active_booking_flow")
+                },
+
                 // ✅ Account navigation callbacks
                 onNavigateToSavedAddresses = {
                     navController.navigate("account_flow")
@@ -455,7 +482,8 @@ fun NavGraph(
                 val uiState by viewModel.uiState.collectAsState()
 
                 // Get existing address for preserving contact info when changing location
-                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress =
+                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 LocationSearchScreen(
                     locationType = locationType,
@@ -465,7 +493,7 @@ fun NavGraph(
                             address.copy(
                                 contactName = existingAddress.contactName,
                                 contactPhone = existingAddress.contactPhone,
-                                buildingDetails  = existingAddress.buildingDetails,
+                                buildingDetails = existingAddress.buildingDetails,
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )
@@ -526,7 +554,8 @@ fun NavGraph(
                 val uiState by viewModel.uiState.collectAsState()
 
                 // Get existing address for preserving contact info
-                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress =
+                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 MapPickerScreen(
                     initialLocation = initialLocation,
@@ -536,7 +565,7 @@ fun NavGraph(
                             address.copy(
                                 contactName = existingAddress.contactName,
                                 contactPhone = existingAddress.contactPhone,
-                                buildingDetails  = existingAddress.buildingDetails,
+                                buildingDetails = existingAddress.buildingDetails,
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )
@@ -713,6 +742,7 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = false }
                                 }
                             }
+
                             BookingNavigationEvent.NavigateToHome -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
@@ -822,6 +852,7 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }
@@ -852,10 +883,40 @@ fun NavGraph(
             }
 
 
-
-
-
-
         }
-    }
+
+        // ✅ ADD THIS - ACTIVE BOOKING FLOW (separate from booking_flow)
+        navigation(
+            startDestination = "active_searching_rider",
+            route = "active_booking_flow"
+        ) {
+            composable("active_searching_rider") {
+                val activeBooking = activeBookingToResume
+
+                if (activeBooking != null) {
+                    val viewModel: BookingViewModel = hiltViewModel()
+
+                    SearchingRiderScreen(
+                        bookingId = activeBooking.bookingId,
+                        pickupAddress = activeBooking.pickupAddress,
+                        dropAddress = activeBooking.dropAddress,
+                        selectedFareDetails = activeBooking.fareDetails,
+                        fare = activeBooking.fare,
+                        onRiderFound = { },
+                        onContactSupport = { },
+                        onViewDetails = { },
+                        viewModel = viewModel
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
+            }
+        }
+
+
+
+    }//nva host
+
 }
