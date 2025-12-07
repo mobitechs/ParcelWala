@@ -8,6 +8,7 @@ import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
+import com.mobitechs.parcelwala.data.model.request.CreateBookingRequestBuilder
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.CouponResponse
 import com.mobitechs.parcelwala.data.model.response.FareDetails
@@ -40,6 +41,8 @@ import javax.inject.Inject
  * 2. Call calculateFaresForAllVehicles API
  * 3. Show list of vehicles with calculated fares
  * 4. User selects a vehicle → proceed to review
+ * 5. User can apply coupon → discount calculated
+ * 6. Confirm booking → sends complete fare breakdown to API
  */
 @HiltViewModel
 class BookingViewModel @Inject constructor(
@@ -121,7 +124,6 @@ class BookingViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             val request = CalculateFareRequest(
-                //vehicleTypeId = 0, // 0 = all vehicles
                 pickupLatitude = pickup.latitude,
                 pickupLongitude = pickup.longitude,
                 dropLatitude = drop.latitude,
@@ -273,6 +275,7 @@ class BookingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedGoodsTypeId = goodsType.goodsTypeId,
+                selectedGoodsTypeName = goodsType.name,  // ✅ Store name
                 goodsWeight = goodsType.defaultWeight,
                 goodsPackages = goodsType.defaultPackages,
                 goodsValue = goodsType.defaultValue
@@ -280,6 +283,9 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Apply coupon - stores full coupon details for booking request
+     */
     fun applyCoupon(couponCode: String) {
         viewModelScope.launch {
             val orderValue = _uiState.value.baseFare
@@ -288,11 +294,15 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { coupon ->
-                            val discount = calculateDiscount(coupon, orderValue)
+                            val discountAmount = calculateDiscount(coupon, orderValue)
                             _uiState.update {
                                 it.copy(
+                                    // ✅ Store complete coupon details
                                     appliedCoupon = coupon.code,
-                                    discount = discount,
+                                    appliedCouponId = coupon.couponId,
+                                    appliedCouponDiscountType = coupon.discountType,
+                                    appliedCouponDiscountValue = coupon.discountValue,
+                                    discount = discountAmount,
                                     finalFare = calculateFinalFare(orderValue),
                                     isLoading = false,
                                     error = null
@@ -306,9 +316,19 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Remove coupon - clears all coupon details
+     */
     fun removeCoupon() {
         _uiState.update {
-            it.copy(appliedCoupon = null, discount = 0, finalFare = calculateFinalFare(it.baseFare))
+            it.copy(
+                appliedCoupon = null,
+                appliedCouponId = null,
+                appliedCouponDiscountType = null,
+                appliedCouponDiscountValue = null,
+                discount = 0,
+                finalFare = calculateFinalFare(it.baseFare)
+            )
         }
     }
 
@@ -349,40 +369,42 @@ class BookingViewModel @Inject constructor(
         _routeInfo.value = null
     }
 
+    /**
+     * ✅ UPDATED: Confirm booking with complete fare details
+     * Sends all fare breakdown, coupon info, and final amount to API
+     */
     fun confirmBooking() {
         viewModelScope.launch {
             val state = _uiState.value
             val selectedFare = _selectedFareDetails.value
 
+            // Validation
             if (state.pickupAddress == null || state.dropAddress == null) {
                 _uiState.update { it.copy(error = "Please select pickup and drop locations") }
                 return@launch
             }
 
-            val vehicleTypeId = selectedFare?.vehicleTypeId ?: state.selectedVehicleId
-            if (vehicleTypeId == null) {
+            if (selectedFare == null) {
                 _uiState.update { it.copy(error = "Please select a vehicle") }
                 return@launch
             }
 
-            val request = CreateBookingRequest(
-                vehicleTypeId = vehicleTypeId,
-                pickupAddress = state.pickupAddress.address,
-                pickupLatitude = state.pickupAddress.latitude,
-                pickupLongitude = state.pickupAddress.longitude,
-                pickupContactName = state.pickupAddress.contactName ?: "",
-                pickupContactPhone = state.pickupAddress.contactPhone ?: "",
-                dropAddress = state.dropAddress.address,
-                dropLatitude = state.dropAddress.latitude,
-                dropLongitude = state.dropAddress.longitude,
-                dropContactName = state.dropAddress.contactName ?: "",
-                dropContactPhone = state.dropAddress.contactPhone ?: "",
+            // ✅ Build complete booking request using builder
+            val request = CreateBookingRequestBuilder.build(
+                fareDetails = selectedFare,
+                pickupAddress = state.pickupAddress,
+                dropAddress = state.dropAddress,
                 goodsTypeId = state.selectedGoodsTypeId,
+                goodsTypeName = state.selectedGoodsTypeName,
                 goodsWeight = state.goodsWeight,
                 goodsPackages = state.goodsPackages,
                 goodsValue = state.goodsValue,
-                paymentMethod = state.paymentMethod,
+                couponId = state.appliedCouponId,
                 couponCode = state.appliedCoupon,
+                couponDiscountType = state.appliedCouponDiscountType,
+                couponDiscountValue = state.appliedCouponDiscountValue,
+                couponDiscountAmount = state.discount,
+                paymentMethod = state.paymentMethod,
                 gstin = state.gstin
             )
 
@@ -392,16 +414,14 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
                             // ✅ Set active booking in manager for tracking
-                            if (selectedFare != null) {
-                                activeBookingManager.setActiveBooking(
-                                    bookingId = booking.bookingNumber,
-                                    pickupAddress = state.pickupAddress,
-                                    dropAddress = state.dropAddress,
-                                    fareDetails = selectedFare,
-                                    fare = selectedFare.roundedFare,
-                                    status = BookingStatus.SEARCHING
-                                )
-                            }
+                            activeBookingManager.setActiveBooking(
+                                bookingId = booking.bookingNumber,
+                                pickupAddress = state.pickupAddress,
+                                dropAddress = state.dropAddress,
+                                fareDetails = selectedFare,
+                                fare = request.finalFare,  // Use final fare after coupon
+                                status = BookingStatus.SEARCHING
+                            )
 
                             _uiState.update { it.copy(isLoading = false, error = null) }
                             _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingNumber))
@@ -513,22 +533,37 @@ class BookingViewModel @Inject constructor(
 
 /**
  * Booking UI State
+ * ✅ UPDATED: Added coupon detail fields
  */
 data class BookingUiState(
     val pickupAddress: SavedAddress? = null,
     val dropAddress: SavedAddress? = null,
     val pendingAddress: SavedAddress? = null,
     val selectedVehicleId: Int? = null,
+
+    // Goods Details
     val selectedGoodsTypeId: Int? = null,
+    val selectedGoodsTypeName: String? = null,  // ✅ Added for booking request
     val goodsWeight: Double? = null,
     val goodsPackages: Int? = null,
     val goodsValue: Int? = null,
+
+    // Fare
     val baseFare: Int = 0,
     val discount: Int = 0,
     val finalFare: Int = 0,
-    val appliedCoupon: String? = null,
+
+    // ✅ Coupon Details - Complete info for booking request
+    val appliedCoupon: String? = null,           // Coupon code
+    val appliedCouponId: Int? = null,            // Coupon ID
+    val appliedCouponDiscountType: String? = null,  // "percentage" or "fixed"
+    val appliedCouponDiscountValue: Int? = null,    // Original value (e.g., 20 for 20%)
+
+    // Payment & Other
     val paymentMethod: String = "Cash",
     val gstin: String? = null,
+
+    // State flags
     val isLoading: Boolean = false,
     val error: String? = null,
     val hasFaresLoaded: Boolean = false,

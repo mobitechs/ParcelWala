@@ -108,7 +108,7 @@ data class RestrictedItemResponse(
  * Coupon Response
  */
 data class CouponResponse(
-    @SerializedName("coupon_id")
+    @SerializedName("couponId")
     val couponId: Int,
 
     @SerializedName("code")
@@ -120,30 +120,30 @@ data class CouponResponse(
     @SerializedName("description")
     val description: String,
 
-    @SerializedName("discount_type")
-    val discountType: String, // percentage, fixed
+    @SerializedName("discountType")  // Changed from "discount_type"
+    val discountType: String,
 
-    @SerializedName("discount_value")
+    @SerializedName("discountValue")  // Changed from "discount_value"
     val discountValue: Int,
 
-    @SerializedName("min_order_value")
+    @SerializedName("minOrderValue")  // Changed from "min_order_value"
     val minOrderValue: Int,
 
-    @SerializedName("max_discount")
+    @SerializedName("maxDiscount")  // Changed from "max_discount"
     val maxDiscount: Int? = null,
 
     @SerializedName("terms")
     val terms: String,
 
-    @SerializedName("expiry_date")
+    @SerializedName("expiryDate")  // Changed from "expiry_date"
     val expiryDate: String? = null,
 
-    @SerializedName("is_active")
+    @SerializedName("isActive")  // Changed from "is_active"
     val isActive: Boolean = true,
 
-    @SerializedName("usage_limit")
+    @SerializedName("usageLimit")  // Changed from "usage_limit"
     val usageLimit: Int? = null,
 
-    @SerializedName("user_usage_count")
+    @SerializedName("userUsageCount")  // Changed from "user_usage_count"
     val userUsageCount: Int = 0
 )

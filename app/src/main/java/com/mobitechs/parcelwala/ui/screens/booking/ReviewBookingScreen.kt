@@ -28,6 +28,10 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 /**
  * Review Booking Screen
  * Shows fare summary from FareDetails (API response)
+ *
+ * FIXES:
+ * 1. Coupon discount now properly shows in fare summary
+ * 2. Fare breakdown uses API data only - no duplicate GST
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,9 +57,10 @@ fun ReviewBookingScreen(
         if (viewModel.goodsTypes.value.isEmpty()) viewModel.loadGoodsTypes()
     }
 
+    // ✅ FIX: Use API's rounded fare as base, then apply coupon discount
     val baseFare = selectedFareDetails.roundedFare
-    val discount = uiState.discount
-    val finalFare = if (discount > 0) baseFare - discount else baseFare
+    val couponDiscount = uiState.discount  // This comes from coupon calculation
+    val finalFare = if (couponDiscount > 0) baseFare - couponDiscount else baseFare
     val appliedCoupon = uiState.appliedCoupon
     val selectedPaymentMethod = uiState.paymentMethod
 
@@ -88,10 +93,17 @@ fun ReviewBookingScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Fare Summary
+                        // Fare Summary - ✅ FIX: Pass coupon discount properly
                         SectionHeader(text = "Fare Summary", modifier = Modifier.padding(horizontal = 16.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-                        FareSummaryCard(fareDetails = selectedFareDetails, additionalDiscount = discount, finalFare = finalFare, onViewBreakdown = { showFareBreakdown = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        FareSummaryCard(
+                            fareDetails = selectedFareDetails,
+                            couponDiscount = couponDiscount,  // ✅ Renamed for clarity
+                            appliedCouponCode = appliedCoupon,  // ✅ Pass coupon code for display
+                            finalFare = finalFare,
+                            onViewBreakdown = { showFareBreakdown = true },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -122,7 +134,7 @@ fun ReviewBookingScreen(
                         Spacer(modifier = Modifier.height(100.dp))
                     }
 
-                    // Bottom Payment
+                    // Bottom Payment - ✅ FIX: Show correct final fare with discount
                     Surface(color = Color.White, shadowElevation = 8.dp) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                             Row(
@@ -141,7 +153,9 @@ fun ReviewBookingScreen(
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("₹$finalFare", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
-                                    if (discount > 0) Text("You save ₹$discount", style = MaterialTheme.typography.labelSmall, color = AppColors.Pickup)
+                                    if (couponDiscount > 0) {
+                                        Text("You save ₹$couponDiscount", style = MaterialTheme.typography.labelSmall, color = AppColors.Pickup)
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
@@ -159,7 +173,12 @@ fun ReviewBookingScreen(
 
     if (showFareBreakdown) {
         ModalBottomSheet(onDismissRequest = { showFareBreakdown = false }, containerColor = Color.White) {
-            FareBreakdownBottomSheet(fareDetails = selectedFareDetails, additionalDiscount = discount, onDismiss = { showFareBreakdown = false })
+            FareBreakdownBottomSheet(
+                fareDetails = selectedFareDetails,
+                couponDiscount = couponDiscount,
+                appliedCouponCode = appliedCoupon,
+                onDismiss = { showFareBreakdown = false }
+            )
         }
     }
 
@@ -209,20 +228,92 @@ private fun VehicleTripInfoCard(fareDetails: FareDetails, onViewAddressDetails: 
     }
 }
 
+/**
+ * ✅ FIXED: Fare Summary Card
+ * - Uses API data from fareBreakdown when available
+ * - Properly shows coupon discount row when applied
+ * - Calculates correct final fare
+ */
 @Composable
-private fun FareSummaryCard(fareDetails: FareDetails, additionalDiscount: Int, finalFare: Int, onViewBreakdown: () -> Unit, modifier: Modifier = Modifier) {
+private fun FareSummaryCard(
+    fareDetails: FareDetails,
+    couponDiscount: Int,  // Renamed for clarity
+    appliedCouponCode: String?,  // Added to show coupon code
+    finalFare: Int,
+    onViewBreakdown: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     InfoCard(modifier = modifier) {
-        FareRow("Base Fare (incl. ${fareDetails.freeDistanceKm.toInt()} km)", fareDetails.baseFare.toInt())
-        if (fareDetails.distanceFare > 0) { Spacer(Modifier.height(8.dp)); FareRow("Distance (${String.format("%.1f", fareDetails.chargeableDistanceKm)} km)", fareDetails.distanceFare.toInt()) }
-        if (fareDetails.platformFee > 0) { Spacer(Modifier.height(8.dp)); FareRow("Platform Fee", fareDetails.platformFee.toInt()) }
-        if (fareDetails.surgeAmount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Surge (${fareDetails.getSurgePercentage()}%)", fareDetails.surgeAmount.toInt(), isSurge = true) }
-        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp))
-        FareRow("Subtotal", fareDetails.subTotal.toInt())
-        Spacer(Modifier.height(8.dp)); FareRow("GST (${fareDetails.gstPercentage}%)", fareDetails.gstAmount.toInt())
-        if (fareDetails.discount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Discount", -fareDetails.discount.toInt(), isDiscount = true) }
-        if (additionalDiscount > 0) { Spacer(Modifier.height(8.dp)); FareRow("Coupon Discount", -additionalDiscount, isDiscount = true) }
-        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider, thickness = 2.dp); Spacer(Modifier.height(8.dp))
+        // ✅ Use API fareBreakdown if available, otherwise use individual fields
+        if (fareDetails.fareBreakdown.isNotEmpty()) {
+            // Display from API fareBreakdown (excludes GST as we'll show it separately for consistency)
+            fareDetails.fareBreakdown.forEachIndexed { index, item ->
+                if (item.type != "tax") {  // Show non-tax items first
+                    FareRow(item.label, item.value.toInt())
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            // Divider before subtotal
+            HorizontalDivider(color = AppColors.Divider)
+            Spacer(Modifier.height(8.dp))
+
+            // Subtotal
+            FareRow("Subtotal", fareDetails.subTotal.toInt())
+            Spacer(Modifier.height(8.dp))
+
+            // GST from fareBreakdown
+            fareDetails.fareBreakdown.find { it.type == "tax" }?.let { taxItem ->
+                FareRow(taxItem.label, taxItem.value.toInt())
+                Spacer(Modifier.height(8.dp))
+            }
+        } else {
+            // Fallback: Use individual fare fields from API
+            FareRow("Base Fare (incl. ${fareDetails.freeDistanceKm.toInt()} km)", fareDetails.baseFare.toInt())
+            if (fareDetails.distanceFare > 0) {
+                Spacer(Modifier.height(8.dp))
+                FareRow("Distance (${String.format("%.1f", fareDetails.chargeableDistanceKm)} km)", fareDetails.distanceFare.toInt())
+            }
+            if (fareDetails.platformFee > 0) {
+                Spacer(Modifier.height(8.dp))
+                FareRow("Platform Fee", fareDetails.platformFee.toInt())
+            }
+            if (fareDetails.surgeAmount > 0) {
+                Spacer(Modifier.height(8.dp))
+                FareRow("Surge (${fareDetails.getSurgePercentage()}%)", fareDetails.surgeAmount.toInt(), isSurge = true)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = AppColors.Divider)
+            Spacer(Modifier.height(8.dp))
+
+            FareRow("Subtotal", fareDetails.subTotal.toInt())
+            Spacer(Modifier.height(8.dp))
+            FareRow("GST (${fareDetails.gstPercentage.toInt()}%)", fareDetails.gstAmount.toInt())
+        }
+
+        // ✅ API discount (if any from fare calculation)
+        if (fareDetails.discount > 0) {
+            Spacer(Modifier.height(8.dp))
+            FareRow("Discount", -fareDetails.discount.toInt(), isDiscount = true)
+        }
+
+        // ✅ FIX: Show coupon discount when applied
+        if (couponDiscount > 0) {
+            Spacer(Modifier.height(8.dp))
+            FareRow(
+                label = if (appliedCouponCode != null) "Coupon ($appliedCouponCode)" else "Coupon Discount",
+                amount = -couponDiscount,
+                isDiscount = true
+            )
+        }
+
+        // Final Amount
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = AppColors.Divider, thickness = 2.dp)
+        Spacer(Modifier.height(8.dp))
         FareRow("Amount Payable", finalFare, isBold = true, isTotal = true)
+
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = onViewBreakdown, modifier = Modifier.fillMaxWidth()) {
             Text("View Detailed Breakdown", color = AppColors.Primary, fontWeight = FontWeight.Medium)
@@ -231,14 +322,30 @@ private fun FareSummaryCard(fareDetails: FareDetails, additionalDiscount: Int, f
     }
 }
 
+/**
+ * ✅ FIXED: Fare Breakdown Bottom Sheet
+ * - Only uses API fareBreakdown data - no static duplicates
+ * - Properly shows coupon discount
+ * - Correct total calculation
+ */
 @Composable
-private fun FareBreakdownBottomSheet(fareDetails: FareDetails, additionalDiscount: Int, onDismiss: () -> Unit) {
+private fun FareBreakdownBottomSheet(
+    fareDetails: FareDetails,
+    couponDiscount: Int,
+    appliedCouponCode: String?,
+    onDismiss: () -> Unit
+) {
+    val finalAmount = fareDetails.roundedFare - couponDiscount
+
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        // Header
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Fare Breakdown", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
             IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
         }
         Spacer(Modifier.height(16.dp))
+
+        // Vehicle Info
         Row(modifier = Modifier.fillMaxWidth().background(AppColors.Background, RoundedCornerShape(8.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -248,32 +355,67 @@ private fun FareBreakdownBottomSheet(fareDetails: FareDetails, additionalDiscoun
         }
         Spacer(Modifier.height(16.dp))
 
-        // Use fare_breakdown from API if available
+        // ✅ FIX: Use ONLY API fareBreakdown - prevents duplicate GST
         if (fareDetails.fareBreakdown.isNotEmpty()) {
             fareDetails.fareBreakdown.forEach { item ->
-                BreakdownRow(item.label, item.value, item.type)
+                BreakdownRow(
+                    label = item.label,
+                    amount = item.value,
+                    type = item.type
+                )
                 Spacer(Modifier.height(8.dp))
             }
         } else {
-            BreakdownRow("Base Fare", fareDetails.baseFare)
+            // Fallback: Build breakdown from individual fields
+            BreakdownRow("Base Fare (incl. ${fareDetails.freeDistanceKm.toInt()}km)", fareDetails.baseFare)
             Spacer(Modifier.height(8.dp))
-            if (fareDetails.distanceFare > 0) { BreakdownRow("Distance Fare", fareDetails.distanceFare); Spacer(Modifier.height(8.dp)) }
-            if (fareDetails.platformFee > 0) { BreakdownRow("Platform Fee", fareDetails.platformFee); Spacer(Modifier.height(8.dp)) }
-            if (fareDetails.surgeAmount > 0) { BreakdownRow("Surge", fareDetails.surgeAmount, "surge"); Spacer(Modifier.height(8.dp)) }
-            BreakdownRow("GST (${fareDetails.gstPercentage}%)", fareDetails.gstAmount)
+
+            if (fareDetails.distanceFare > 0) {
+                BreakdownRow("Distance Charges (${String.format("%.1f", fareDetails.chargeableDistanceKm)}km)", fareDetails.distanceFare)
+                Spacer(Modifier.height(8.dp))
+            }
+            if (fareDetails.platformFee > 0) {
+                BreakdownRow("Platform Fee", fareDetails.platformFee)
+                Spacer(Modifier.height(8.dp))
+            }
+            if (fareDetails.surgeAmount > 0) {
+                BreakdownRow("Surge (${fareDetails.getSurgePercentage()}%)", fareDetails.surgeAmount, "surge")
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // GST - only add once in fallback
+            BreakdownRow("GST (${fareDetails.gstPercentage.toInt()}%)", fareDetails.gstAmount, "tax")
+            Spacer(Modifier.height(8.dp))
         }
 
-        if (additionalDiscount > 0) {
-            Spacer(Modifier.height(8.dp))
+        // API discount (if any from fare calculation)
+        if (fareDetails.discount > 0) {
             HorizontalDivider(color = AppColors.Divider)
             Spacer(Modifier.height(8.dp))
-            BreakdownRow("Coupon Discount", -additionalDiscount.toDouble(), "discount")
+            BreakdownRow("Discount", -fareDetails.discount, "discount")
+            Spacer(Modifier.height(8.dp))
         }
 
-        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Primary, thickness = 2.dp); Spacer(Modifier.height(12.dp))
+        // ✅ FIX: Show coupon discount in breakdown
+        if (couponDiscount > 0) {
+            if (fareDetails.discount <= 0) {
+                HorizontalDivider(color = AppColors.Divider)
+                Spacer(Modifier.height(8.dp))
+            }
+            BreakdownRow(
+                label = if (appliedCouponCode != null) "Coupon ($appliedCouponCode)" else "Coupon Discount",
+                amount = -couponDiscount.toDouble(),
+                type = "discount"
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // Total Amount
+        HorizontalDivider(color = AppColors.Primary, thickness = 2.dp)
+        Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total Amount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-            Text("₹${fareDetails.roundedFare - additionalDiscount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+            Text("₹$finalAmount", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.Primary)
         }
         Spacer(Modifier.height(32.dp))
     }
@@ -284,9 +426,17 @@ private fun BreakdownRow(label: String, amount: Double, type: String = "charge")
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
         Text(
-            if (type == "discount") "-₹${(-amount).toInt()}" else "₹${amount.toInt()}",
+            when {
+                type == "discount" && amount < 0 -> "-₹${(-amount).toInt()}"
+                type == "discount" && amount > 0 -> "-₹${amount.toInt()}"
+                else -> "₹${amount.toInt()}"
+            },
             style = MaterialTheme.typography.bodyMedium,
-            color = when (type) { "discount" -> AppColors.Pickup; "surge" -> Color(0xFFE65100); else -> AppColors.TextPrimary }
+            color = when (type) {
+                "discount" -> AppColors.Pickup
+                "surge" -> Color(0xFFE65100)
+                else -> AppColors.TextPrimary
+            }
         )
     }
 }
@@ -294,9 +444,23 @@ private fun BreakdownRow(label: String, amount: Double, type: String = "charge")
 @Composable
 private fun FareRow(label: String, amount: Int, isBold: Boolean = false, isDiscount: Boolean = false, isSurge: Boolean = false, isTotal: Boolean = false) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = AppColors.TextPrimary)
-        Text(if (amount < 0) "-₹${-amount}" else "₹$amount", style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = when { isDiscount -> AppColors.Pickup; isSurge -> Color(0xFFE65100); isTotal -> AppColors.Primary; else -> AppColors.TextPrimary })
+        Text(
+            label,
+            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = AppColors.TextPrimary
+        )
+        Text(
+            if (amount < 0) "-₹${-amount}" else "₹$amount",
+            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                isDiscount -> AppColors.Pickup
+                isSurge -> Color(0xFFE65100)
+                isTotal -> AppColors.Primary
+                else -> AppColors.TextPrimary
+            }
+        )
     }
 }
 
