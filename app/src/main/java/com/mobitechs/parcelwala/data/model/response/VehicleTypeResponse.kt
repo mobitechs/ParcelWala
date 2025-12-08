@@ -64,7 +64,7 @@ data class VehicleTypeResponse(
  * Goods Type Response
  */
 data class GoodsTypeResponse(
-    @SerializedName("goods_type_id")
+    @SerializedName("goodsTypeId")  // Changed from "goods_type_id"
     val goodsTypeId: Int,
 
     @SerializedName("name")
@@ -73,19 +73,18 @@ data class GoodsTypeResponse(
     @SerializedName("icon")
     val icon: String,
 
-    @SerializedName("default_weight")
+    @SerializedName("defaultWeight")  // Changed from "default_weight"
     val defaultWeight: Double,
 
-    @SerializedName("default_packages")
+    @SerializedName("defaultPackages")  // Changed from "default_packages"
     val defaultPackages: Int,
 
-    @SerializedName("default_value")
+    @SerializedName("defaultValue")  // Changed from "default_value"
     val defaultValue: Int,
 
-    @SerializedName("is_active")
+    @SerializedName("isActive")  // Changed from "is_active"
     val isActive: Boolean = true
 )
-
 
 /**
  * Restricted Item Response
