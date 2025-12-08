@@ -341,34 +341,7 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    /**
-     * Calculate fare - Legacy single vehicle (calls multi-vehicle API internally)
-     */
-//    fun calculateFare(request: CalculateFareRequest): Flow<NetworkResult<FareDetails>> = flow {
-//        emit(NetworkResult.Loading())
-//
-//        try {
-//            if (USE_MOCK_DATA) {
-//                delay(700)
-//                val distanceKm = 8.5
-//                val mockFare = MockBookingData.calculateFare(request.vehicleTypeId, distanceKm)
-//                emit(NetworkResult.Success(mockFare))
-//            } else {
-//                val response = apiService.calculateFare(request)
-//                if (response.success && response.data.isNotEmpty()) {
-//                    val vehicleFare = response.data.find { it.vehicleTypeId == request.vehicleTypeId }
-//                        ?: response.data.first()
-//                    emit(NetworkResult.Success(vehicleFare))
-//                } else {
-//                    emit(NetworkResult.Error(response.message ?: "Failed to calculate fare"))
-//                }
-//            }
-//        } catch (e: Exception) {
-//            emit(NetworkResult.Error(e.message ?: "Network error"))
-//        }
-//    }
 
-    // ============ BOOKING APIs ============
 
     fun createBooking(request: CreateBookingRequest): Flow<NetworkResult<BookingResponse>> = flow {
         emit(NetworkResult.Loading())
@@ -395,46 +368,7 @@ class BookingRepository @Inject constructor(
         }
     }
 
-    fun getMyBookings(status: String? = null): Flow<NetworkResult<List<BookingResponse>>> = flow {
-        emit(NetworkResult.Loading())
 
-        try {
-            if (USE_MOCK_DATA) {
-                delay(800)
-                emit(NetworkResult.Success(emptyList()))
-            } else {
-                val response = apiService.getMyBookings(status = status)
-                if (response.success && response.data != null) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load bookings"))
-                }
-            }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
-        }
-    }
-
-    fun getBookingDetails(bookingId: Int): Flow<NetworkResult<BookingResponse>> = flow {
-        emit(NetworkResult.Loading())
-
-        try {
-            if (USE_MOCK_DATA) {
-                delay(600)
-                val mockBooking = MockBookingData.createBooking(1, "Pickup Location", "Drop Location")
-                emit(NetworkResult.Success(mockBooking.copy(bookingId = bookingId)))
-            } else {
-                val response = apiService.getBookingDetails(bookingId)
-                if (response.success && response.data != null) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load booking details"))
-                }
-            }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
-        }
-    }
 
     fun cancelBooking(bookingId: Int, reason: String): Flow<NetworkResult<Unit>> = flow {
         emit(NetworkResult.Loading())

@@ -91,18 +91,6 @@ interface ApiService {
     @POST("bookings")
     suspend fun createBooking(@Body request: CreateBookingRequest): CreateBookingResponse
 
-//    Get booking details
-    @GET("bookings/{bookingId}")
-    suspend fun getBookingDetails(@Path("bookingId") bookingId: Int): ApiResponse<BookingResponse>
-
-
-//    Get my bookings list
-    @GET("customer/bookings")
-    suspend fun getMyBookings(
-        @Query("status") status: String? = null,
-        @Query("page") page: Int = 1
-    ): ApiResponse<List<BookingResponse>>
-
 //    Cancel booking
     @POST("bookings/{bookingId}/cancel")
     suspend fun cancelBooking(
