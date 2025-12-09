@@ -1,17 +1,13 @@
 // ui/screens/booking/SearchingRiderScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,9 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -45,19 +41,31 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
+import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
+import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import kotlinx.coroutines.delay
 
 /**
- * Searching for Rider Screen
- * Shows map with route in top 45%, booking details below
- * Includes 3-minute countdown timer with progress bar
- * Shows retry option when search times out
+ * ════════════════════════════════════════════════════════════════════════════
+ * SEARCHING RIDER SCREEN
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Flow (Like Ola/Uber/Porter):
+ * 1. User lands here after booking confirmation
+ * 2. Timer starts counting down (3 minutes)
+ * 3. RiderTrackingViewModel connects to real-time service
+ * 4. When RIDER_ASSIGNED: NavGraph handles navigation to RiderFoundScreen
+ * 5. When NO_RIDER/TIMEOUT: Show retry UI
+ * 6. Cancel: Calls API via BookingViewModel, then navigates home
+ *
+ * KEY: Timer STOPS when rider is assigned (handled by status check)
+ * ════════════════════════════════════════════════════════════════════════════
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,29 +78,45 @@ fun SearchingRiderScreen(
     onRiderFound: () -> Unit,
     onContactSupport: () -> Unit,
     onViewDetails: () -> Unit,
-    viewModel: BookingViewModel = hiltViewModel()
+    onCancelBooking: (String) -> Unit = {},  // ✅ Added callback for cancel with reason
+    bookingViewModel: BookingViewModel = hiltViewModel(),
+    riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel()
 ) {
     var showCancelSheet by remember { mutableStateOf(false) }
 
-    // Observe route info from ViewModel
-    val routeInfo by viewModel.routeInfo.collectAsState()
-    val isRouteLoading by viewModel.isRouteLoading.collectAsState()
-    val activeBooking by viewModel.activeBooking.collectAsState()
+    // Observe from BookingViewModel
+    val routeInfo by bookingViewModel.routeInfo.collectAsState()
+    val isRouteLoading by bookingViewModel.isRouteLoading.collectAsState()
+    val activeBooking by bookingViewModel.activeBooking.collectAsState()
+    val bookingUiState by bookingViewModel.uiState.collectAsState()
 
-    // ═══════════════════════════════════════════════════════════════
-    // COUNTDOWN TIMER STATE (3 minutes = 180 seconds)
-    // Synced with activeBooking.searchStartTime from ActiveBookingManager
-    // ═══════════════════════════════════════════════════════════════
-    val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS  // 3 minutes
+    // Observe from RiderTrackingViewModel
+    val trackingUiState by riderTrackingViewModel.uiState.collectAsState()
+    val currentStatus = trackingUiState.currentStatus
 
-    // Stable fallback time - only calculated once when composable is first created
+    // ═══════════════════════════════════════════════════════════════════════
+    // CONNECT TO REAL-TIME SERVICE ON SCREEN LOAD
+    // ═══════════════════════════════════════════════════════════════════════
+    LaunchedEffect(bookingId) {
+        riderTrackingViewModel.connectToBooking(
+            bookingId = bookingId,
+            pickupLatitude = pickupAddress.latitude,
+            pickupLongitude = pickupAddress.longitude
+        )
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // COUNTDOWN TIMER - STOPS WHEN RIDER IS ASSIGNED
+    // ═══════════════════════════════════════════════════════════════════════
+    val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS
     val fallbackStartTime = remember { System.currentTimeMillis() }
-
-    // Get search start time from active booking (or use stable fallback)
     val searchStartTime = activeBooking?.searchStartTime ?: fallbackStartTime
     val searchAttempt = activeBooking?.searchAttempts ?: 1
 
-    // Timer state - keyed on searchStartTime so it resets when retry is clicked
+    // ✅ KEY: Check if we should be searching (not assigned yet)
+    val isSearching = currentStatus == BookingStatusType.SEARCHING
+    val isRiderAssigned = currentStatus == BookingStatusType.RIDER_ASSIGNED
+
     var remainingTimeMs by remember(searchStartTime) {
         val elapsed = System.currentTimeMillis() - searchStartTime
         mutableStateOf(maxOf(0L, totalTimeMs - elapsed))
@@ -103,35 +127,40 @@ fun SearchingRiderScreen(
         mutableStateOf(elapsed >= totalTimeMs)
     }
 
-    // Countdown timer effect - synced with searchStartTime
-    LaunchedEffect(searchStartTime) {
-        // Calculate initial remaining time based on actual elapsed time
+    // Show retry UI when timed out OR no rider available
+    val showRetryUi = isTimedOut || trackingUiState.isNoRiderAvailable
+
+    // ✅ Timer only runs when SEARCHING status
+    LaunchedEffect(searchStartTime, isSearching) {
+        if (!isSearching) {
+            // Not searching anymore (rider assigned or other status)
+            return@LaunchedEffect
+        }
+
         val initialElapsed = System.currentTimeMillis() - searchStartTime
         remainingTimeMs = maxOf(0L, totalTimeMs - initialElapsed)
         isTimedOut = remainingTimeMs <= 0
 
-        // Continue countdown only if not already timed out
-        while (remainingTimeMs > 0) {
-            delay(1000L)  // Update every second
+        while (remainingTimeMs > 0 && isSearching) {
+            delay(1000L)
             val newElapsed = System.currentTimeMillis() - searchStartTime
             remainingTimeMs = maxOf(0L, totalTimeMs - newElapsed)
         }
 
-        // Time's up!
-        isTimedOut = true
+        if (remainingTimeMs <= 0) {
+            isTimedOut = true
+        }
     }
 
-    // Format remaining time as MM:SS
+    // Format time
     val minutes = (remainingTimeMs / 60000).toInt()
     val seconds = ((remainingTimeMs % 60000) / 1000).toInt()
     val timeText = String.format("%02d:%02d", minutes, seconds)
 
-    // Calculate route when screen loads
+    // Calculate route
     LaunchedEffect(pickupAddress, dropAddress) {
-        if (pickupAddress.latitude != 0.0 && pickupAddress.longitude != 0.0 &&
-            dropAddress.latitude != 0.0 && dropAddress.longitude != 0.0
-        ) {
-            viewModel.calculateRoute(
+        if (pickupAddress.latitude != 0.0 && dropAddress.latitude != 0.0) {
+            bookingViewModel.calculateRoute(
                 pickupLat = pickupAddress.latitude,
                 pickupLng = pickupAddress.longitude,
                 dropLat = dropAddress.latitude,
@@ -140,7 +169,7 @@ fun SearchingRiderScreen(
         }
     }
 
-    // Animation for pulse effect (for searching indicator)
+    // Pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -166,32 +195,47 @@ fun SearchingRiderScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (!isTimedOut) {
-                                // Animated dot when searching
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .scale(pulseScale)
-                                        .background(AppColors.Primary, CircleShape)
-                                )
-                                Text(
-                                    text = "Finding your rider...",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AppColors.Primary
-                                )
-                            } else {
-                                // Warning when timed out
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFF9800),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "No drivers found",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFFFF9800)
-                                )
+                            when {
+                                isRiderAssigned -> {
+                                    // ✅ Show rider assigned status
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = AppColors.Pickup,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "Rider assigned! Navigating...",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppColors.Pickup
+                                    )
+                                }
+                                showRetryUi -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFF9800),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "No drivers found",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFFFF9800)
+                                    )
+                                }
+                                else -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .scale(pulseScale)
+                                            .background(AppColors.Primary, CircleShape)
+                                    )
+                                    Text(
+                                        text = trackingUiState.statusMessage ?: "Finding your rider...",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppColors.Primary
+                                    )
+                                }
                             }
                         }
                     }
@@ -205,9 +249,7 @@ fun SearchingRiderScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = AppColors.Background
@@ -217,7 +259,7 @@ fun SearchingRiderScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // ============ TOP 45%: MAP WITH ROUTE ============
+            // MAP (45%)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,11 +269,10 @@ fun SearchingRiderScreen(
                     pickupAddress = pickupAddress,
                     dropAddress = dropAddress,
                     routeInfo = routeInfo,
-                    isLoading = isRouteLoading,
-                    modifier = Modifier.fillMaxSize()
+                    isLoading = isRouteLoading
                 )
 
-                // Distance & Time Overlay Card
+                // Distance & Time Overlay
                 routeInfo?.let { route ->
                     Card(
                         modifier = Modifier
@@ -246,86 +287,44 @@ fun SearchingRiderScreen(
                             horizontalArrangement = Arrangement.spacedBy(24.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Distance
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Route,
-                                    contentDescription = null,
-                                    tint = AppColors.Primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = route.distanceText,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppColors.TextPrimary
-                                )
+                                Icon(Icons.Default.Route, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+                                Text(route.distanceText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             }
-
-                            // Divider
-                            Box(
-                                modifier = Modifier
-                                    .width(1.dp)
-                                    .height(24.dp)
-                                    .background(AppColors.Border)
-                            )
-
-                            // Duration
+                            Box(Modifier.width(1.dp).height(24.dp).background(AppColors.Border))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = AppColors.Primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = route.durationText,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppColors.TextPrimary
-                                )
+                                Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+                                Text(route.durationText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
 
-                // Loading indicator for route
                 if (isRouteLoading) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .background(
-                                color = Color.White.copy(alpha = 0.8f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                            .background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
                             .padding(16.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                                color = AppColors.Primary
-                            )
-                            Text(
-                                text = "Loading route...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = AppColors.TextSecondary
-                            )
+                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = AppColors.Primary)
+                            Text("Loading route...", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
                         }
                     }
                 }
             }
 
-            // ============ BOTTOM 55%: SCROLLABLE DETAILS ============
+            // DETAILS (55%)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -333,114 +332,68 @@ fun SearchingRiderScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ═══════════════════════════════════════════════════════════════
-                // SEARCHING STATUS CARD WITH COUNTDOWN TIMER
-                // ═══════════════════════════════════════════════════════════════
-                SearchingStatusCardWithTimer(
-                    isTimedOut = isTimedOut,
+                // Status Card
+                SearchingStatusCard(
+                    isTimedOut = showRetryUi,
+                    isRiderAssigned = isRiderAssigned,
                     remainingTimeMs = remainingTimeMs,
                     totalTimeMs = totalTimeMs,
                     timeText = timeText,
                     searchAttempt = searchAttempt,
                     pulseScale = pulseScale,
-                    onRetry = {
-                        viewModel.retrySearch()  // This updates activeBooking.searchStartTime
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                    onRetry = { riderTrackingViewModel.retrySearch() },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Journey Details Card
+                // Journey Details
                 JourneyDetailsCard(
                     pickupAddress = pickupAddress,
                     dropAddress = dropAddress,
-                    onViewDetails = onViewDetails,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Vehicle & Payment Row
+                // Vehicle & Payment
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Vehicle Info Card
-                    VehicleInfoCompactCard(
-                        fareDetails = selectedFareDetails,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Payment Card
-                    PaymentCompactCard(
-                        paymentMethod = "Cash",
-                        amount = fare,
-                        modifier = Modifier.weight(1f)
-                    )
+                    VehicleInfoCard(selectedFareDetails, Modifier.weight(1f))
+                    PaymentCard("Cash", fare, Modifier.weight(1f))
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Support & Cancel Row
+                // Buttons
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Contact Support Button
                     OutlinedButton(
                         onClick = onContactSupport,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
+                        modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Primary
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
+                        border = BorderStroke(1.dp, AppColors.Primary)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Headset,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Support",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Icon(Icons.Default.Headset, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Support", fontWeight = FontWeight.Bold)
                     }
 
-                    // Cancel Trip Button
                     OutlinedButton(
                         onClick = { showCancelSheet = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
+                        modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Drop
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Drop)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Drop),
+                        border = BorderStroke(1.dp, AppColors.Drop)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Cancel",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Icon(Icons.Default.Close, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Cancel", fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -449,25 +402,27 @@ fun SearchingRiderScreen(
         }
     }
 
-    // Cancel Reason Bottom Sheet
+    // Cancel Sheet
     if (showCancelSheet) {
         CancellationReasonBottomSheet(
             onDismiss = { showCancelSheet = false },
             onConfirmCancel = { reason ->
-                viewModel.cancelBooking(reason)
                 showCancelSheet = false
-            }
+                onCancelBooking(reason)  // ✅ Call the callback that triggers API
+            },
+            isLoading = bookingUiState.isLoading
         )
     }
 }
 
-/**
- * Searching Status Card with Countdown Timer & Progress Bar
- * Shows either searching state or timeout with retry option
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// STATUS CARD
+// ═══════════════════════════════════════════════════════════════════════════
+
 @Composable
-private fun SearchingStatusCardWithTimer(
+private fun SearchingStatusCard(
     isTimedOut: Boolean,
+    isRiderAssigned: Boolean,
     remainingTimeMs: Long,
     totalTimeMs: Long,
     timeText: String,
@@ -480,143 +435,143 @@ private fun SearchingStatusCardWithTimer(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isTimedOut) Color(0xFFFFF3E0) else Color.White
+            containerColor = when {
+                isRiderAssigned -> Color(0xFFE8F5E9)  // Light green
+                isTimedOut -> Color(0xFFFFF3E0)       // Light orange
+                else -> Color.White
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
-            // ═══════════════════════════════════════════════════════════════
-            // TOP ROW: Icon + Status + Timer
-            // ═══════════════════════════════════════════════════════════════
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Animated Icon
-                Box(
-                    modifier = Modifier.size(56.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!isTimedOut) {
-                        // Searching animation
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .scale(pulseScale)
-                                .alpha(0.3f)
-                                .background(AppColors.Primary, CircleShape)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(AppColors.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocalShipping,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
+                // Icon
+                Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        isRiderAssigned -> {
+                            // ✅ Rider Assigned - Green checkmark
+                            Box(
+                                modifier = Modifier.size(56.dp).background(AppColors.Pickup.copy(0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.CheckCircle, null, tint = AppColors.Pickup, modifier = Modifier.size(32.dp))
+                            }
                         }
-                    } else {
-                        // Timeout warning icon
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .background(
-                                    color = Color(0xFFFF9800).copy(alpha = 0.2f),
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SearchOff,
-                                contentDescription = null,
-                                tint = Color(0xFFFF9800),
-                                modifier = Modifier.size(28.dp)
-                            )
+                        isTimedOut -> {
+                            Box(
+                                modifier = Modifier.size(56.dp).background(Color(0xFFFF9800).copy(0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.SearchOff, null, tint = Color(0xFFFF9800), modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        else -> {
+                            Box(Modifier.size(56.dp).scale(pulseScale).alpha(0.3f).background(AppColors.Primary, CircleShape))
+                            Box(Modifier.size(40.dp).background(AppColors.Primary, CircleShape), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.LocalShipping, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                            }
                         }
                     }
                 }
 
-                // Status Text
+                // Text
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isTimedOut) "No riders available" else "Searching for drivers",
+                        text = when {
+                            isRiderAssigned -> "Rider Found! 🎉"
+                            isTimedOut -> "No riders available"
+                            else -> "Searching for drivers"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isTimedOut) Color(0xFFE65100) else AppColors.TextPrimary
+                        color = when {
+                            isRiderAssigned -> AppColors.Pickup
+                            isTimedOut -> Color(0xFFE65100)
+                            else -> AppColors.TextPrimary
+                        }
                     )
                     Text(
-                        text = if (isTimedOut) {
-                            "Try again or wait for availability"
-                        } else {
-                            "Searching nearby... Attempt $searchAttempt"
+                        text = when {
+                            isRiderAssigned -> "Navigating to rider details..."
+                            isTimedOut -> "Try again or wait for availability"
+                            else -> "Searching nearby... Attempt $searchAttempt"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = AppColors.TextSecondary
                     )
                 }
 
-                // Timer Display
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Calculate elapsed progress for color
-                    val elapsedProgress = ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
-
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            isTimedOut -> Color(0xFFE65100)
-                            elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
-                            elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
-                            else -> AppColors.Primary  // First minute - Primary
-                        }
-                    )
-                    Text(
-                        text = if (isTimedOut) "Timed out" else "remaining",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextSecondary
-                    )
+                // Timer (hide when rider assigned)
+                if (!isRiderAssigned) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val progress = ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs).coerceIn(0f, 1f)
+                        Text(
+                            text = timeText,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                isTimedOut -> Color(0xFFE65100)
+                                progress > 0.66f -> AppColors.Drop
+                                progress > 0.33f -> Color(0xFFFF9800)
+                                else -> AppColors.Primary
+                            }
+                        )
+                        Text(
+                            text = if (isTimedOut) "Timed out" else "remaining",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ═══════════════════════════════════════════════════════════════
-            // PROGRESS BAR
-            // ═══════════════════════════════════════════════════════════════
-            if (!isTimedOut) {
-                // Calculate elapsed time for left label
-                val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
-                val elapsedMinutes = (elapsedMs / 60000).toInt()
-                val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
-                val elapsedTimeText = String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
+            when {
+                isRiderAssigned -> {
+                    // ✅ Show navigation progress
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = AppColors.Pickup
+                    )
+                }
+                isTimedOut -> {
+                    Button(
+                        onClick = onRetry,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+                    ) {
+                        Icon(Icons.Default.Refresh, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Retry Search", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Search attempt $searchAttempt completed",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                else -> {
+                    val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
+                    val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs).coerceIn(0f, 1f)
 
-                // Progress should fill from left to right (0 = empty, 1 = full)
-                val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
-
-                Column {
-                    // Progress bar
                     LinearProgressIndicator(
                         progress = { elapsedProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                         color = when {
-                            elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
-                            elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
-                            else -> AppColors.Primary  // First minute - Primary
+                            elapsedProgress > 0.66f -> AppColors.Drop
+                            elapsedProgress > 0.33f -> Color(0xFFFF9800)
+                            else -> AppColors.Primary
                         },
                         trackColor = AppColors.Border,
                         strokeCap = StrokeCap.Round
@@ -624,68 +579,22 @@ private fun SearchingStatusCardWithTimer(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Progress labels - elapsed time on left, total time on right
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = elapsedTimeText,  // Shows elapsed time (0:00 → 3:00)
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
-                        )
-                        Text(
-                            text = "3:00",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextHint
-                        )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        val elapsedMinutes = (elapsedMs / 60000).toInt()
+                        val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
+                        Text("${elapsedMinutes}:${String.format("%02d", elapsedSeconds)}", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
+                        Text("3:00", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
                     }
                 }
-            } else {
-                // ═══════════════════════════════════════════════════════════════
-                // RETRY BUTTON (when timed out)
-                // ═══════════════════════════════════════════════════════════════
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Retry Search",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Attempt info
-                Text(
-                    text = "Search attempt $searchAttempt completed",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
 }
 
-/**
- * Route Map View with Polyline
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPER COMPOSABLES
+// ═══════════════════════════════════════════════════════════════════════════
+
 @Composable
 private fun RouteMapView(
     pickupAddress: SavedAddress,
@@ -696,263 +605,104 @@ private fun RouteMapView(
 ) {
     val pickupLatLng = LatLng(pickupAddress.latitude, pickupAddress.longitude)
     val dropLatLng = LatLng(dropAddress.latitude, dropAddress.longitude)
+    val cameraPositionState = rememberCameraPositionState()
 
-    // Calculate bounds
     val boundsBuilder = remember(pickupLatLng, dropLatLng, routeInfo) {
         LatLngBounds.builder()
             .include(pickupLatLng)
             .include(dropLatLng)
-            .apply {
-                routeInfo?.polylinePoints?.forEach { point ->
-                    include(point)
-                }
-            }
+            .apply { routeInfo?.polylinePoints?.forEach { include(it) } }
     }
 
-    val cameraPositionState = rememberCameraPositionState()
-
-    // Animate camera to show full route
     LaunchedEffect(routeInfo, pickupLatLng, dropLatLng) {
         try {
-            val bounds = boundsBuilder.build()
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(bounds, 80),
-                durationMs = 1000
-            )
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 80), 1000)
         } catch (e: Exception) {
-            // Fallback to center between points
-            val centerLat = (pickupLatLng.latitude + dropLatLng.latitude) / 2
-            val centerLng = (pickupLatLng.longitude + dropLatLng.longitude) / 2
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(LatLng(centerLat, centerLng), 13f)
-            )
+            val center = LatLng((pickupLatLng.latitude + dropLatLng.latitude) / 2, (pickupLatLng.longitude + dropLatLng.longitude) / 2)
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(center, 13f))
         }
     }
 
     GoogleMap(
-        modifier = modifier.clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+        modifier = modifier.fillMaxSize().clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
         cameraPositionState = cameraPositionState,
-        properties = MapProperties(
-            mapType = MapType.NORMAL,
-            isMyLocationEnabled = false
-        ),
-        uiSettings = MapUiSettings(
-            zoomControlsEnabled = false,
-            myLocationButtonEnabled = false,
-            mapToolbarEnabled = false,
-            compassEnabled = false
-        )
+        properties = MapProperties(mapType = MapType.NORMAL),
+        uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false)
     ) {
-        // Pickup Marker (Green)
-        Marker(
-            state = MarkerState(position = pickupLatLng),
-            title = "Pickup",
-            snippet = pickupAddress.address.take(50),
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-        )
-
-        // Drop Marker (Red)
-        Marker(
-            state = MarkerState(position = dropLatLng),
-            title = "Drop",
-            snippet = dropAddress.address.take(50),
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-        )
-
-        // Draw Route Polyline
-        routeInfo?.let { route ->
-            // Shadow/border polyline (darker, thicker)
-            Polyline(
-                points = route.polylinePoints,
-                color = Color(0xFF1565C0),
-                width = 14f,
-                jointType = JointType.ROUND,
-                startCap = RoundCap(),
-                endCap = RoundCap(),
-                zIndex = 0f
-            )
-
-            // Main route polyline
-            Polyline(
-                points = route.polylinePoints,
-                color = Color(0xFF2196F3),
-                width = 10f,
-                jointType = JointType.ROUND,
-                startCap = RoundCap(),
-                endCap = RoundCap(),
-                zIndex = 1f
-            )
+        Marker(MarkerState(pickupLatLng).toString(), title = "Pickup", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        Marker(MarkerState(dropLatLng).toString(), title = "Drop", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+        routeInfo?.let {
+            Polyline(it.polylinePoints, color = Color(0xFF1565C0), width = 14f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap())
+            Polyline(it.polylinePoints, color = Color(0xFF2196F3), width = 10f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
         }
     }
 }
 
-/**
- * Compact Journey Details Card
- */
 @Composable
-private fun JourneyDetailsCard(
-    pickupAddress: SavedAddress,
-    dropAddress: SavedAddress,
-    onViewDetails: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun JourneyDetailsCard(pickupAddress: SavedAddress, dropAddress: SavedAddress, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        // Pickup
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(AppColors.Pickup, CircleShape)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = pickupAddress.contactName ?: "Pickup",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-                Text(
-                    text = pickupAddress.address.take(45) + if (pickupAddress.address.length > 45) "..." else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary,
-                    maxLines = 1
-                )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(10.dp).background(AppColors.Pickup, CircleShape))
+            Column(Modifier.weight(1f)) {
+                Text(pickupAddress.contactName ?: "Pickup", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(pickupAddress.address.take(45) + if (pickupAddress.address.length > 45) "..." else "", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary, maxLines = 1)
             }
         }
-
-        // Connector
-        Box(
-            modifier = Modifier
-                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp)
-                .width(2.dp)
-                .height(16.dp)
-                .background(AppColors.Border)
-        )
-
-        // Drop
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(AppColors.Drop, CircleShape)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = dropAddress.contactName ?: "Drop",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-                Text(
-                    text = dropAddress.address.take(45) + if (dropAddress.address.length > 45) "..." else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary,
-                    maxLines = 1
-                )
+        Box(Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp).width(2.dp).height(16.dp).background(AppColors.Border))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(10.dp).background(AppColors.Drop, CircleShape))
+            Column(Modifier.weight(1f)) {
+                Text(dropAddress.contactName ?: "Drop", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(dropAddress.address.take(45) + if (dropAddress.address.length > 45) "..." else "", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary, maxLines = 1)
             }
         }
     }
 }
 
-/**
- * Compact Vehicle Info Card
- */
 @Composable
-private fun VehicleInfoCompactCard(
-    fareDetails: FareDetails,
-    modifier: Modifier = Modifier
-) {
+private fun VehicleInfoCard(fareDetails: FareDetails, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = fareDetails.vehicleTypeIcon ?: "🚚",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = fareDetails.vehicleTypeName ?: "Vehicle",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-            Text(
-                text = fareDetails.capacity ?: "",
-                style = MaterialTheme.typography.labelSmall,
-                color = AppColors.TextSecondary
-            )
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(fareDetails.vehicleTypeIcon ?: "🚚", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(fareDetails.vehicleTypeName ?: "Vehicle", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(fareDetails.capacity ?: "", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
         }
     }
 }
 
-/**
- * Compact Payment Card
- */
 @Composable
-private fun PaymentCompactCard(
-    paymentMethod: String,
-    amount: Int,
-    modifier: Modifier = Modifier
-) {
+private fun PaymentCard(method: String, amount: Int, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = "₹$amount",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.Primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Wallet,
-                    contentDescription = null,
-                    tint = AppColors.Pickup,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = paymentMethod,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("₹$amount", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Default.Wallet, null, tint = AppColors.Pickup, modifier = Modifier.size(16.dp))
+                Text(method, style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
             }
         }
     }
 }
 
-/**
- * Cancellation Reason Bottom Sheet
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// CANCELLATION BOTTOM SHEET
+// ═══════════════════════════════════════════════════════════════════════════
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CancellationReasonBottomSheet(
     onDismiss: () -> Unit,
-    onConfirmCancel: (String) -> Unit
+    onConfirmCancel: (String) -> Unit,
+    isLoading: Boolean = false
 ) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
     var otherReason by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
-
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
-    val cancellationReasons = listOf(
+    val reasons = listOf(
         CancellationReason("driver_delayed", "Driver is taking too long", Icons.Default.Timer),
         CancellationReason("change_plans", "Change of plans", Icons.Default.EventBusy),
         CancellationReason("wrong_address", "Wrong pickup/drop location", Icons.Default.LocationOff),
@@ -966,72 +716,49 @@ private fun CancellationReasonBottomSheet(
         containerColor = Color.White,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(40.dp)
-                    .height(4.dp)
-                    .background(AppColors.Border, RoundedCornerShape(2.dp))
-            )
+            Box(Modifier.padding(vertical = 12.dp).width(40.dp).height(4.dp).background(AppColors.Border, RoundedCornerShape(2.dp)))
         }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight(0.9f)
-                .fillMaxWidth()
-        ) {
+        Column(Modifier.fillMaxHeight(0.9f).fillMaxWidth()) {
             // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(
-                        text = "Cancel Trip?",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = "Please select a reason",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.TextSecondary
-                    )
+                    Text("Cancel Trip?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Please select a reason", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary)
-                }
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
             }
 
-            // Scrollable Content
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-            ) {
-                cancellationReasons.forEach { reason ->
-                    CancellationReasonItem(
-                        reason = reason,
-                        isSelected = selectedReason == reason.id,
-                        onClick = {
+            // Reasons
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+                reasons.forEach { reason ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
                             selectedReason = reason.id
                             if (reason.id != "other") {
                                 otherReason = ""
                                 keyboardController?.hide()
                                 focusManager.clearFocus()
                             }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(if (selectedReason == reason.id) 2.dp else 1.dp, if (selectedReason == reason.id) AppColors.Primary else AppColors.Border)
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(reason.icon, null, tint = if (selectedReason == reason.id) AppColors.Primary else AppColors.TextSecondary, modifier = Modifier.size(24.dp))
+                            Text(reason.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = if (selectedReason == reason.id) FontWeight.Bold else FontWeight.Normal, color = if (selectedReason == reason.id) AppColors.Primary else AppColors.TextPrimary)
+                            RadioButton(selected = selectedReason == reason.id, onClick = { selectedReason = reason.id }, colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary))
                         }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
 
-                // Other Reason TextField
                 if (selectedReason == "other") {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = otherReason,
                         onValueChange = { otherReason = it },
@@ -1042,189 +769,85 @@ private fun CancellationReasonBottomSheet(
                         maxLines = 5,
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                        }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AppColors.Primary,
-                            focusedLabelColor = AppColors.Primary
-                        )
+                        keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, focusedLabelColor = AppColors.Primary)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Warning
                 InfoCard {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            Icons.Default.Warning,
-                            null,
-                            tint = Color(0xFFFF9800),
-                            modifier = Modifier.size(24.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800), modifier = Modifier.size(24.dp))
                         Column {
-                            Text(
-                                text = "Cancellation Policy",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.TextPrimary
-                            )
-                            Text(
-                                text = "Frequent cancellations may result in temporary suspension.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
+                            Text("Cancellation Policy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Frequent cancellations may result in temporary suspension.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
             }
 
-            // Bottom Buttons
+            // Buttons
             Surface(color = Color.White, shadowElevation = 8.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
+                        modifier = Modifier.weight(1f).height(56.dp),
                         shape = RoundedCornerShape(16.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AppColors.Primary),
+                        border = BorderStroke(1.dp, AppColors.Primary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)
-                    ) {
-                        Text("Keep Trip", fontWeight = FontWeight.Bold)
-                    }
+                    ) { Text("Keep Trip", fontWeight = FontWeight.Bold) }
 
                     Button(
                         onClick = {
-                            if (selectedReason != null &&
-                                (selectedReason != "other" || otherReason.isNotBlank())
-                            ) {
+                            if (selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank())) {
                                 showConfirmDialog = true
                             }
                         },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.Drop,
-                            disabledContainerColor = AppColors.Drop.copy(alpha = 0.3f)
-                        ),
+                        modifier = Modifier.weight(1f).height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop, disabledContainerColor = AppColors.Drop.copy(0.3f)),
                         shape = RoundedCornerShape(16.dp),
-                        enabled = selectedReason != null &&
-                                (selectedReason != "other" || otherReason.isNotBlank())
+                        enabled = selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank()) && !isLoading
                     ) {
-                        Text("Cancel Trip", fontWeight = FontWeight.Bold)
+                        if (isLoading) {
+                            CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text("Cancel Trip", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
     }
 
-    // Confirmation Dialog
+    // Confirm Dialog
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             icon = { Icon(Icons.Default.ErrorOutline, null, tint = AppColors.Drop, modifier = Modifier.size(32.dp)) },
             title = { Text("Confirm Cancellation", fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Are you sure you want to cancel this trip?",
-                    color = AppColors.TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-            },
+            text = { Text("Are you sure you want to cancel this trip?", color = AppColors.TextSecondary, textAlign = TextAlign.Center) },
             confirmButton = {
                 Button(
                     onClick = {
-                        val reason = if (selectedReason == "other") {
-                            otherReason.ifBlank { "Other" }
-                        } else {
-                            cancellationReasons.find { it.id == selectedReason }?.title ?: "Cancelled"
-                        }
+                        val reason = if (selectedReason == "other") otherReason.ifBlank { "Other" }
+                        else reasons.find { it.id == selectedReason }?.title ?: "Cancelled"
                         onConfirmCancel(reason)
                         showConfirmDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop)
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop),
+                    enabled = !isLoading
                 ) {
-                    Text("Yes, Cancel")
+                    if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Text("Yes, Cancel")
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("No, Keep It", color = AppColors.Primary)
-                }
-            },
+            dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("No, Keep It", color = AppColors.Primary) } },
             containerColor = Color.White
         )
     }
 }
 
-/**
- * Cancellation Reason Item
- */
-@Composable
-private fun CancellationReasonItem(
-    reason: CancellationReason,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) AppColors.Primary else AppColors.Border
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = reason.icon,
-                contentDescription = null,
-                tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
-                modifier = Modifier.size(24.dp)
-            )
-            Text(
-                text = reason.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
-                modifier = Modifier.weight(1f)
-            )
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = AppColors.Primary,
-                    unselectedColor = AppColors.Border
-                )
-            )
-        }
-    }
-}
-
-data class CancellationReason(
-    val id: String,
-    val title: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-)
+private data class CancellationReason(val id: String, val title: String, val icon: ImageVector)

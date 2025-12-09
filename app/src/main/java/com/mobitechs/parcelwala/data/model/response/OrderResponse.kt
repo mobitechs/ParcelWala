@@ -1,4 +1,3 @@
-// data/model/response/OrderResponse.kt
 package com.mobitechs.parcelwala.data.model.response
 
 import com.google.gson.annotations.SerializedName
@@ -32,10 +31,10 @@ data class OrderDetailsResponse(
 )
 
 /**
- * Order Response - Main order data model
- * Used directly in UI - data displayed as received from API
+ * Order Response - Main data model
  */
 data class OrderResponse(
+
     @SerializedName("booking_id")
     val bookingId: Int,
 
@@ -93,17 +92,20 @@ data class OrderResponse(
     @SerializedName("goods_value")
     val goodsValue: Int? = null,
 
+    @SerializedName("status")
+    val status: String,
+
+    @SerializedName("fare")
+    val fare: Double,
+
+    @SerializedName("base_fare")
+    val baseFare: Double? = null,
+
     @SerializedName("distance")
     val distance: Double? = null,
 
-    @SerializedName("fare")
-    val fare: Int,
-
-    @SerializedName("base_fare")
-    val baseFare: Int? = null,
-
     @SerializedName("discount_amount")
-    val discountAmount: Int? = null,
+    val discountAmount: Double? = null,
 
     @SerializedName("coupon_code")
     val couponCode: String? = null,
@@ -113,9 +115,6 @@ data class OrderResponse(
 
     @SerializedName("payment_status")
     val paymentStatus: String? = null,
-
-    @SerializedName("status")
-    val status: String,
 
     @SerializedName("driver_id")
     val driverId: Int? = null,
@@ -168,7 +167,8 @@ data class OrderResponse(
     @SerializedName("gstin")
     val gstin: String? = null,
 
-    @SerializedName("created_at")
+    // Important fix → JSON key is "createdAt"
+    @SerializedName("createdAt")
     val createdAt: String,
 
     @SerializedName("updated_at")

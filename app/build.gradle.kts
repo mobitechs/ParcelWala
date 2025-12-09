@@ -146,6 +146,10 @@ dependencies {
     // Optional: Analytics
     implementation("com.google.firebase:firebase-analytics-ktx")
 
+
+    // Add SignalR dependency
+    implementation("com.microsoft.signalr:signalr:7.0.0")
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

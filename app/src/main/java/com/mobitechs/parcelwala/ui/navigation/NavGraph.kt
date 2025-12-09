@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import com.mobitechs.parcelwala.ui.screens.booking.LocationSearchScreen
 import com.mobitechs.parcelwala.ui.screens.booking.MapPickerScreen
 import com.mobitechs.parcelwala.ui.screens.booking.RestrictedItemsBottomSheet
 import com.mobitechs.parcelwala.ui.screens.booking.ReviewBookingScreen
+import com.mobitechs.parcelwala.ui.screens.booking.RiderFoundScreen
 import com.mobitechs.parcelwala.ui.screens.booking.SearchingRiderScreen
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
@@ -52,20 +54,21 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
+import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingNavigationEvent
+import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 
 /**
  * Main Navigation Graph
- * Handles all app navigation including:
- * - Authentication flow
- * - Main app with bottom navigation
- * - Booking flow (nested navigation) with Book Again support
- * - Account/Profile management flow (nested navigation)
- * - Order details
  *
- * KEY FEATURES:
- * - Edit button (✏️): Edit contact details only → address_confirm?isEdit=true
- * - Change button (📍): Change location → location_search?isChange=true
- * - Book Again: Prefill from order → booking_confirm directly
+ * REAL-TIME FLOW (Like Ola/Uber/Porter):
+ * ═══════════════════════════════════════
+ * 1. User confirms booking → CreateBooking API
+ * 2. Navigate to SearchingRiderScreen
+ * 3. RiderTrackingViewModel connects to real-time service
+ * 4. When RIDER_ASSIGNED received → Navigate to RiderFoundScreen
+ * 5. If CANCELLED/NO_RIDER → Stay on SearchingRiderScreen (show retry)
+ * 6. RiderFoundScreen shows rider details, OTP, live tracking
+ * 7. Subsequent status updates handled on RiderFoundScreen
  */
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
@@ -76,24 +79,12 @@ fun NavGraph(
     val isLoggedIn = preferencesManager.isLoggedIn()
     val context = LocalContext.current
 
-    // ✅ State to hold selected order for details screen
     var selectedOrder by remember { mutableStateOf<OrderResponse?>(null) }
-
-    // ✅ State to hold order for book again flow
     var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
-
-    // ✅ State to track if this is a Book Again flow
     var isBookAgainFlow by remember { mutableStateOf(false) }
-
-    // ✅ State to hold address for editing (account flow)
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
-
-    // ✅ State to hold address selected from search/map picker (account flow)
     var pendingAccountAddress by remember { mutableStateOf<SavedAddress?>(null) }
-
-// Add state for active booking navigation
     var activeBookingToResume by remember { mutableStateOf<ActiveBooking?>(null) }
-
 
     NavHost(
         navController = navController,
@@ -160,7 +151,7 @@ fun NavGraph(
             )
         }
 
-        // ============ MAIN SCREEN WITH BOTTOM NAV ============
+        // ============ MAIN SCREEN ============
         composable(Screen.Main.route) {
             MainScreen(
                 preferencesManager = preferencesManager,
@@ -170,7 +161,6 @@ fun NavGraph(
                     }
                 },
                 onNavigateToLocationSearch = {
-                    // ✅ Normal booking flow - reset flags
                     isBookAgainFlow = false
                     orderForBookAgain = null
                     navController.navigate("booking_flow")
@@ -180,7 +170,6 @@ fun NavGraph(
                     navController.navigate(Screen.OrderDetails.route)
                 },
                 onBookAgain = { order ->
-                    // ✅ Book Again flow - set flags
                     orderForBookAgain = order
                     isBookAgainFlow = true
                     navController.navigate("booking_flow")
@@ -189,38 +178,31 @@ fun NavGraph(
                     activeBookingToResume = activeBooking
                     navController.navigate("active_booking_flow")
                 },
-
-                // ✅ Account navigation callbacks
                 onNavigateToSavedAddresses = {
                     navController.navigate("account_flow")
                 },
                 onNavigateToProfileDetails = {
                     navController.navigate("profile_details")
                 },
-                onNavigateToGSTDetails = {
-                    // Handled in AccountScreen with bottom sheet
-                },
+                onNavigateToGSTDetails = { },
                 currentRoute = "home"
             )
         }
 
-        // ============ PROFILE DETAILS SCREEN ============
+        // ============ PROFILE DETAILS ============
         composable("profile_details") {
             ProfileDetailsScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ============ ORDER DETAILS SCREEN ============
+        // ============ ORDER DETAILS ============
         composable(Screen.OrderDetails.route) {
             selectedOrder?.let { order ->
                 OrderDetailsScreen(
                     order = order,
-                    onBack = {
-                        navController.popBackStack()
-                    },
+                    onBack = { navController.popBackStack() },
                     onBookAgain = { orderToBook ->
-                        // ✅ Book Again from order details
                         orderForBookAgain = orderToBook
                         isBookAgainFlow = true
                         navController.navigate("booking_flow") {
@@ -241,25 +223,20 @@ fun NavGraph(
                     }
                 )
             } ?: run {
-                LaunchedEffect(Unit) {
-                    navController.popBackStack()
-                }
+                LaunchedEffect(Unit) { navController.popBackStack() }
             }
         }
 
-        // ============ ACCOUNT FLOW - NESTED NAVIGATION ============
+        // ============ ACCOUNT FLOW ============
         navigation(
             startDestination = "saved_addresses",
             route = "account_flow"
         ) {
-            // ✅ Saved Addresses List Screen
             composable("saved_addresses") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("account_flow")
                 }
                 val viewModel: AccountViewModel = hiltViewModel(parentEntry)
-
-                // Handle address save/delete success
                 val uiState by viewModel.uiState.collectAsState()
 
                 LaunchedEffect(uiState.addressSaveSuccess) {
@@ -270,26 +247,22 @@ fun NavGraph(
                 }
 
                 SavedAddressesScreen(
-                    onBack = {
-                        navController.popBackStack()
-                    },
+                    onBack = { navController.popBackStack() },
                     onAddAddress = {
                         addressToEdit = null
-                        navController.navigate("address_search")  // ✅ New address → go to search
+                        navController.navigate("address_search")
                     },
                     onEditAddress = { address ->
                         addressToEdit = address
-                        navController.navigate("account_address_confirm")  // ✅ FIXED: Edit → go directly to confirm
+                        navController.navigate("account_address_confirm")
                     },
                     viewModel = viewModel
                 )
             }
 
-            // ✅ Address Search Screen (for adding new address OR changing location)
             composable("address_search") {
                 AddressSearchScreen(
                     onAddressSelected = { address ->
-                        // ✅ If editing (changing location), preserve contact info from original address
                         val mergedAddress = if (addressToEdit != null) {
                             address.copy(
                                 addressId = addressToEdit!!.addressId,
@@ -297,33 +270,26 @@ fun NavGraph(
                                 label = addressToEdit!!.label,
                                 contactName = addressToEdit!!.contactName,
                                 contactPhone = addressToEdit!!.contactPhone,
-                                buildingDetails = addressToEdit!!.buildingDetails,  // Updated field
+                                buildingDetails = addressToEdit!!.buildingDetails,
                                 landmark = addressToEdit!!.landmark,
                                 pincode = addressToEdit!!.pincode,
                                 isDefault = addressToEdit!!.isDefault
-                                // latitude, longitude, address come from the new selection
                             )
-                        } else {
-                            address
-                        }
+                        } else address
 
-                        // ✅ FIXED: Use state variable instead of savedStateHandle
                         pendingAccountAddress = mergedAddress
                         navController.navigate("account_address_confirm")
                     },
                     onMapPicker = { latLng ->
-                        navController.navigate(
-                            "address_map_picker/${latLng.latitude}/${latLng.longitude}"
-                        )
+                        navController.navigate("address_map_picker/${latLng.latitude}/${latLng.longitude}")
                     },
                     onBack = {
-                        pendingAccountAddress = null  // ✅ Clear on back
+                        pendingAccountAddress = null
                         navController.popBackStack()
                     }
                 )
             }
 
-            // ✅ Map Picker Screen for Address
             composable(
                 route = "address_map_picker/{lat}/{lng}",
                 arguments = listOf(
@@ -333,12 +299,10 @@ fun NavGraph(
             ) { backStackEntry ->
                 val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 19.0760
                 val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 72.8777
-                val initialLocation = LatLng(lat, lng)
 
                 MapPickerScreen(
-                    initialLocation = initialLocation,
+                    initialLocation = LatLng(lat, lng),
                     onLocationSelected = { address ->
-                        // ✅ If editing (changing location), preserve contact info from original address
                         val mergedAddress = if (addressToEdit != null) {
                             address.copy(
                                 addressId = addressToEdit!!.addressId,
@@ -346,16 +310,13 @@ fun NavGraph(
                                 label = addressToEdit!!.label,
                                 contactName = addressToEdit!!.contactName,
                                 contactPhone = addressToEdit!!.contactPhone,
-                                buildingDetails = addressToEdit!!.buildingDetails,  // Updated field
+                                buildingDetails = addressToEdit!!.buildingDetails,
                                 landmark = addressToEdit!!.landmark,
                                 pincode = addressToEdit!!.pincode,
                                 isDefault = addressToEdit!!.isDefault
                             )
-                        } else {
-                            address
-                        }
+                        } else address
 
-                        // ✅ FIXED: Use state variable instead of savedStateHandle
                         pendingAccountAddress = mergedAddress
                         navController.navigate("account_address_confirm") {
                             popUpTo("address_map_picker/{lat}/{lng}") { inclusive = true }
@@ -365,17 +326,12 @@ fun NavGraph(
                 )
             }
 
-            // ✅ Address Confirmation Screen for Account (with save as options)
             composable("account_address_confirm") {
                 val parentEntry = remember(navController) {
                     navController.getBackStackEntry("account_flow")
                 }
                 val viewModel: AccountViewModel = hiltViewModel(parentEntry)
                 val user = preferencesManager.getUser()
-
-                // ✅ FIXED: Priority for address selection using state variables
-                // 1. pendingAccountAddress (from address_search or map_picker - new/changed location)
-                // 2. addressToEdit (for direct edit without location change)
                 val selectedAddress = pendingAccountAddress ?: addressToEdit
 
                 AddressConfirmationScreen(
@@ -387,7 +343,6 @@ fun NavGraph(
                         } else {
                             viewModel.saveAddress(confirmedAddress)
                         }
-                        // ✅ Clear both state variables
                         addressToEdit = null
                         pendingAccountAddress = null
                         navController.navigate("saved_addresses") {
@@ -395,13 +350,10 @@ fun NavGraph(
                         }
                     },
                     onChangeLocation = {
-                        // ✅ Clear pendingAccountAddress before going to search
                         pendingAccountAddress = null
-                        // Keep addressToEdit so contact info can be preserved
                         navController.navigate("address_search")
                     },
                     onBack = {
-                        // ✅ Clear both state variables when going back
                         addressToEdit = null
                         pendingAccountAddress = null
                         navController.popBackStack()
@@ -413,14 +365,14 @@ fun NavGraph(
             }
         }
 
-        // ============ BOOKING FLOW - NESTED NAVIGATION ============
+        // ════════════════════════════════════════════════════════════════════
+        // BOOKING FLOW - NESTED NAVIGATION
+        // ════════════════════════════════════════════════════════════════════
         navigation(
             startDestination = "booking_entry",
             route = "booking_flow"
         ) {
-            // ═══════════════════════════════════════════════════════════════
-            // ENTRY POINT - Decides flow direction (Book Again vs Normal)
-            // ═══════════════════════════════════════════════════════════════
+            // Entry Point
             composable("booking_entry") { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("booking_flow")
@@ -429,7 +381,6 @@ fun NavGraph(
 
                 LaunchedEffect(orderForBookAgain, isBookAgainFlow) {
                     if (isBookAgainFlow && orderForBookAgain != null) {
-                        // ✅ Book Again flow - prefill and go to booking confirm
                         viewModel.prefillFromOrder(orderForBookAgain!!)
                         orderForBookAgain = null
                         isBookAgainFlow = false
@@ -437,58 +388,35 @@ fun NavGraph(
                             popUpTo("booking_entry") { inclusive = true }
                         }
                     } else {
-                        // ✅ Normal flow - go to location search
                         navController.navigate("location_search/pickup") {
                             popUpTo("booking_entry") { inclusive = true }
                         }
                     }
                 }
 
-                // Loading while deciding
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = AppColors.Primary)
                 }
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // LOCATION SEARCH SCREEN
-            // Route: location_search/{locationType}?isChange={isChange}
-            // - locationType: "pickup" or "drop"
-            // - isChange: true when changing existing location (preserves contact info)
-            // ═══════════════════════════════════════════════════════════════
+            // Location Search
             composable(
                 route = "location_search/{locationType}?isChange={isChange}",
                 arguments = listOf(
-                    navArgument("locationType") {
-                        type = NavType.StringType
-                        defaultValue = "pickup"
-                    },
-                    navArgument("isChange") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    }
+                    navArgument("locationType") { type = NavType.StringType; defaultValue = "pickup" },
+                    navArgument("isChange") { type = NavType.BoolType; defaultValue = false }
                 )
             ) { backStackEntry ->
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-
-                // Get existing address for preserving contact info when changing location
-                val existingAddress =
-                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 LocationSearchScreen(
                     locationType = locationType,
                     onAddressSelected = { address ->
-                        // ✅ Preserve contact info from existing address when changing location
                         val mergedAddress = if (isChange && existingAddress != null) {
                             address.copy(
                                 contactName = existingAddress.contactName,
@@ -497,70 +425,44 @@ fun NavGraph(
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )
-                        } else {
-                            address
-                        }
-
-                        // ✅ Use ViewModel to pass address (more reliable than savedStateHandle)
+                        } else address
                         viewModel.setPendingAddress(mergedAddress)
                         navController.navigate("address_confirm/$locationType?isChange=$isChange")
                     },
                     onMapPicker = { latLng ->
-                        navController.navigate(
-                            "map_picker/${latLng.latitude}/${latLng.longitude}/$locationType?isChange=$isChange"
-                        )
+                        navController.navigate("map_picker/${latLng.latitude}/${latLng.longitude}/$locationType?isChange=$isChange")
                     },
                     onBack = {
-                        if (isChange) {
-                            // Go back to booking_confirm when changing
-                            navController.popBackStack()
-                        } else if (locationType == "pickup") {
-                            navController.navigate(Screen.Main.route) {
-                                popUpTo("booking_flow") { inclusive = true }
-                            }
-                        } else {
-                            navController.popBackStack()
-                        }
+                        if (isChange) navController.popBackStack()
+                        else if (locationType == "pickup") {
+                            navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
+                        } else navController.popBackStack()
                     }
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // MAP PICKER SCREEN
-            // Route: map_picker/{lat}/{lng}/{locationType}?isChange={isChange}
-            // ═══════════════════════════════════════════════════════════════
+            // Map Picker
             composable(
                 route = "map_picker/{lat}/{lng}/{locationType}?isChange={isChange}",
                 arguments = listOf(
                     navArgument("lat") { type = NavType.StringType },
                     navArgument("lng") { type = NavType.StringType },
                     navArgument("locationType") { type = NavType.StringType },
-                    navArgument("isChange") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    }
+                    navArgument("isChange") { type = NavType.BoolType; defaultValue = false }
                 )
             ) { backStackEntry ->
                 val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 19.0760
                 val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 72.8777
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-                val initialLocation = LatLng(lat, lng)
-
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-
-                // Get existing address for preserving contact info
-                val existingAddress =
-                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 MapPickerScreen(
-                    initialLocation = initialLocation,
+                    initialLocation = LatLng(lat, lng),
                     onLocationSelected = { address ->
-                        // ✅ Preserve contact info from existing address
                         val mergedAddress = if (isChange && existingAddress != null) {
                             address.copy(
                                 contactName = existingAddress.contactName,
@@ -569,97 +471,51 @@ fun NavGraph(
                                 landmark = existingAddress.landmark,
                                 pincode = existingAddress.pincode
                             )
-                        } else {
-                            address
-                        }
-
-                        // ✅ Use ViewModel to pass address (more reliable than savedStateHandle)
+                        } else address
                         viewModel.setPendingAddress(mergedAddress)
                         navController.navigate("address_confirm/$locationType?isChange=$isChange") {
-                            // Pop map picker from stack
-                            popUpTo("map_picker/{lat}/{lng}/{locationType}?isChange={isChange}") {
-                                inclusive = true
-                            }
+                            popUpTo("map_picker/{lat}/{lng}/{locationType}?isChange={isChange}") { inclusive = true }
                         }
                     },
                     onBack = { navController.popBackStack() }
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // ADDRESS CONFIRMATION SCREEN
-            // Route: address_confirm/{locationType}?isEdit={isEdit}&isChange={isChange}
-            //
-            // Parameters:
-            // - locationType: "pickup" or "drop"
-            // - isEdit: true when editing existing address details (from Edit ✏️ button)
-            // - isChange: true when changing location (from Change 📍 button)
-            //
-            // Behavior:
-            // - isEdit=true: Load existing address from ViewModel, show "Save Changes"
-            // - isChange=true/false (new): Load address from ViewModel's pendingAddress
-            // ═══════════════════════════════════════════════════════════════
+            // Address Confirm
             composable(
                 route = "address_confirm/{locationType}?isEdit={isEdit}&isChange={isChange}",
                 arguments = listOf(
                     navArgument("locationType") { type = NavType.StringType },
-                    navArgument("isEdit") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    },
-                    navArgument("isChange") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    }
+                    navArgument("isEdit") { type = NavType.BoolType; defaultValue = false },
+                    navArgument("isChange") { type = NavType.BoolType; defaultValue = false }
                 )
             ) { backStackEntry ->
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isEdit = backStackEntry.arguments?.getBoolean("isEdit") ?: false
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 AddressConfirmationScreen(
-                    address = null, // Will be read from ViewModel
+                    address = null,
                     locationType = locationType,
                     isEditMode = isEdit || isChange,
-                    viewModel = viewModel, // ✅ Pass ViewModel
+                    viewModel = viewModel,
                     onConfirm = { confirmedAddress ->
-                        // ✅ Save address to ViewModel (includes lat/lng)
-                        if (locationType == "pickup") {
-                            viewModel.setPickupAddress(confirmedAddress)
-                        } else {
-                            viewModel.setDropAddress(confirmedAddress)
-                        }
-
-                        // ✅ Clear pending address
+                        if (locationType == "pickup") viewModel.setPickupAddress(confirmedAddress)
+                        else viewModel.setDropAddress(confirmedAddress)
                         viewModel.clearPendingAddress()
 
-                        // ✅ Navigate based on flow
                         if (isEdit || isChange) {
-                            // Editing or Changing: go back to booking_confirm
-                            navController.navigate("booking_confirm") {
-                                popUpTo("booking_confirm") { inclusive = true }
-                            }
+                            navController.navigate("booking_confirm") { popUpTo("booking_confirm") { inclusive = true } }
                         } else if (locationType == "pickup") {
-                            // Normal flow: go to drop location search
-                            navController.navigate("location_search/drop") {
-                                popUpTo("location_search/pickup") { inclusive = false }
-                            }
+                            navController.navigate("location_search/drop") { popUpTo("location_search/pickup") { inclusive = false } }
                         } else {
-                            // Normal flow (drop): go to booking confirm
-                            navController.navigate("booking_confirm") {
-                                popUpTo("location_search/pickup") { inclusive = false }
-                            }
+                            navController.navigate("booking_confirm") { popUpTo("location_search/pickup") { inclusive = false } }
                         }
                     },
                     onChangeLocation = {
-                        // ✅ Clear pending address before going to location search
                         viewModel.clearPendingAddress()
-                        // Change location button clicked - go to location search with isChange=true
                         navController.navigate("location_search/$locationType?isChange=true")
                     },
                     onBack = {
@@ -669,14 +525,9 @@ fun NavGraph(
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // BOOKING CONFIRMATION SCREEN
-            // Shows both addresses with Edit (✏️) and Change (📍) buttons
-            // ═══════════════════════════════════════════════════════════════
+            // Booking Confirm
             composable("booking_confirm") {
-                val parentEntry = remember(navController) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
 
@@ -685,11 +536,10 @@ fun NavGraph(
                     dropAddress = uiState.dropAddress,
                     preSelectedVehicleId = uiState.preferredVehicleTypeId,
                     isPrefilledFromOrder = uiState.isBookAgain,
-                    onVehicleSelected = { fareDetails ->  // ✅ Changed: Now receives FareDetails
-                        viewModel.selectFareDetails(fareDetails)  // ✅ Changed: Use new method
+                    onVehicleSelected = { fareDetails ->
+                        viewModel.selectFareDetails(fareDetails)
                         navController.navigate("review_booking")
                     },
-                    // ✅ Edit (✏️): Go to address_confirm to edit details (name, phone, flat, etc.)
                     onEditPickup = {
                         viewModel.clearPendingAddress()
                         navController.navigate("address_confirm/pickup?isEdit=true")
@@ -698,7 +548,6 @@ fun NavGraph(
                         viewModel.clearPendingAddress()
                         navController.navigate("address_confirm/drop?isEdit=true")
                     },
-                    // ✅ Change (📍): Go to location_search to change location
                     onChangePickup = {
                         viewModel.clearPendingAddress()
                         navController.navigate("location_search/pickup?isChange=true")
@@ -709,28 +558,19 @@ fun NavGraph(
                     },
                     onBack = {
                         if (uiState.isBookAgain) {
-                            navController.navigate(Screen.Main.route) {
-                                popUpTo("booking_flow") { inclusive = true }
-                            }
-                        } else {
-                            navController.popBackStack()
-                        }
+                            navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
+                        } else navController.popBackStack()
                     },
                     viewModel = viewModel
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // REVIEW BOOKING SCREEN
-            // ═══════════════════════════════════════════════════════════════
+            // Review Booking
             composable("review_booking") {
-                val parentEntry = remember(navController) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-                val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()  // ✅ Changed: Use FareDetails
-
+                val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()
                 var showGoodsTypeSheet by remember { mutableStateOf(false) }
                 var showRestrictedItemsSheet by remember { mutableStateOf(false) }
 
@@ -742,24 +582,18 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = false }
                                 }
                             }
-
                             BookingNavigationEvent.NavigateToHome -> {
-                                navController.navigate(Screen.Main.route) {
-                                    popUpTo("booking_flow") { inclusive = true }
-                                }
+                                navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
                             }
                         }
                     }
                 }
 
-                // ✅ Changed: Check for selectedFareDetails instead of selectedVehicle
                 if (uiState.pickupAddress == null || uiState.dropAddress == null || selectedFareDetails == null) {
-                    LaunchedEffect(Unit) {
-                        navController.popBackStack()
-                    }
+                    LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
                     ReviewBookingScreen(
-                        selectedFareDetails = selectedFareDetails!!,  // ✅ Changed: Pass FareDetails
+                        selectedFareDetails = selectedFareDetails!!,
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         onConfirmBooking = { viewModel.confirmBooking() },
@@ -781,22 +615,15 @@ fun NavGraph(
                             }
                         )
                     }
-
                     if (showRestrictedItemsSheet) {
-                        RestrictedItemsBottomSheet(
-                            onDismiss = { showRestrictedItemsSheet = false }
-                        )
+                        RestrictedItemsBottomSheet(onDismiss = { showRestrictedItemsSheet = false })
                     }
                 }
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // COUPONS SCREEN
-            // ═══════════════════════════════════════════════════════════════
+            // Coupons
             composable("coupons") {
-                val parentEntry = remember(navController) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 CouponScreen(
@@ -809,13 +636,9 @@ fun NavGraph(
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // ADD GSTIN SCREEN
-            // ═══════════════════════════════════════════════════════════════
+            // Add GSTIN
             composable("add_gstin") {
-                val parentEntry = remember(navController) {
-                    navController.getBackStackEntry("booking_flow")
-                }
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 AddGSTINScreen(
@@ -827,65 +650,171 @@ fun NavGraph(
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
+            // ════════════════════════════════════════════════════════════════
             // SEARCHING RIDER SCREEN
-            // ═══════════════════════════════════════════════════════════════
+            // ════════════════════════════════════════════════════════════════
             composable(
                 route = "searching_rider/{bookingId}",
-                arguments = listOf(
-                    navArgument("bookingId") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val parentEntry = remember(navController) {
-                    navController.getBackStackEntry("booking_flow")
-                }
-                val viewModel: BookingViewModel = hiltViewModel(parentEntry)
-                val uiState by viewModel.uiState.collectAsState()
-                val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()  // ✅ Changed
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry) // ✅ SHARED!
 
+                val uiState by bookingViewModel.uiState.collectAsState()
+                val selectedFareDetails by bookingViewModel.selectedFareDetails.collectAsState()
+
+                // ✅ CRITICAL: Observe RiderTrackingViewModel navigation events
                 LaunchedEffect(Unit) {
-                    viewModel.navigationEvent.collect { event ->
+                    riderTrackingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is RiderTrackingNavigationEvent.RiderAssigned -> {
+                                // ✅ Navigate to RiderFoundScreen when rider is assigned
+                                navController.navigate("rider_found/${event.bookingId}") {
+                                    popUpTo("searching_rider/{bookingId}") { inclusive = true }
+                                }
+                            }
+                            is RiderTrackingNavigationEvent.NoRiderAvailable -> {
+                                // Stay on this screen - UI will show retry option
+                            }
+                            is RiderTrackingNavigationEvent.BookingCancelled -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                // Also observe BookingViewModel navigation (for cancel API completion)
+                LaunchedEffect(Unit) {
+                    bookingViewModel.navigationEvent.collect { event ->
                         when (event) {
                             is BookingNavigationEvent.NavigateToHome -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
-
                             else -> {}
                         }
                     }
                 }
 
-                // ✅ Changed: Use selectedFareDetails instead of selectedVehicle
                 if (uiState.pickupAddress != null && uiState.dropAddress != null && selectedFareDetails != null) {
                     SearchingRiderScreen(
                         bookingId = bookingId,
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
-                        selectedFareDetails = selectedFareDetails!!,  // ✅ Changed
+                        selectedFareDetails = selectedFareDetails!!,
                         fare = uiState.finalFare,
-                        onRiderFound = {},
-                        onContactSupport = {},
-                        onViewDetails = {},
-                        viewModel = viewModel
+                        onRiderFound = { /* Handled by navigation event */ },
+                        onContactSupport = {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
+                            context.startActivity(intent)
+                        },
+                        onViewDetails = { },
+                        // ✅ Pass cancel callback that calls API
+                        onCancelBooking = { reason ->
+                            // First disconnect real-time, then call API
+                            riderTrackingViewModel.disconnect()
+                            bookingViewModel.cancelBooking(reason)
+                        },
+                        bookingViewModel = bookingViewModel,
+                        riderTrackingViewModel = riderTrackingViewModel
                     )
                 } else {
-                    // ✅ Add loading/fallback UI instead of blank screen
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = AppColors.Primary)
                     }
                 }
             }
 
+            // ════════════════════════════════════════════════════════════════
+            // RIDER FOUND SCREEN
+            // ════════════════════════════════════════════════════════════════
+            composable(
+                route = "rider_found/{bookingId}",
+                arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry) // ✅ SHARED!
 
+                val uiState by bookingViewModel.uiState.collectAsState()
+
+                // Handle navigation events
+                LaunchedEffect(Unit) {
+                    riderTrackingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is RiderTrackingNavigationEvent.RiderArrived -> {
+                                // TODO: Navigate to RiderArrivedScreen
+                            }
+                            is RiderTrackingNavigationEvent.ParcelPickedUp -> {
+                                // TODO: Navigate to TrackingScreen
+                            }
+                            is RiderTrackingNavigationEvent.Delivered -> {
+                                // TODO: Navigate to DeliveredScreen
+                            }
+                            is RiderTrackingNavigationEvent.BookingCancelled -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                // Observe booking cancellation from API
+                LaunchedEffect(Unit) {
+                    bookingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is BookingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                DisposableEffect(Unit) {
+                    onDispose {
+                        // Don't disconnect here - let the ViewModel handle lifecycle
+                    }
+                }
+
+                if (uiState.pickupAddress != null && uiState.dropAddress != null) {
+                    RiderFoundScreen(
+                        bookingId = bookingId,
+                        pickupAddress = uiState.pickupAddress!!,
+                        dropAddress = uiState.dropAddress!!,
+                        fare = uiState.finalFare,
+                        onCancelBooking = { reason ->
+                            riderTrackingViewModel.disconnect()
+                            bookingViewModel.cancelBooking(reason)
+                        },
+                        onContactSupport = {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
+                            context.startActivity(intent)
+                        },
+                        viewModel = riderTrackingViewModel
+                    )
+                } else {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
+            }
         }
 
-        // ✅ ADD THIS - ACTIVE BOOKING FLOW (separate from booking_flow)
+        // ============ ACTIVE BOOKING FLOW (Resume) ============
         navigation(
             startDestination = "active_searching_rider",
             route = "active_booking_flow"
@@ -895,6 +824,7 @@ fun NavGraph(
 
                 if (activeBooking != null) {
                     val viewModel: BookingViewModel = hiltViewModel()
+                    val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel()
 
                     SearchingRiderScreen(
                         bookingId = activeBooking.bookingId,
@@ -905,18 +835,17 @@ fun NavGraph(
                         onRiderFound = { },
                         onContactSupport = { },
                         onViewDetails = { },
-                        viewModel = viewModel
+                        onCancelBooking = { reason ->
+                            riderTrackingViewModel.disconnect()
+                            viewModel.cancelBooking(reason)
+                        },
+                        bookingViewModel = viewModel,
+                        riderTrackingViewModel = riderTrackingViewModel
                     )
                 } else {
-                    LaunchedEffect(Unit) {
-                        navController.popBackStack()
-                    }
+                    LaunchedEffect(Unit) { navController.popBackStack() }
                 }
             }
         }
-
-
-
-    }//nva host
-
+    }
 }

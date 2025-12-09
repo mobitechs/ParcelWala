@@ -36,13 +36,15 @@ import javax.inject.Inject
  * Booking ViewModel
  * Handles all booking-related operations
  *
- * NEW FLOW (Like Ola/Uber):
+ * FLOW (Like Ola/Uber):
  * 1. User selects pickup & drop locations
  * 2. Call calculateFaresForAllVehicles API
  * 3. Show list of vehicles with calculated fares
  * 4. User selects a vehicle → proceed to review
  * 5. User can apply coupon → discount calculated
  * 6. Confirm booking → sends complete fare breakdown to API
+ * 7. Navigate to SearchingRiderScreen
+ * 8. On cancel → calls cancelBooking API → navigates home
  */
 @HiltViewModel
 class BookingViewModel @Inject constructor(
@@ -55,7 +57,7 @@ class BookingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState: StateFlow<BookingUiState> = _uiState.asStateFlow()
 
-    // ============ VEHICLE FARES - List<FareDetails> ============
+    // ============ VEHICLE FARES ============
     private val _vehicleFares = MutableStateFlow<List<FareDetails>>(emptyList())
     val vehicleFares: StateFlow<List<FareDetails>> = _vehicleFares.asStateFlow()
 
@@ -100,10 +102,6 @@ class BookingViewModel @Inject constructor(
 
     // ============ FARE CALCULATION ============
 
-    /**
-     * Calculate fares for all vehicle types
-     * Called when both pickup and drop are set
-     */
     fun calculateFaresForAllVehicles() {
         val pickup = _uiState.value.pickupAddress
         val drop = _uiState.value.dropAddress
@@ -132,18 +130,12 @@ class BookingViewModel @Inject constructor(
 
             bookingRepository.calculateFaresForAllVehicles(request).collect { result ->
                 when (result) {
-                    is NetworkResult.Loading -> {
-                        _isFareLoading.value = true
-                    }
+                    is NetworkResult.Loading -> _isFareLoading.value = true
                     is NetworkResult.Success -> {
                         _vehicleFares.value = result.data ?: emptyList()
                         _isFareLoading.value = false
                         _uiState.update { it.copy(isLoading = false, error = null, hasFaresLoaded = true) }
-
-                        // Auto-select for Book Again
-                        _uiState.value.preferredVehicleTypeId?.let { prefId ->
-                            selectFareDetailsById(prefId)
-                        }
+                        _uiState.value.preferredVehicleTypeId?.let { prefId -> selectFareDetailsById(prefId) }
                     }
                     is NetworkResult.Error -> {
                         _isFareLoading.value = false
@@ -155,9 +147,6 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Select a fare details (vehicle with calculated fare)
-     */
     fun selectFareDetails(fareDetails: FareDetails) {
         _selectedFareDetails.value = fareDetails
         _uiState.update {
@@ -170,9 +159,7 @@ class BookingViewModel @Inject constructor(
     }
 
     private fun selectFareDetailsById(vehicleTypeId: Int) {
-        _vehicleFares.value.find { it.vehicleTypeId == vehicleTypeId }?.let {
-            selectFareDetails(it)
-        }
+        _vehicleFares.value.find { it.vehicleTypeId == vehicleTypeId }?.let { selectFareDetails(it) }
     }
 
     fun clearVehicleFares() {
@@ -248,17 +235,13 @@ class BookingViewModel @Inject constructor(
     fun setPickupAddress(address: SavedAddress) {
         _uiState.update { it.copy(pickupAddress = address) }
         clearVehicleFares()
-        if (_uiState.value.dropAddress != null) {
-            calculateFaresForAllVehicles()
-        }
+        if (_uiState.value.dropAddress != null) calculateFaresForAllVehicles()
     }
 
     fun setDropAddress(address: SavedAddress) {
         _uiState.update { it.copy(dropAddress = address) }
         clearVehicleFares()
-        if (_uiState.value.pickupAddress != null) {
-            calculateFaresForAllVehicles()
-        }
+        if (_uiState.value.pickupAddress != null) calculateFaresForAllVehicles()
     }
 
     fun setSelectedVehicle(vehicleType: VehicleTypeResponse) {
@@ -275,7 +258,7 @@ class BookingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedGoodsTypeId = goodsType.goodsTypeId,
-                selectedGoodsTypeName = goodsType.name,  // ✅ Store name
+                selectedGoodsTypeName = goodsType.name,
                 goodsWeight = goodsType.defaultWeight,
                 goodsPackages = goodsType.defaultPackages,
                 goodsValue = goodsType.defaultValue
@@ -283,9 +266,6 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Apply coupon - stores full coupon details for booking request
-     */
     fun applyCoupon(couponCode: String) {
         viewModelScope.launch {
             val orderValue = _uiState.value.baseFare
@@ -297,7 +277,6 @@ class BookingViewModel @Inject constructor(
                             val discountAmount = calculateDiscount(coupon, orderValue)
                             _uiState.update {
                                 it.copy(
-                                    // ✅ Store complete coupon details
                                     appliedCoupon = coupon.code,
                                     appliedCouponId = coupon.couponId,
                                     appliedCouponDiscountType = coupon.discountType,
@@ -316,9 +295,6 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Remove coupon - clears all coupon details
-     */
     fun removeCoupon() {
         _uiState.update {
             it.copy(
@@ -370,15 +346,14 @@ class BookingViewModel @Inject constructor(
     }
 
     /**
-     * ✅ UPDATED: Confirm booking with complete fare details
-     * Sends all fare breakdown, coupon info, and final amount to API
+     * Confirm booking
+     * Creates booking and navigates to SearchingRiderScreen
      */
     fun confirmBooking() {
         viewModelScope.launch {
             val state = _uiState.value
             val selectedFare = _selectedFareDetails.value
 
-            // Validation
             if (state.pickupAddress == null || state.dropAddress == null) {
                 _uiState.update { it.copy(error = "Please select pickup and drop locations") }
                 return@launch
@@ -389,7 +364,6 @@ class BookingViewModel @Inject constructor(
                 return@launch
             }
 
-            // ✅ Build complete booking request using builder
             val request = CreateBookingRequestBuilder.build(
                 fareDetails = selectedFare,
                 pickupAddress = state.pickupAddress,
@@ -413,17 +387,24 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
-                            // ✅ Set active booking in manager for tracking
+                            // ✅ Store booking ID for cancel API
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    error = null,
+                                    currentBookingId = booking.bookingId  // Store the numeric ID
+                                )
+                            }
+
                             activeBookingManager.setActiveBooking(
                                 bookingId = booking.bookingNumber,
                                 pickupAddress = state.pickupAddress,
                                 dropAddress = state.dropAddress,
                                 fareDetails = selectedFare,
-                                fare = request.finalFare,  // Use final fare after coupon
+                                fare = request.finalFare,
                                 status = BookingStatus.SEARCHING
                             )
 
-                            _uiState.update { it.copy(isLoading = false, error = null) }
                             _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingNumber))
                         }
                     }
@@ -433,34 +414,46 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Retry search for rider
-     * Resets the search timer and increments attempt count
-     */
     fun retrySearch() {
         activeBookingManager.retrySearch()
     }
 
-    /**
-     * Clear active booking
-     */
     fun clearActiveBooking() {
         activeBookingManager.clearActiveBooking()
     }
 
+    /**
+     * ✅ FIXED: Cancel booking - calls actual API
+     * @param reason Cancellation reason from bottom sheet
+     */
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
-            val bookingId = 12345
+            // ✅ Get actual booking ID from state or active booking
+            val bookingId = _uiState.value.currentBookingId
+                ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
+                ?: 0
+
+            if (bookingId == 0) {
+                // Fallback: Just clear and navigate home
+                activeBookingManager.clearActiveBooking()
+                _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
+                return@launch
+            }
+
             bookingRepository.cancelBooking(bookingId, reason).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
-                        // ✅ Clear active booking on successful cancellation
                         activeBookingManager.clearActiveBooking()
-                        _uiState.update { it.copy(isLoading = false, error = null) }
+                        _uiState.update { it.copy(isLoading = false, error = null, currentBookingId = null) }
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                    is NetworkResult.Error -> {
+                        // Still navigate home even on error, but show error message
+                        _uiState.update { it.copy(isLoading = false, error = result.message) }
+                        activeBookingManager.clearActiveBooking()
+                        _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
+                    }
                 }
             }
         }
@@ -533,7 +526,6 @@ class BookingViewModel @Inject constructor(
 
 /**
  * Booking UI State
- * ✅ UPDATED: Added coupon detail fields
  */
 data class BookingUiState(
     val pickupAddress: SavedAddress? = null,
@@ -543,7 +535,7 @@ data class BookingUiState(
 
     // Goods Details
     val selectedGoodsTypeId: Int? = null,
-    val selectedGoodsTypeName: String? = null,  // ✅ Added for booking request
+    val selectedGoodsTypeName: String? = null,
     val goodsWeight: Double? = null,
     val goodsPackages: Int? = null,
     val goodsValue: Int? = null,
@@ -553,15 +545,18 @@ data class BookingUiState(
     val discount: Int = 0,
     val finalFare: Int = 0,
 
-    // ✅ Coupon Details - Complete info for booking request
-    val appliedCoupon: String? = null,           // Coupon code
-    val appliedCouponId: Int? = null,            // Coupon ID
-    val appliedCouponDiscountType: String? = null,  // "percentage" or "fixed"
-    val appliedCouponDiscountValue: Int? = null,    // Original value (e.g., 20 for 20%)
+    // Coupon Details
+    val appliedCoupon: String? = null,
+    val appliedCouponId: Int? = null,
+    val appliedCouponDiscountType: String? = null,
+    val appliedCouponDiscountValue: Int? = null,
 
     // Payment & Other
     val paymentMethod: String = "Cash",
     val gstin: String? = null,
+
+    // ✅ Added: Track current booking for cancel API
+    val currentBookingId: Int? = null,
 
     // State flags
     val isLoading: Boolean = false,
