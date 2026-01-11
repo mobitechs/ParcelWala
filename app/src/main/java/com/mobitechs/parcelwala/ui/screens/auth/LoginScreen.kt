@@ -22,7 +22,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
  */
 @Composable
 fun LoginScreen(
-    onNavigateToOtp: (String) -> Unit,
+    onNavigateToOtp: (String, String?) -> Unit,  // ✅ CHANGED: Added otp parameter
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -31,10 +31,10 @@ fun LoginScreen(
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // Navigate to OTP when sent
+    // Navigate to OTP when sent - pass OTP from response
     LaunchedEffect(uiState.otpSent) {
         if (uiState.otpSent) {
-            onNavigateToOtp(phoneNumber)
+            onNavigateToOtp(phoneNumber, uiState.otpData?.otp)  // ✅ CHANGED: Pass OTP
         }
     }
 

@@ -21,7 +21,10 @@ data class OtpData(
     val expiresIn: Int,
 
     @SerializedName("can_resend_after")
-    val canResendAfter: Int
+    val canResendAfter: Int,
+
+    @SerializedName("otp")
+    val otp: String? = null
 )
 
 data class User(

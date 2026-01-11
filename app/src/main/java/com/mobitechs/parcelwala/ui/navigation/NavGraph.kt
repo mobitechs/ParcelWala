@@ -110,21 +110,31 @@ fun NavGraph(
         // ============ AUTH FLOW ============
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToOtp = { phoneNumber ->
-                    navController.navigate(Screen.Otp.createRoute(phoneNumber))
+                onNavigateToOtp = { phoneNumber, otp ->  // ✅ CHANGED: Added otp parameter
+                    val encodedOtp = otp?.let { Uri.encode(it) } ?: "null"
+                    navController.navigate("otp/$phoneNumber?otp=$encodedOtp")
                 }
             )
         }
 
         composable(
-            route = Screen.Otp.route,
+            route = "otp/{phoneNumber}?otp={otp}",  // ✅ CHANGED: Added optional otp query parameter
             arguments = listOf(
-                navArgument("phoneNumber") { type = NavType.StringType }
+                navArgument("phoneNumber") { type = NavType.StringType },
+                navArgument("otp") {  // ✅ ADDED
+                    type = NavType.StringType
+                    defaultValue = "null"
+                }
             )
         ) { backStackEntry ->
             val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+            val receivedOtp = backStackEntry.arguments?.getString("otp")?.let {  // ✅ ADDED
+                if (it == "null") null else it
+            }
+
             OtpScreen(
                 phoneNumber = phoneNumber,
+                receivedOtp = receivedOtp,  // ✅ ADDED
                 onNavigateToHome = {
                     navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }

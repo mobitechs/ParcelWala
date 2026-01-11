@@ -1,6 +1,7 @@
 package com.mobitechs.parcelwala.ui.screens.auth
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -33,6 +35,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun OtpScreen(
     phoneNumber: String,
+    receivedOtp: String? = null,  // ✅ ADDED: OTP from backend
     onNavigateToHome: () -> Unit,
     onNavigateToCompleteProfile: () -> Unit,
     onNavigateBack: () -> Unit,
@@ -51,16 +54,14 @@ fun OtpScreen(
     LaunchedEffect(otp) {
         val otpString = otp.joinToString("")
         if (otpString.length == 6) {
-            viewModel.verifyOtp(otpString, phoneNumber)  // Pass phoneNumber
+            viewModel.verifyOtp(otpString, phoneNumber)
         }
     }
 
-// Also set phone number when screen loads
+    // Set phone number when screen loads
     LaunchedEffect(phoneNumber) {
         viewModel.setPhoneNumber(phoneNumber)
     }
-
-
 
     // Auto-focus first box
     LaunchedEffect(Unit) {
@@ -78,7 +79,6 @@ fun OtpScreen(
             }
         }
     }
-
 
     // Resend timer
     LaunchedEffect(Unit) {
@@ -189,6 +189,37 @@ fun OtpScreen(
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.Primary
             )
+
+            // ✅ ADDED: Display OTP for testing (simple text)
+            if (!receivedOtp.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = AppColors.Primary.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, AppColors.Primary.copy(alpha = 0.3f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "🧪 Test OTP",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AppColors.Primary.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = receivedOtp,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Primary,
+                            letterSpacing = 8.sp
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(40.dp))
 
