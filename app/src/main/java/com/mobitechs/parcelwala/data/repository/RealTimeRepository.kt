@@ -224,71 +224,38 @@ class RealTimeRepository @Inject constructor(
         Log.d(TAG, "📡 Registering SignalR Event Handlers")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-
-
-
         // ═══════════════════════════════════════════════════════════════════
         // CONNECTED EVENT
-        // Sent by backend when connection is established
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.CONNECTED,
-            { data: Any ->
+            { data: Map<*, *> ->
                 scope.launch {
                     try {
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.d(TAG, "📥 EVENT: Connected")
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-                        // Convert to JSON string for logging
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-                        // Parse if needed
-                        if (data is Map<*, *>) {
-                            Log.d(TAG, "Connection ID: ${data["connectionId"]}")
-                            Log.d(TAG, "User ID: ${data["userId"]}")
-                            Log.d(TAG, "Role: ${data["role"]}")
-                            Log.d(TAG, "Message: ${data["message"]}")
-                        }
-
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                        Log.d(TAG, "📥 Connected - ID: ${data["ConnectionId"] ?: data["connectionId"]}")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ Connected error: ${e.message}")
                     }
                 }
             },
-            Object::class.java // ✅ Accept any type
+            Map::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
         // JOINED BOOKING CHANNEL
-        // Sent by backend when successfully joined channel
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.JOINED_BOOKING_CHANNEL,
-            {data: Any ->
+            { data: Map<*, *> ->
                 scope.launch {
-
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.d(TAG, "📥 EVENT: JoinedBookingChannel")
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.d(TAG, "✅ Successfully joined booking channel")
-                        Log.d(TAG, "Data: $json")
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
+                        Log.d(TAG, "📥 JoinedBookingChannel - BookingID: ${data["BookingId"] ?: data["bookingId"]}")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ JoinedBookingChannel error: ${e.message}")
                     }
                 }
             },
-            Object::class.java
+            Map::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
@@ -296,171 +263,100 @@ class RealTimeRepository @Inject constructor(
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.LEFT_BOOKING_CHANNEL,
-            { data: Any ->
+            { data: Map<*, *> ->
                 scope.launch {
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-                        Log.d(TAG, "📥 EVENT: LeftBookingChannel")
-                        Log.d(TAG, "Data: $json")
-
-
+                        Log.d(TAG, "📥 LeftBookingChannel")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ LeftBookingChannel error: ${e.message}")
                     }
-
                 }
             },
-            Object::class.java
+            Map::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
         // ERROR EVENT
-        // Sent by backend when an error occurs
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.ERROR,
-            { data: Any ->
+            { data: Map<*, *> ->
                 scope.launch {
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-
-                        Log.e(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.e(TAG, "📥 EVENT: Error")
-                        Log.e(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.e(TAG, "Error data: $json")
-                        Log.e(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
+                        Log.e(TAG, "📥 Error - ${data["Message"] ?: data["message"]}")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ Error handler failed: ${e.message}")
                     }
-
                 }
             },
-            Object::class.java
+            Map::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
-        // BOOKING STATUS UPDATE ⭐ MOST IMPORTANT!
-        // Sent by backend via SendBookingStatusUpdateAsync()
+        // BOOKING STATUS UPDATE ⭐ MOST IMPORTANT
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.BOOKING_STATUS_UPDATE,
-            { data: Any ->
+            { update: BookingStatusUpdate ->
                 scope.launch {
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
                         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.d(TAG, "📥 EVENT: BookingStatusUpdate")
-                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        Log.d(TAG, "🔍 Raw JSON from backend:")
-                        Log.d(TAG, json)
-
-                        val update = gson.fromJson(json, BookingStatusUpdate::class.java)
-
-                        Log.d(TAG, "")
-                        Log.d(TAG, "✅ Parsed successfully!")
-                        Log.d(TAG, "📋 Booking ID: ${update.bookingId}")
+                        Log.d(TAG, "📥 BookingStatusUpdate")
+                        Log.d(TAG, "📋 ID: ${update.bookingId}")
                         Log.d(TAG, "📊 Status: ${update.status}")
                         Log.d(TAG, "💬 Message: ${update.message}")
-                        Log.d(TAG, "👤 Rider Name: ${update.rider?.riderName ?: "null"}")
+                        Log.d(TAG, "👤 Driver: ${update.driverName ?: "null"}")
                         Log.d(TAG, "🔑 OTP: ${update.otp ?: "null"}")
                         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
                         _bookingUpdates.emit(update)
-
-
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ BookingStatusUpdate error: ${e.message}", e)
                     }
-
                 }
             },
-            Object::class.java
+            BookingStatusUpdate::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
         // RIDER LOCATION UPDATE
-        // Sent by backend via SendRiderLocationUpdateAsync()
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
             Constants.SignalREvents.RIDER_LOCATION_UPDATE,
-            { data: Any ->
+            { location: RiderLocationUpdate ->
                 scope.launch {
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-                        Log.d(TAG, "📍 Received RiderLocationUpdate")
-                        val location = gson.fromJson(json, RiderLocationUpdate::class.java)
-
-                        Log.d(TAG, "📍 Location: ${location.latitude}, ${location.longitude}")
-                        Log.d(TAG, "⏱️ ETA: ${location.etaMinutes} mins")
-                        Log.d(TAG, "📏 Distance: ${location.distanceMeters}m")
-
+                        Log.d(TAG, "📍 Location: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}m")
                         _riderLocationUpdates.emit(location)
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ RiderLocationUpdate error: ${e.message}")
                     }
-
                 }
             },
-            Object::class.java
+            RiderLocationUpdate::class.java
         )
 
         // ═══════════════════════════════════════════════════════════════════
         // BOOKING CANCELLED
-        // Sent by backend via SendBookingCancelledAsync()
         // ═══════════════════════════════════════════════════════════════════
         hubConnection?.on(
-            Constants.SignalREvents.BOOKING_CANCELLED,
-            { data: Any ->
+            Constants.SignalREvents.CONNECTED,
+            { update: BookingStatusUpdate ->
                 scope.launch {
-
                     try {
-                        val json = gson.toJson(data)
-                        Log.d(TAG, "Raw data: $json")
-
-                        Log.d(TAG, "❌ Received BookingCancelled")
-                        val update = gson.fromJson(json, BookingStatusUpdate::class.java)
-                        Log.d(TAG, "Message: ${update.message}")
+                        Log.d(TAG, "❌ BookingCancelled: ${update.message}")
                         _bookingUpdates.emit(update)
-
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing Connected event: ${e.message}", e)
+                        Log.e(TAG, "❌ BookingCancelled error: ${e.message}")
                     }
-
                 }
             },
-            Object::class.java
+            BookingStatusUpdate::class.java
         )
 
-        Log.d(TAG, "✅ All event handlers registered successfully")
-        Log.d(TAG, "   - Connected")
-        Log.d(TAG, "   - JoinedBookingChannel")
-        Log.d(TAG, "   - LeftBookingChannel")
-        Log.d(TAG, "   - Error")
-        Log.d(TAG, "   - BookingStatusUpdate ⭐")
-        Log.d(TAG, "   - RiderLocationUpdate")
-        Log.d(TAG, "   - BookingCancelled")
+        Log.d(TAG, "✅ Handlers registered")
+        Log.d(TAG, "Connection ID: ${hubConnection?.connectionId}")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
-
-
-        Log.d(TAG, "pratik connection id ${hubConnection?.connectionId}")
-        Log.d(TAG, "pratik connection state ${hubConnection?.connectionState}")
-        Log.d(TAG, "pratik connection servertimeout ${hubConnection?.serverTimeout}")
     }
 
     private fun setupConnectionLifecycle() {
