@@ -50,6 +50,8 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import kotlinx.coroutines.delay
+import com.mobitechs.parcelwala.ui.components.SignalRDebugPanel
+import com.mobitechs.parcelwala.ui.components.SignalRStatusIndicator
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -399,6 +401,12 @@ fun SearchingRiderScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
             }
+
+            SignalRDebugPanel(
+                connectionState = riderTrackingViewModel.connectionState.collectAsState().value,
+                bookingId = bookingId,
+                isVisible = true  // Set to BuildConfig.DEBUG in production
+            )
         }
     }
 

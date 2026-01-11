@@ -229,7 +229,7 @@ class RiderTrackingViewModel @Inject constructor(
 
                         _navigationEvent.emit(
                             RiderTrackingNavigationEvent.RiderAssigned(
-                                bookingId = update.bookingId,
+                                bookingId = update.bookingId.toString(),
                                 rider = rider,
                                 otp = update.otp
                             )
@@ -241,7 +241,7 @@ class RiderTrackingViewModel @Inject constructor(
                     // Maps to RIDER_EN_ROUTE in your BookingStatus enum (with underscore)
                     activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
                     _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.RiderEnroute(update.bookingId)
+                        RiderTrackingNavigationEvent.RiderEnroute(update.bookingId.toString())
                     )
                 }
 
@@ -250,7 +250,7 @@ class RiderTrackingViewModel @Inject constructor(
                     activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.RiderArrived(
-                            bookingId = update.bookingId,
+                            bookingId = update.bookingId.toString(),
                             message = update.message ?: "Rider has arrived!"
                         )
                     )
@@ -259,7 +259,7 @@ class RiderTrackingViewModel @Inject constructor(
                 BookingStatusType.PICKED_UP, BookingStatusType.IN_TRANSIT -> {
                     activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
                     _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId)
+                        RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString())
                     )
                 }
 
@@ -267,7 +267,7 @@ class RiderTrackingViewModel @Inject constructor(
                     activeBookingManager.updateStatus(BookingStatus.DELIVERED)
                     realTimeRepository.disconnect()
                     _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.Delivered(update.bookingId)
+                        RiderTrackingNavigationEvent.Delivered(update.bookingId.toString())
                     )
                 }
 

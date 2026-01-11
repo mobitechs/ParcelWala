@@ -41,13 +41,13 @@ interface ApiService {
         @Body request: SendOtpRequest
     ): Response<ApiResponse<OtpData>>
 
-    @POST("auth/customer/verify-otp")   // working
+    @POST("auth/customer/verify-otp")
     suspend fun verifyOtp(
         @Body request: VerifyOtpRequest
     ): Response<ApiResponse<LoginData>>
 
 
-    @PUT("auth/customer/complete-profile")  // working
+    @PUT("/customer/complete-profile")
     suspend fun completeProfile(
         @Body request: CompleteProfileRequest
     ): Response<ApiResponse<User>>

@@ -1,4 +1,4 @@
-// data/model/realtime/RiderUpdate.kt
+// data/model/realtime/RealTimeModels.kt
 package com.mobitechs.parcelwala.data.model.realtime
 
 import com.google.gson.annotations.SerializedName
@@ -7,138 +7,174 @@ import com.google.gson.annotations.SerializedName
  * ════════════════════════════════════════════════════════════════════════════
  * REAL-TIME DATA MODELS
  * ════════════════════════════════════════════════════════════════════════════
- * Used for SignalR communication between app and server
+ * These models match the backend DTOs exactly for SignalR communication
+ * ════════════════════════════════════════════════════════════════════════════
  */
 
-/**
- * Booking Status Types
- */
-enum class BookingStatusType(val value: String) {
-    SEARCHING("searching"),
-    RIDER_ASSIGNED("rider_assigned"),
-    RIDER_ENROUTE("rider_enroute"),
-    ARRIVED("arrived"),
-    PICKED_UP("picked_up"),
-    IN_TRANSIT("in_transit"),
-    DELIVERED("delivered"),
-    CANCELLED("cancelled"),
-    NO_RIDER("no_rider_available");
+// ═══════════════════════════════════════════════════════════════════════════
+// BOOKING STATUS UPDATE
+// ═══════════════════════════════════════════════════════════════════════════
+data class BookingStatusUpdate(
+    @SerializedName("BookingId")
+    val bookingId: Int,  // Changed to INT
 
-    companion object {
-        fun fromString(value: String): BookingStatusType {
-            return entries.find { it.value.equals(value, ignoreCase = true) } ?: SEARCHING
+    @SerializedName("BookingNumber")
+    val bookingNumber: String? = null,
+
+    @SerializedName("Status")
+    val status: String,
+
+    @SerializedName("StatusMessage")  // Changed from "Message"
+    val message: String,
+
+    @SerializedName("Timestamp")
+    val timestamp: String,
+
+    @SerializedName("DriverName")
+    val driverName: String? = null,
+
+    @SerializedName("DriverPhone")
+    val driverPhone: String? = null,
+
+    @SerializedName("VehicleNumber")
+    val vehicleNumber: String? = null,
+
+    @SerializedName("DriverRating")
+    val driverRating: Double? = null,
+
+    @SerializedName("EstimatedArrival")
+    val estimatedArrival: String? = null,
+
+    @SerializedName("CancellationReason")
+    val cancellationReason: String? = null
+) {
+    // Create RiderInfo from individual fields
+    val rider: RiderInfo?
+        get() = if (!driverName.isNullOrEmpty()) {
+            RiderInfo(
+                riderId = "0",  // Not provided by backend
+                riderName = driverName,
+                riderPhone = driverPhone ?: "",
+                vehicleNumber = vehicleNumber ?: "",
+                vehicleType = null,
+                rating = driverRating,
+                totalTrips = null,
+                currentLatitude = 0.0,
+                currentLongitude = 0.0,
+                etaMinutes = null
+            )
+        } else null
+
+    val otp: String? = null  // Backend doesn't send OTP in status update
+
+    fun getStatusType(): BookingStatusType {
+        return when (status.lowercase()) {
+            "searching" -> BookingStatusType.SEARCHING
+            "assigned" -> BookingStatusType.RIDER_ASSIGNED
+            "pickup_started" -> BookingStatusType.RIDER_ENROUTE
+            "arrived_pickup" -> BookingStatusType.ARRIVED
+            "pickup_completed" -> BookingStatusType.PICKED_UP
+            "arrived_delivery" -> BookingStatusType.IN_TRANSIT
+            "delivery_completed" -> BookingStatusType.DELIVERED
+            "cancelled" -> BookingStatusType.CANCELLED
+            else -> BookingStatusType.SEARCHING
         }
     }
 }
 
-/**
- * Rider Information
- * Received when rider is assigned to booking
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// RIDER INFORMATION
+// ═══════════════════════════════════════════════════════════════════════════
+
 data class RiderInfo(
-    @SerializedName("rider_id")
-    val riderId: Int,
+    @SerializedName("RiderId")
+    val riderId: String,
 
-    @SerializedName("name")
-    val name: String,
+    @SerializedName("RiderName")
+    val riderName: String,
 
-    @SerializedName("phone")
-    val phone: String,
+    @SerializedName("RiderPhone")
+    val riderPhone: String,
 
-    @SerializedName("photo")
-    val photo: String? = null,
-
-    @SerializedName("vehicle_number")
+    @SerializedName("VehicleNumber")
     val vehicleNumber: String,
 
-    @SerializedName("vehicle_type")
-    val vehicleType: String,
+    @SerializedName("VehicleType")
+    val vehicleType: String? = null,
 
-    @SerializedName("vehicle_model")
-    val vehicleModel: String? = null,
+    @SerializedName("Rating")
+    val rating: Double? = null,
 
-    @SerializedName("rating")
-    val rating: Double = 0.0,
+    @SerializedName("TotalTrips")
+    val totalTrips: Int? = null,
 
-    @SerializedName("total_trips")
-    val totalTrips: Int = 0,
+    @SerializedName("CurrentLatitude")
+    val currentLatitude: Double,
 
-    @SerializedName("current_latitude")
-    val currentLatitude: Double? = null,
+    @SerializedName("CurrentLongitude")
+    val currentLongitude: Double,
 
-    @SerializedName("current_longitude")
-    val currentLongitude: Double? = null,
-
-    @SerializedName("eta_minutes")
-    val etaMinutes: Int = 0
+    @SerializedName("EtaMinutes")
+    val etaMinutes: Int? = null
 )
 
-/**
- * Rider Location Update
- * Received periodically when rider is moving
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// RIDER LOCATION UPDATE
+// ═══════════════════════════════════════════════════════════════════════════
+
 data class RiderLocationUpdate(
-    @SerializedName("booking_id")
+    @SerializedName("BookingId")
     val bookingId: String,
 
-    @SerializedName("rider_id")
-    val riderId: Int,
+    @SerializedName("RiderId")
+    val riderId: String,
 
-    @SerializedName("latitude")
+    @SerializedName("Latitude")
     val latitude: Double,
 
-    @SerializedName("longitude")
+    @SerializedName("Longitude")
     val longitude: Double,
 
-    @SerializedName("heading")
-    val heading: Float = 0f,
+    @SerializedName("Speed")
+    val speed: Double? = null,
 
-    @SerializedName("speed")
-    val speed: Float = 0f,
+    @SerializedName("Heading")
+    val heading: Double? = null,
 
-    @SerializedName("eta_minutes")
-    val etaMinutes: Int = 0,
+    @SerializedName("EtaMinutes")
+    val etaMinutes: Int? = null,
 
-    @SerializedName("distance_km")
-    val distanceKm: Double = 0.0,
+    @SerializedName("DistanceMeters")
+    val distanceMeters: Double? = null,
 
-    @SerializedName("updated_at")
-    val updatedAt: String? = null
+    @SerializedName("Timestamp")
+    val timestamp: String
 )
 
-/**
- * Booking Status Update
- * Main update received from SignalR for booking state changes
- */
-data class BookingStatusUpdate(
-    @SerializedName("booking_id")
-    val bookingId: String,
+// ═══════════════════════════════════════════════════════════════════════════
+// BOOKING STATUS TYPES
+// ═══════════════════════════════════════════════════════════════════════════
 
-    @SerializedName("status")
-    val status: String,
-
-    @SerializedName("message")
-    val message: String? = null,
-
-    @SerializedName("rider")
-    val rider: RiderInfo? = null,
-
-    @SerializedName("otp")
-    val otp: String? = null,
-
-    @SerializedName("updated_at")
-    val updatedAt: String? = null
-) {
-    fun getStatusType(): BookingStatusType = BookingStatusType.fromString(status)
+enum class BookingStatusType {
+    SEARCHING,          // Looking for driver
+    RIDER_ASSIGNED,     // Driver accepted
+    RIDER_ENROUTE,      // Driver heading to pickup
+    ARRIVED,            // Driver arrived at pickup
+    PICKED_UP,          // Parcel picked up (OTP verified)
+    IN_TRANSIT,         // Heading to delivery
+    DELIVERED,          // Successfully delivered
+    CANCELLED,          // Booking cancelled
+    NO_RIDER            // No driver available
 }
 
-/**
- * Real-Time Connection State
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// CONNECTION STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
 sealed class RealTimeConnectionState {
     object Disconnected : RealTimeConnectionState()
     object Connecting : RealTimeConnectionState()
     object Connected : RealTimeConnectionState()
-    data class Error(val message: String) : RealTimeConnectionState()
     object Reconnecting : RealTimeConnectionState()
+    data class Error(val message: String) : RealTimeConnectionState()
 }

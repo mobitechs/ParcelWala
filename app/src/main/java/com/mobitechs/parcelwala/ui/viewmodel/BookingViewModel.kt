@@ -397,7 +397,7 @@ class BookingViewModel @Inject constructor(
                             }
 
                             activeBookingManager.setActiveBooking(
-                                bookingId = booking.bookingNumber,
+                                bookingId = booking.bookingId.toString(),
                                 pickupAddress = state.pickupAddress,
                                 dropAddress = state.dropAddress,
                                 fareDetails = selectedFare,
@@ -405,7 +405,7 @@ class BookingViewModel @Inject constructor(
                                 status = BookingStatus.SEARCHING
                             )
 
-                            _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingNumber))
+                            _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingId.toString()))
                         }
                     }
                     is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }

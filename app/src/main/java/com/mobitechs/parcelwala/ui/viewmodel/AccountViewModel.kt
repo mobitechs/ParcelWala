@@ -1,12 +1,14 @@
 // ui/viewmodel/AccountViewModel.kt
 package com.mobitechs.parcelwala.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.data.repository.BookingRepository
+import com.mobitechs.parcelwala.data.repository.RealTimeRepository.Companion.TAG
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +51,9 @@ class AccountViewModel @Inject constructor(
                 )
             }
         }
+
+//        val token = preferencesManager.getAccessToken() ?: ""
+//        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━Access Token ━━━━━━━━━━━━━━━━━━${token}")
     }
 
     fun updateProfile(firstName: String, lastName: String, email: String) {

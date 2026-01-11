@@ -142,38 +142,40 @@ fun RiderFoundScreen(
                 // ETA Overlay
                 rider?.let { r ->
                     val etaMinutes = riderLocation?.etaMinutes ?: r.etaMinutes
-                    if (etaMinutes > 0) {
-                        Card(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(16.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (etaMinutes != null) {
+                        if (etaMinutes > 0) {
+                            Card(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(16.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = AppColors.Primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Column {
-                                    Text(
-                                        text = "$etaMinutes min",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AppColors.Primary
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = AppColors.Primary,
+                                        modifier = Modifier.size(24.dp)
                                     )
-                                    Text(
-                                        text = "arriving at pickup",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = AppColors.TextSecondary
-                                    )
+                                    Column {
+                                        Text(
+                                            text = "$etaMinutes min",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AppColors.Primary
+                                        )
+                                        Text(
+                                            text = "arriving at pickup",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = AppColors.TextSecondary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -193,7 +195,7 @@ fun RiderFoundScreen(
                         rider = r,
                         onCallRider = {
                             val intent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:${r.phone}")
+                                data = Uri.parse("tel:${r.riderPhone}")
                             }
                             context.startActivity(intent)
                         },
@@ -346,10 +348,10 @@ private fun RiderDetailsCard(
                     .background(AppColors.Surface)
                     .border(2.dp, AppColors.Primary, CircleShape)
             ) {
-                if (rider.photo != null) {
+                if (rider.riderPhone != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(rider.photo)
+                            .data(rider.riderPhone)
                             .crossfade(true)
                             .build(),
                         contentDescription = "Rider photo",
@@ -371,7 +373,7 @@ private fun RiderDetailsCard(
             // Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = rider.name,
+                    text = rider.riderName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
@@ -401,7 +403,7 @@ private fun RiderDetailsCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(Icons.Default.LocalShipping, null, tint = AppColors.Primary, modifier = Modifier.size(16.dp))
-                    Text(rider.vehicleType, style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                    rider.vehicleType?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) }
                     Text("•", color = AppColors.TextHint)
                     Text(rider.vehicleNumber, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                 }
