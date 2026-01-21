@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,7 @@ import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
+import kotlinx.coroutines.delay
 
 /**
  * Location Search Screen with Reusable Components
@@ -37,11 +40,18 @@ fun LocationSearchScreen(
     viewModel: LocationSearchViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val focusRequester = remember { FocusRequester() }
 
     val permissionGranted = rememberLocationPermissionState { granted ->
         if (granted) {
             viewModel.getCurrentLocation()
         }
+    }
+
+    // ✅ Auto-focus on search field when screen opens
+    LaunchedEffect(Unit) {
+        delay(100) // Small delay for smooth animation
+        focusRequester.requestFocus()
     }
 
     Scaffold(
@@ -75,16 +85,18 @@ fun LocationSearchScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Search Field
+            // Search Field with auto-focus
             SearchField(
                 value = uiState.searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 placeholder = when (locationType) {
-                    "pickup" -> "Where is your PickUp?"
-                    "drop" -> "Where to deliver?"
-                    else -> "Enter location"
+                    "pickup" -> "Search pickup location..."
+                    "drop" -> "Search drop location..."
+                    else -> "Search location..."
                 },
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .focusRequester(focusRequester),
                 onClear = { viewModel.updateSearchQuery("") }
             )
 

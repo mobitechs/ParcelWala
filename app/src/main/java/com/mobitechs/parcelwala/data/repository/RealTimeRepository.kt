@@ -64,9 +64,6 @@ class RealTimeRepository @Inject constructor(
     )
     val riderLocationUpdates: SharedFlow<RiderLocationUpdate> = _riderLocationUpdates.asSharedFlow()
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC METHODS
-    // ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Connect to SignalR and subscribe to booking updates
@@ -89,12 +86,7 @@ class RealTimeRepository @Inject constructor(
         Log.d(TAG, "Mock Mode: ${Constants.USE_MOCK_DATA_RIder}")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-        if (Constants.USE_MOCK_DATA_RIder) {
-            Log.w(TAG, "⚠️ USING MOCK DATA - SignalR disabled")
-            connectMock(bookingId)
-        } else {
-            connectSignalR(bookingId, customerId)
-        }
+        connectSignalR(bookingId, customerId)
     }
 
     /**

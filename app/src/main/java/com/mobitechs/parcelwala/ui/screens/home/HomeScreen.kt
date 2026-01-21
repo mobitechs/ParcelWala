@@ -935,6 +935,9 @@ private fun VehicleTypesGrid(
 /**
  * Vehicle Card with Emoji Icon
  */
+/**
+ * Vehicle Card with Emoji Icon
+ */
 @Composable
 private fun VehicleCard(
     vehicle: VehicleTypeResponse,
@@ -954,13 +957,13 @@ private fun VehicleCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(52.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(AppColors.Primary.copy(alpha = 0.08f)),
                 contentAlignment = Alignment.Center
@@ -968,20 +971,21 @@ private fun VehicleCard(
                 Text(
                     text = vehicle.icon,
                     style = MaterialTheme.typography.displayMedium,
-                    modifier = Modifier.padding(8.dp)
+                    modifier = Modifier.padding(4.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = vehicle.name,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
-                minLines = 2
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -1011,7 +1015,6 @@ private fun VehicleCard(
         }
     }
 }
-
 /**
  * Announcements Section
  */

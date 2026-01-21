@@ -56,6 +56,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
+import com.mobitechs.parcelwala.utils.Constants
 
 /**
  * Main Navigation Graph
@@ -215,9 +216,7 @@ fun NavGraph(
                     onBookAgain = { orderToBook ->
                         orderForBookAgain = orderToBook
                         isBookAgainFlow = true
-                        navController.navigate("booking_flow") {
-                            popUpTo(Screen.Main.route) { inclusive = false }
-                        }
+                        navController.navigate("booking_flow")  // ✅ REMOVED popUpTo
                     },
                     onCallDriver = { phoneNumber ->
                         val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -227,7 +226,7 @@ fun NavGraph(
                     },
                     onCallSupport = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+919876543210")
+                            data = Uri.parse(Constants.SUPPORT_MOBILE_NO)
                         }
                         context.startActivity(intent)
                     }
@@ -388,9 +387,15 @@ fun NavGraph(
                     navController.getBackStackEntry("booking_flow")
                 }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
+                val uiState by viewModel.uiState.collectAsState()
 
-                LaunchedEffect(orderForBookAgain, isBookAgainFlow) {
-                    if (isBookAgainFlow && orderForBookAgain != null) {
+                LaunchedEffect(Unit) {
+                    // Check ViewModel state first (in case of back navigation)
+                    if (uiState.isBookAgain && uiState.pickupAddress != null && uiState.dropAddress != null) {
+                        navController.navigate("booking_confirm") {
+                            popUpTo("booking_entry") { inclusive = true }
+                        }
+                    } else if (isBookAgainFlow && orderForBookAgain != null) {
                         viewModel.prefillFromOrder(orderForBookAgain!!)
                         orderForBookAgain = null
                         isBookAgainFlow = false

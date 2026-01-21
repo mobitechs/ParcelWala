@@ -8,6 +8,7 @@ object Constants {
     const val USE_MOCK_DATA_RIder = false // ← Single flag to control mock vs real API
 
     const val SIGNALR_MAX_RECONNECT_ATTEMPTS = 5
+    const val SUPPORT_MOBILE_NO = "tel:+919876543210"
     const val SIGNALR_RECONNECT_DELAY_MS = 3000L
     const val LOCATION_UPDATE_INTERVAL_MS = 5000L  // 5 seconds
 
