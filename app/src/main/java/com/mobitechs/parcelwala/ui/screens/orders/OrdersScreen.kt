@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.OrdersViewModel
+import com.mobitechs.parcelwala.utils.DateTimeUtils
 
 /**
  * Orders Screen
@@ -218,7 +219,7 @@ private fun OrderCard(
                             color = AppColors.TextPrimary
                         )
                         Text(
-                            text = order.createdAt,
+                            text =  DateTimeUtils.formatDateTime(order.createdAt),
                             style = MaterialTheme.typography.bodySmall,
                             color = AppColors.TextSecondary
                         )

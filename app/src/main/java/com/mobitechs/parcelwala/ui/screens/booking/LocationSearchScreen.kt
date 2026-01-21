@@ -26,6 +26,7 @@ import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
+import com.mobitechs.parcelwala.utils.DateTimeUtils
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -318,22 +319,7 @@ private fun SearchHistoryItem(
  * ✅ Format timestamp to relative time
  */
 private fun formatTimestamp(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-
-    return when {
-        diff < 60 * 60 * 1000 -> "Just now" // Less than 1 hour
-        diff < 24 * 60 * 60 * 1000 -> {
-            val hours = (diff / (60 * 60 * 1000)).toInt()
-            "$hours ${if (hours == 1) "hour" else "hours"} ago"
-        }
-        diff < 2 * 24 * 60 * 60 * 1000 -> "Yesterday"
-        diff < 3 * 24 * 60 * 60 * 1000 -> "2 days ago"
-        else -> {
-            val dateFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
-            dateFormat.format(Date(timestamp))
-        }
-    }
+    return DateTimeUtils.formatRelativeTime(timestamp)
 }
 
 @Composable

@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.utils.DateTimeUtils
 
 /**
  * Order Details Screen
@@ -270,7 +271,7 @@ private fun OrderStatusHeader(order: OrderResponse) {
                     color = color
                 )
                 Text(
-                    text = order.createdAt,
+                    text = DateTimeUtils.formatDateTime(order.createdAt), // ✅ Updated
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )

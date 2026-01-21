@@ -260,27 +260,87 @@ private fun CompactJourneySummary(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             // Pickup Row
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(12.dp).background(AppColors.Pickup, CircleShape))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Box(modifier = Modifier.size(12.dp).padding(top = 4.dp).background(AppColors.Pickup, CircleShape))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("PICKUP", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, letterSpacing = 1.sp)
-                    Text(pickupAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(pickupAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+
+                    // ✅ Show Sender Contact Info
+                    if (!pickupAddress.contactName.isNullOrEmpty() || !pickupAddress.contactPhone.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Sender",
+                                tint = AppColors.Pickup,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = buildString {
+                                    if (!pickupAddress.contactName.isNullOrEmpty()) {
+                                        append(pickupAddress.contactName)
+                                    }
+                                    if (!pickupAddress.contactPhone.isNullOrEmpty()) {
+                                        if (isNotEmpty()) append(" • ")
+                                        append(pickupAddress.contactPhone)
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = onEditPickup, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Edit, "Edit", tint = AppColors.Primary, modifier = Modifier.size(18.dp))
                 }
             }
 
-            Box(modifier = Modifier.padding(start = 5.dp).width(2.dp).height(20.dp).background(AppColors.Border))
+            Box(modifier = Modifier.padding(start = 5.dp).width(2.dp).height(24.dp).background(AppColors.Border))
 
             // Drop Row
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(12.dp).background(AppColors.Drop, CircleShape))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Box(modifier = Modifier.size(12.dp).padding(top = 4.dp).background(AppColors.Drop, CircleShape))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("DROP", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, letterSpacing = 1.sp)
-                    Text(dropAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(dropAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+
+                    // ✅ Show Receiver Contact Info
+                    if (!dropAddress.contactName.isNullOrEmpty() || !dropAddress.contactPhone.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Receiver",
+                                tint = AppColors.Drop,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = buildString {
+                                    if (!dropAddress.contactName.isNullOrEmpty()) {
+                                        append(dropAddress.contactName)
+                                    }
+                                    if (!dropAddress.contactPhone.isNullOrEmpty()) {
+                                        if (isNotEmpty()) append(" • ")
+                                        append(dropAddress.contactPhone)
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = onEditDrop, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Edit, "Edit", tint = AppColors.Primary, modifier = Modifier.size(18.dp))
