@@ -12,6 +12,8 @@ object Constants {
     const val SIGNALR_RECONNECT_DELAY_MS = 3000L
     const val LOCATION_UPDATE_INTERVAL_MS = 5000L  // 5 seconds
 
+    const val SEARCH_HISTORY_KEY = "search_history"
+
     // SignalR Events (must match backend exactly)
     object SignalREvents {
         // Connection Events

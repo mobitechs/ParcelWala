@@ -4,6 +4,7 @@ package com.mobitechs.parcelwala.data.model.request
 import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 
 /**
  * Saved Address Model
@@ -76,3 +77,12 @@ data class SavedAddress(
         }
     }
 }
+
+@Serializable
+data class SearchHistory(
+    val address: String,
+    val latitude: Double,
+    val longitude: Double,
+    val timestamp: Long, // Unix timestamp in milliseconds
+    val label: String = ""
+)

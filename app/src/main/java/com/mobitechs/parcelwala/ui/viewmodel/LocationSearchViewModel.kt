@@ -1,8 +1,11 @@
+// ui/viewmodel/LocationSearchViewModel.kt - Updated
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.request.SearchHistory
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.data.service.LocationService
@@ -13,36 +16,30 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * ViewModel for Location Search Screen
- * Manages saved addresses, recent pickups, and Google Places autocomplete
- */
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class LocationSearchViewModel @Inject constructor(
     private val bookingRepository: BookingRepository,
-    private val locationService: LocationService
+    private val locationService: LocationService,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LocationSearchUiState())
     val uiState: StateFlow<LocationSearchUiState> = _uiState.asStateFlow()
 
-    // âœ… Debounced search query
     private val searchQueryFlow = MutableStateFlow("")
 
     init {
         loadSavedAddresses()
+        loadSearchHistory()
         setupAutocomplete()
     }
 
-    /**
-     * âœ… Setup autocomplete with debounce
-     */
     private fun setupAutocomplete() {
         viewModelScope.launch {
             searchQueryFlow
-                .debounce(300) // Wait 300ms after user stops typing
-                .filter { it.length >= 3 } // Only search if query is 3+ characters
+                .debounce(300)
+                .filter { it.length >= 3 }
                 .distinctUntilChanged()
                 .collect { query ->
                     searchPlaces(query)
@@ -50,9 +47,6 @@ class LocationSearchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Load saved addresses
-     */
     private fun loadSavedAddresses() {
         viewModelScope.launch {
             bookingRepository.getSavedAddresses().collect { result ->
@@ -84,27 +78,29 @@ class LocationSearchViewModel @Inject constructor(
     }
 
     /**
-     * âœ… Update search query and trigger autocomplete
+     * ✅ Load search history from last 3 days
      */
+    private fun loadSearchHistory() {
+        viewModelScope.launch {
+            val history = preferencesManager.getSearchHistory()
+            _uiState.update { it.copy(searchHistory = history) }
+        }
+    }
+
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         searchQueryFlow.value = query
 
-        // Clear predictions if query is empty
         if (query.isEmpty()) {
             _uiState.update { it.copy(predictions = emptyList()) }
         }
     }
 
-    /**
-     * âœ… Search places with Google Places API
-     */
     private fun searchPlaces(query: String) {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isLoadingPredictions = true) }
 
-                // Get current location for bias (optional)
                 val currentLocation = try {
                     locationService.getCurrentLocation()?.let { location ->
                         com.google.android.gms.maps.model.LatLng(
@@ -116,7 +112,6 @@ class LocationSearchViewModel @Inject constructor(
                     null
                 }
 
-                // Search with Places API
                 val predictions = locationService.searchPlaces(
                     query = query,
                     biasLocation = currentLocation
@@ -140,9 +135,6 @@ class LocationSearchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * âœ… Get current location
-     */
     fun getCurrentLocation() {
         viewModelScope.launch {
             try {
@@ -150,17 +142,15 @@ class LocationSearchViewModel @Inject constructor(
 
                 val location = locationService.getCurrentLocation()
                 if (location != null) {
-                    // Get address from coordinates
                     val address = locationService.getAddressFromLocation(
                         latitude = location.latitude,
                         longitude = location.longitude
                     )
 
-                    // Create SavedAddress from current location
                     val currentLocationAddress = SavedAddress(
                         addressId = "current",
-                        addressType="",
-                        landmark="",
+                        addressType = "",
+                        landmark = "",
                         label = "Current Location",
                         address = address ?: "Unknown location",
                         latitude = location.latitude,
@@ -203,9 +193,6 @@ class LocationSearchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * âœ… Select place from autocomplete
-     */
     fun selectPlace(placeId: String, onSuccess: (SavedAddress) -> Unit) {
         viewModelScope.launch {
             try {
@@ -215,8 +202,8 @@ class LocationSearchViewModel @Inject constructor(
                 if (placeDetails != null) {
                     val address = SavedAddress(
                         addressId = placeDetails.placeId,
-                        addressType="",
-                        landmark="",
+                        addressType = "",
+                        landmark = "",
                         label = placeDetails.name,
                         address = placeDetails.address,
                         latitude = placeDetails.latitude,
@@ -225,6 +212,9 @@ class LocationSearchViewModel @Inject constructor(
                         contactPhone = null,
                         isDefault = false
                     )
+
+                    // ✅ Save to search history
+                    saveToSearchHistory(address)
 
                     _uiState.update {
                         it.copy(
@@ -254,31 +244,71 @@ class LocationSearchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Select address from saved or recent
-     */
     fun selectAddress(address: SavedAddress) {
+        // ✅ Save to search history when selecting from saved/recent addresses
+        saveToSearchHistory(address)
         _uiState.update { it.copy(selectedAddress = address) }
     }
 
     /**
-     * Clear error
+     * ✅ Save address to search history
      */
+    private fun saveToSearchHistory(address: SavedAddress) {
+        val searchHistory = SearchHistory(
+            address = address.address,
+            latitude = address.latitude ?: 0.0,
+            longitude = address.longitude ?: 0.0,
+            timestamp = System.currentTimeMillis(),
+            label = address.label
+        )
+        preferencesManager.saveSearchHistory(searchHistory)
+
+        // Reload history
+        loadSearchHistory()
+    }
+
+    /**
+     * ✅ Select from search history
+     */
+    fun selectFromHistory(history: SearchHistory, onSuccess: (SavedAddress) -> Unit) {
+        val address = SavedAddress(
+            addressId = "history_${history.timestamp}",
+            addressType = "",
+            landmark = "",
+            label = history.label.ifEmpty { "Recent Location" },
+            address = history.address,
+            latitude = history.latitude,
+            longitude = history.longitude,
+            contactName = null,
+            contactPhone = null,
+            isDefault = false
+        )
+
+        selectAddress(address)
+        onSuccess(address)
+    }
+
+    /**
+     * ✅ Clear search history
+     */
+    fun clearSearchHistory() {
+        preferencesManager.clearSearchHistory()
+        _uiState.update { it.copy(searchHistory = emptyList()) }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 }
 
-/**
- * UI State for Location Search Screen
- */
 data class LocationSearchUiState(
     val isLoading: Boolean = false,
     val isLoadingPredictions: Boolean = false,
     val searchQuery: String = "",
-    val predictions: List<PlaceAutocomplete> = emptyList(), // âœ… Autocomplete results
+    val predictions: List<PlaceAutocomplete> = emptyList(),
     val savedAddresses: List<SavedAddress> = emptyList(),
     val recentPickups: List<SavedAddress> = emptyList(),
+    val searchHistory: List<SearchHistory> = emptyList(), // ✅ Added
     val selectedAddress: SavedAddress? = null,
     val error: String? = null
 )
