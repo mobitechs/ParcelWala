@@ -17,9 +17,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 
@@ -114,7 +114,23 @@ fun OrderDetailsScreen(
                 }
 
                 // Addresses Section
-                AddressesCard(order = order)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    AddressesCard(
+                        order.pickupContactName,
+                        order.pickupContactPhone,
+                        order.pickupAddress,
+                        order.dropContactName,
+                        order.dropContactPhone,
+                        order.dropAddress
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -557,119 +573,6 @@ private fun DriverInfoCard(
     }
 }
 
-/**
- * Addresses Card
- */
-@Composable
-private fun AddressesCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Addresses",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            AddressDetailRow(
-                type = "Pickup",
-                name = order.pickupContactName ?: "Unknown",
-                phone = order.pickupContactPhone ?: "",
-                address = order.pickupAddress,
-                color = AppColors.Pickup
-            )
-
-            Column(
-                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                repeat(4) {
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .background(AppColors.TextHint, CircleShape)
-                    )
-                }
-            }
-
-            AddressDetailRow(
-                type = "Drop",
-                name = order.dropContactName ?: "Unknown",
-                phone = order.dropContactPhone ?: "",
-                address = order.dropAddress,
-                color = AppColors.Drop
-            )
-        }
-    }
-}
-
-/**
- * Address Detail Row
- */
-@Composable
-private fun AddressDetailRow(
-    type: String,
-    name: String,
-    phone: String,
-    address: String,
-    color: Color
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(14.dp)
-                .background(color, CircleShape)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = type,
-                style = MaterialTheme.typography.labelSmall,
-                color = color,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-            if (phone.isNotEmpty()) {
-                Text(
-                    text = phone,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-            Text(
-                text = address,
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.TextSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
 
 /**
  * Goods Info Card
@@ -1072,7 +975,9 @@ private fun RatingCard(order: OrderResponse) {
             ) {
                 repeat(5) { index ->
                     Icon(
-                        imageVector = if (index < (order.rating ?: 0)) Icons.Default.Star else Icons.Default.StarBorder,
+                        imageVector = if (index < (order.rating
+                                ?: 0)
+                        ) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
                         tint = Color(0xFFFFC107),
                         modifier = Modifier.size(28.dp)

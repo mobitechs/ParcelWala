@@ -2,6 +2,7 @@
 package com.mobitechs.parcelwala.ui.screens.orders
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,12 +18,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.OrdersViewModel
 import com.mobitechs.parcelwala.utils.DateTimeUtils
@@ -246,27 +250,9 @@ private fun OrderCard(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = AppColors.Background)
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                ) {
-                    AddressRow(
-                        name = order.pickupContactName ?: "Unknown",
-                        phone = order.pickupContactPhone ?: "",
-                        address = order.pickupAddress,
-                        isPickup = true
-                    )
-                    DottedDivider(modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp))
-                    AddressRow(
-                        name = order.dropContactName ?: "Unknown",
-                        phone = order.dropContactPhone ?: "",
-                        address = order.dropAddress,
-                        isPickup = false
-                    )
-                }
+                AddressesCard(order.pickupContactName,order.pickupContactPhone,order.pickupAddress, order.dropContactName,order.dropContactPhone,order.dropAddress)
             }
 
             // Footer
@@ -327,58 +313,6 @@ private fun StatusBadge(status: String) {
     }
 }
 
-/**
- * Address Row
- */
-@Composable
-private fun AddressRow(name: String, phone: String, address: String, isPickup: Boolean) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(10.dp)
-                .background(
-                    color = if (isPickup) AppColors.Pickup else AppColors.Drop,
-                    shape = CircleShape
-                )
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-                if (phone.isNotEmpty()) {
-                    Text(
-                        text = " • $phone",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
-                }
-            }
-            Text(
-                text = address,
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-/**
- * Dotted Divider
- */
-@Composable
-private fun DottedDivider(modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(3) { Box(modifier = Modifier.size(3.dp).background(AppColors.TextHint, CircleShape)) }
-    }
-}
 
 /**
  * Loading State

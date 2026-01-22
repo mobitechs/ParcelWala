@@ -15,15 +15,61 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,7 +88,9 @@ import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.components.AddressesCard
+import com.mobitechs.parcelwala.ui.components.EmptyState
+import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
@@ -495,10 +543,12 @@ private fun ActiveBookingCard(
                         val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
                         val elapsedMinutes = (elapsedMs / 60000).toInt()
                         val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
-                        val elapsedTimeText = String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
+                        val elapsedTimeText =
+                            String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
 
                         // Progress fills from left to right (0 = empty, 1 = full)
-                        val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
+                        val elapsedProgress =
+                            (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
 
                         // Progress bar
                         LinearProgressIndicator(
@@ -571,148 +621,7 @@ private fun ActiveBookingCard(
             // ═══════════════════════════════════════════════════════════════
             // MIDDLE SECTION - Route Details
             // ═══════════════════════════════════════════════════════════════
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                // Pickup Location
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    // Pickup Icon with connector line
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .background(
-                                    color = AppColors.Pickup.copy(alpha = 0.15f),
-                                    shape = CircleShape
-                                )
-                                .border(
-                                    width = 2.dp,
-                                    color = AppColors.Pickup,
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(AppColors.Pickup, CircleShape)
-                            )
-                        }
-
-                        // Connector Line
-                        Box(
-                            modifier = Modifier
-                                .width(2.dp)
-                                .height(32.dp)
-                                .background(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            AppColors.Pickup,
-                                            AppColors.Drop
-                                        )
-                                    )
-                                )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Pickup Address Details
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "PICKUP",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.Pickup,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = activeBooking.pickupAddress.contactName ?: "Sender",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = activeBooking.pickupAddress.address,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.TextSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Drop Location
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    // Drop Icon
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(
-                                color = AppColors.Drop.copy(alpha = 0.15f),
-                                shape = CircleShape
-                            )
-                            .border(
-                                width = 2.dp,
-                                color = AppColors.Drop,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(AppColors.Drop, CircleShape)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Drop Address Details
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "DROP",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.Drop,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = activeBooking.dropAddress.contactName ?: "Receiver",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = activeBooking.dropAddress.address,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.TextSecondary,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-            }
+            AddressesCard(activeBooking.pickupAddress.contactName,activeBooking.pickupAddress.contactPhone,activeBooking.pickupAddress.address, activeBooking.dropAddress.contactName,activeBooking.dropAddress.contactPhone,activeBooking.dropAddress.address)
 
             // ═══════════════════════════════════════════════════════════════
             // BOTTOM SECTION - Vehicle & Fare Info
@@ -1015,6 +924,7 @@ private fun VehicleCard(
         }
     }
 }
+
 /**
  * Announcements Section
  */

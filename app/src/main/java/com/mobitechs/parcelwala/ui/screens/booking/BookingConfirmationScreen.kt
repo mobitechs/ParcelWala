@@ -7,19 +7,66 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.TripOrigin
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -29,7 +76,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.components.AddressesCard
+import com.mobitechs.parcelwala.ui.components.EmptyState
+import com.mobitechs.parcelwala.ui.components.InfoCard
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
@@ -93,7 +143,9 @@ fun BookingConfirmationScreen(
             subtitle = "Please select pickup and drop locations",
             actionText = "Go Back",
             onAction = onBack,
-            modifier = Modifier.fillMaxSize().padding(32.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp)
         )
         return
     }
@@ -103,9 +155,17 @@ fun BookingConfirmationScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Select Vehicle", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Select Vehicle",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                         if (isPrefilledFromOrder) {
-                            Text("Booking from previous order", style = MaterialTheme.typography.labelSmall, color = AppColors.Primary)
+                            Text(
+                                "Booking from previous order",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Primary
+                            )
                         }
                     }
                 },
@@ -119,14 +179,24 @@ fun BookingConfirmationScreen(
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     // Book Again Banner
                     if (isPrefilledFromOrder) {
-                        BookAgainBanner(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+                        BookAgainBanner(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
                     }
 
                     // Compact Journey Summary
@@ -138,22 +208,32 @@ fun BookingConfirmationScreen(
                         onViewDetails = { showLocationDetails = true },
                         onEditPickup = onEditPickup,
                         onEditDrop = onEditDrop,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Section Header
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Choose Your Ride", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+                            Text(
+                                "Choose Your Ride",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AppColors.TextPrimary
+                            )
                             Text(
                                 if (preSelectedVehicleId != null) "Pre-selected from your previous order" else "Select the right vehicle for your delivery",
-                                style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
                             )
                         }
                         if (!isFareLoading) {
@@ -166,12 +246,24 @@ fun BookingConfirmationScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Loading State
-                    AnimatedVisibility(visible = isFareLoading, enter = fadeIn(), exit = fadeOut()) {
-                        FareLoadingIndicator(modifier = Modifier.fillMaxWidth().padding(32.dp))
+                    AnimatedVisibility(
+                        visible = isFareLoading,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        FareLoadingIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp)
+                        )
                     }
 
                     // Vehicle Fares List
-                    AnimatedVisibility(visible = !isFareLoading && vehicleFares.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
+                    AnimatedVisibility(
+                        visible = !isFareLoading && vehicleFares.isNotEmpty(),
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
                         Column {
                             vehicleFares.forEach { fareDetails ->
                                 VehicleFareCard(
@@ -182,31 +274,55 @@ fun BookingConfirmationScreen(
                                         selectedFareDetails = fareDetails
                                         viewModel.selectFareDetails(fareDetails)
                                     },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
                                 )
                             }
                         }
                     }
 
                     // Empty State
-                    AnimatedVisibility(visible = !isFareLoading && vehicleFares.isEmpty() && uiState.hasFaresLoaded, enter = fadeIn(), exit = fadeOut()) {
+                    AnimatedVisibility(
+                        visible = !isFareLoading && vehicleFares.isEmpty() && uiState.hasFaresLoaded,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
                         EmptyState(
                             icon = Icons.Default.DirectionsCar,
                             title = "No Vehicles Available",
                             subtitle = "Please try again or choose different locations",
                             actionText = "Retry",
                             onAction = { viewModel.calculateFaresForAllVehicles() },
-                            modifier = Modifier.fillMaxWidth().padding(32.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp)
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Info Card
-                    InfoCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
-                            Text("Fare includes 25 mins of free loading/unloading time", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+                    InfoCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Timer,
+                                null,
+                                tint = AppColors.Primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                "Fare includes 25 mins of free loading/unloading time",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AppColors.TextSecondary
+                            )
                         }
                     }
 
@@ -224,7 +340,10 @@ fun BookingConfirmationScreen(
             // Error Snackbar
             uiState.error?.let { error ->
                 Snackbar(
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).padding(bottom = 80.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                        .padding(bottom = 80.dp),
                     action = { TextButton(onClick = { viewModel.clearError() }) { Text("Dismiss") } }
                 ) { Text(error) }
             }
@@ -233,7 +352,10 @@ fun BookingConfirmationScreen(
 
     // Location Details Bottom Sheet
     if (showLocationDetails) {
-        ModalBottomSheet(onDismissRequest = { showLocationDetails = false }, containerColor = Color.White) {
+        ModalBottomSheet(
+            onDismissRequest = { showLocationDetails = false },
+            containerColor = Color.White
+        ) {
             LocationDetailsBottomSheet(
                 pickupAddress = pickupAddress,
                 dropAddress = dropAddress,
@@ -258,120 +380,9 @@ private fun CompactJourneySummary(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            // Pickup Row
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Box(modifier = Modifier.size(12.dp).padding(top = 4.dp).background(AppColors.Pickup, CircleShape))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("PICKUP", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, letterSpacing = 1.sp)
-                    Text(pickupAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
-                    // ✅ Show Sender Contact Info
-                    if (!pickupAddress.contactName.isNullOrEmpty() || !pickupAddress.contactPhone.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Sender",
-                                tint = AppColors.Pickup,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = buildString {
-                                    if (!pickupAddress.contactName.isNullOrEmpty()) {
-                                        append(pickupAddress.contactName)
-                                    }
-                                    if (!pickupAddress.contactPhone.isNullOrEmpty()) {
-                                        if (isNotEmpty()) append(" • ")
-                                        append(pickupAddress.contactPhone)
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = onEditPickup, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Edit, "Edit", tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                }
-            }
+        AddressesCard(pickupAddress.contactName,pickupAddress.contactPhone,pickupAddress.address, dropAddress.contactName,dropAddress.contactPhone,dropAddress.address)
 
-            Box(modifier = Modifier.padding(start = 5.dp).width(2.dp).height(24.dp).background(AppColors.Border))
-
-            // Drop Row
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Box(modifier = Modifier.size(12.dp).padding(top = 4.dp).background(AppColors.Drop, CircleShape))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("DROP", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, letterSpacing = 1.sp)
-                    Text(dropAddress.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-
-                    // ✅ Show Receiver Contact Info
-                    if (!dropAddress.contactName.isNullOrEmpty() || !dropAddress.contactPhone.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Receiver",
-                                tint = AppColors.Drop,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = buildString {
-                                    if (!dropAddress.contactName.isNullOrEmpty()) {
-                                        append(dropAddress.contactName)
-                                    }
-                                    if (!dropAddress.contactPhone.isNullOrEmpty()) {
-                                        if (isNotEmpty()) append(" • ")
-                                        append(dropAddress.contactPhone)
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = onEditDrop, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Edit, "Edit", tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                }
-            }
-
-            // Distance & Time
-            if (distanceKm != null || estimatedMins != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = AppColors.Divider)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    distanceKm?.let {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.Route, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                            Text(String.format("%.1f km", it), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
-                        }
-                    }
-                    estimatedMins?.let {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                            Text("$it mins", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
-                        }
-                    }
-                    TextButton(onClick = onViewDetails, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                        Text("Details", style = MaterialTheme.typography.labelMedium, color = AppColors.Primary)
-                        Icon(Icons.Default.ChevronRight, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -383,9 +394,11 @@ private fun VehicleFareCard(
     val alpha by animateFloatAsState(targetValue = if (isSelected) 1f else 0.9f, label = "alpha")
 
     Card(
-        modifier = modifier.alpha(alpha).clickable(onClick = onSelect),
+        modifier = modifier
+            .alpha(alpha)
+            .clickable(onClick = onSelect),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor =  Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = when {
             isSelected -> BorderStroke(2.dp, AppColors.Primary)
             isPreSelected -> BorderStroke(2.dp, AppColors.Primary.copy(alpha = 0.4f))
@@ -393,13 +406,20 @@ private fun VehicleFareCard(
         },
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 6.dp else 2.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             // Vehicle Icon
             Box(
-                modifier = Modifier.size(56.dp).background(
-                    color = if (isSelected) AppColors.Primary.copy(alpha = 0.15f) else AppColors.Background,
-                    shape = RoundedCornerShape(12.dp)
-                ),
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(
+                        color = if (isSelected) AppColors.Primary.copy(alpha = 0.15f) else AppColors.Background,
+                        shape = RoundedCornerShape(12.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.headlineMedium)
@@ -409,80 +429,205 @@ private fun VehicleFareCard(
 
             // Vehicle Info
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isSelected) AppColors.Primary else AppColors.TextPrimary)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        fareDetails.vehicleTypeName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) AppColors.Primary else AppColors.TextPrimary
+                    )
                     if (isPreSelected) {
-                        Surface(color = AppColors.Primary.copy(alpha = 0.15f), shape = RoundedCornerShape(4.dp)) {
-                            Text("Previous", style = MaterialTheme.typography.labelSmall, color = AppColors.Primary, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        Surface(
+                            color = AppColors.Primary.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                "Previous",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.Primary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                     if (fareDetails.hasSurgePricing()) {
                         Surface(color = Color(0xFFFFE0B2), shape = RoundedCornerShape(4.dp)) {
-                            Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Icon(Icons.Default.TrendingUp, "Surge", tint = Color(0xFFE65100), modifier = Modifier.size(12.dp))
-                                Text("${fareDetails.getSurgePercentage()}%", style = MaterialTheme.typography.labelSmall, color = Color(0xFFE65100), fontWeight = FontWeight.Medium)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.TrendingUp,
+                                    "Surge",
+                                    tint = Color(0xFFE65100),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    "${fareDetails.getSurgePercentage()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFE65100),
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(fareDetails.capacity, style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                Text(
+                    fareDetails.capacity,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
+                )
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Default.Timer, null, tint = AppColors.TextHint, modifier = Modifier.size(14.dp))
-                    Text(fareDetails.getEtaText(), style = MaterialTheme.typography.bodySmall, color = AppColors.TextHint)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        null,
+                        tint = AppColors.TextHint,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        fareDetails.getEtaText(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextHint
+                    )
                 }
             }
 
             // Fare
             Column(horizontalAlignment = Alignment.End) {
-                Text(fareDetails.getDisplayFare(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if (isSelected) AppColors.Primary else AppColors.TextPrimary)
+                Text(
+                    fareDetails.getDisplayFare(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) AppColors.Primary else AppColors.TextPrimary
+                )
                 if (fareDetails.discount > 0) {
-                    Text("₹${fareDetails.totalFare.toInt()}", style = MaterialTheme.typography.bodySmall.copy(textDecoration = TextDecoration.LineThrough), color = AppColors.TextHint)
+                    Text(
+                        "₹${fareDetails.totalFare.toInt()}",
+                        style = MaterialTheme.typography.bodySmall.copy(textDecoration = TextDecoration.LineThrough),
+                        color = AppColors.TextHint
+                    )
                 }
                 if (fareDetails.tollCharges > 0) {
-                    Text("incl. toll", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
+                    Text(
+                        "incl. toll",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextHint
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-            RadioButton(selected = isSelected, onClick = onSelect, colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary, unselectedColor = AppColors.Border))
+            RadioButton(
+                selected = isSelected,
+                onClick = onSelect,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = AppColors.Primary,
+                    unselectedColor = AppColors.Border
+                )
+            )
         }
     }
 }
 
 @Composable
 private fun FareLoadingIndicator(modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         CircularProgressIndicator(color = AppColors.Primary, modifier = Modifier.size(48.dp))
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Calculating fares...", style = MaterialTheme.typography.bodyLarge, color = AppColors.TextSecondary)
+        Text(
+            "Calculating fares...",
+            style = MaterialTheme.typography.bodyLarge,
+            color = AppColors.TextSecondary
+        )
         Spacer(modifier = Modifier.height(4.dp))
-        Text("Finding the best prices for you", style = MaterialTheme.typography.bodySmall, color = AppColors.TextHint)
+        Text(
+            "Finding the best prices for you",
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.TextHint
+        )
     }
 }
 
 @Composable
-private fun BottomFareActionBar(selectedFareDetails: FareDetails?, onProceed: () -> Unit, isLoading: Boolean) {
+private fun BottomFareActionBar(
+    selectedFareDetails: FareDetails?,
+    onProceed: () -> Unit,
+    isLoading: Boolean
+) {
     Surface(color = Color.White, shadowElevation = 12.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             selectedFareDetails?.let { fare ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Column {
-                        Text(fare.vehicleTypeName, style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(fare.getDisplayFare(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                        Text(
+                            fare.vehicleTypeName,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AppColors.TextSecondary
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                fare.getDisplayFare(),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = AppColors.Primary
+                            )
                             if (fare.discount > 0) {
-                                Surface(color = AppColors.Pickup.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                                    Text("₹${fare.discount.toInt()} off", style = MaterialTheme.typography.labelSmall, color = AppColors.Pickup, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                Surface(
+                                    color = AppColors.Pickup.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        "₹${fare.discount.toInt()} off",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppColors.Pickup,
+                                        modifier = Modifier.padding(
+                                            horizontal = 6.dp,
+                                            vertical = 2.dp
+                                        )
+                                    )
                                 }
                             }
                         }
                     }
-                    PrimaryButton(text = "Proceed", onClick = onProceed, icon = Icons.Default.ArrowForward, modifier = Modifier.width(150.dp), enabled = !isLoading)
+                    PrimaryButton(
+                        text = "Proceed",
+                        onClick = onProceed,
+                        icon = Icons.Default.ArrowForward,
+                        modifier = Modifier.width(150.dp),
+                        enabled = !isLoading
+                    )
                 }
             } ?: run {
-                Text(if (isLoading) "Calculating fares..." else "Select a vehicle to proceed", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextHint, modifier = Modifier.fillMaxWidth())
+                Text(
+                    if (isLoading) "Calculating fares..." else "Select a vehicle to proceed",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextHint,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -490,23 +635,72 @@ private fun BottomFareActionBar(selectedFareDetails: FareDetails?, onProceed: ()
 
 @Composable
 private fun BookAgainBanner(modifier: Modifier = Modifier) {
-    Card(modifier = modifier, shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = AppColors.Primary.copy(alpha = 0.1f))) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Default.Refresh, "Book Again", tint = AppColors.Primary, modifier = Modifier.size(24.dp))
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Primary.copy(alpha = 0.1f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Refresh,
+                "Book Again",
+                tint = AppColors.Primary,
+                modifier = Modifier.size(24.dp)
+            )
             Column(modifier = Modifier.weight(1f)) {
-                Text("Booking Again", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
-                Text("Details pre-filled from your previous order", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                Text(
+                    "Booking Again",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Primary
+                )
+                Text(
+                    "Details pre-filled from your previous order",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LocationDetailsBottomSheet(pickupAddress: SavedAddress, dropAddress: SavedAddress, distanceKm: Double?, estimatedMins: Int?, onDismiss: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Trip Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
+private fun LocationDetailsBottomSheet(
+    pickupAddress: SavedAddress,
+    dropAddress: SavedAddress,
+    distanceKm: Double?,
+    estimatedMins: Int?,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Trip Details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    Icons.Default.Close,
+                    "Close",
+                    tint = AppColors.TextSecondary
+                )
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
         LocationDetailItem(pickupAddress, "Pickup", AppColors.Pickup)
@@ -517,9 +711,24 @@ private fun LocationDetailsBottomSheet(pickupAddress: SavedAddress, dropAddress:
         Spacer(modifier = Modifier.height(24.dp))
         if (distanceKm != null || estimatedMins != null) {
             InfoCard {
-                Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                    distanceKm?.let { InfoStatItem(Icons.Default.Route, String.format("%.1f km", it), "Distance") }
-                    estimatedMins?.let { InfoStatItem(Icons.Default.Timer, "$it mins", "Est. Time") }
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    distanceKm?.let {
+                        InfoStatItem(
+                            Icons.Default.Route,
+                            String.format("%.1f km", it),
+                            "Distance"
+                        )
+                    }
+                    estimatedMins?.let {
+                        InfoStatItem(
+                            Icons.Default.Timer,
+                            "$it mins",
+                            "Est. Time"
+                        )
+                    }
                     InfoStatItem(Icons.Default.Speed, "Fastest", "Route")
                 }
             }
@@ -532,25 +741,52 @@ private fun LocationDetailsBottomSheet(pickupAddress: SavedAddress, dropAddress:
 private fun LocationDetailItem(address: SavedAddress, type: String, color: Color) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (type == "Pickup") Icons.Default.TripOrigin else Icons.Default.LocationOn, null, tint = color, modifier = Modifier.size(20.dp))
+            Icon(
+                if (type == "Pickup") Icons.Default.TripOrigin else Icons.Default.LocationOn,
+                null,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(type, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = color)
+            Text(
+                type,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(address.address, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextPrimary)
+        Text(
+            address.address,
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppColors.TextPrimary
+        )
         address.contactName?.let { name ->
             Spacer(modifier = Modifier.height(4.dp))
-            Text("$name • ${address.contactPhone ?: ""}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+            Text(
+                "$name • ${address.contactPhone ?: ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
         }
     }
 }
 
 @Composable
-private fun InfoStatItem(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String) {
+private fun InfoStatItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String,
+    label: String
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(icon, label, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.TextPrimary
+        )
         Text(label, style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
     }
 }
