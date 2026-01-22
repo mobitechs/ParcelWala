@@ -12,7 +12,7 @@ data class BookingStatusUpdate(
     val bookingNumber: String? = null,
 
     @SerializedName("Status")
-    val status: String,
+    val status: String?=null,
 
     @SerializedName("StatusMessage")
     val message: String? = null,
@@ -58,6 +58,9 @@ data class BookingStatusUpdate(
         } else null
 
     fun getStatusType(): BookingStatusType {
+        if (status.isNullOrEmpty()) {
+            return BookingStatusType.SEARCHING
+        }
         return when (status.lowercase()) {
             "searching" -> BookingStatusType.SEARCHING
             "assigned" -> BookingStatusType.RIDER_ASSIGNED
