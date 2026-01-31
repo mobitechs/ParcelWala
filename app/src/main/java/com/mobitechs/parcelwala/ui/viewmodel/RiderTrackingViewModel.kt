@@ -23,19 +23,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * ════════════════════════════════════════════════════════════════════════════
- * RIDER TRACKING VIEWMODEL
- * ════════════════════════════════════════════════════════════════════════════
- *
- * Manages real-time rider tracking state:
- * - Connection to real-time service
- * - Booking status updates
- * - Rider location updates
- * - Navigation events
- *
- * ════════════════════════════════════════════════════════════════════════════
- */
 @HiltViewModel
 class RiderTrackingViewModel @Inject constructor(
     private val realTimeRepository: RealTimeRepository,
@@ -53,10 +40,6 @@ class RiderTrackingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RiderTrackingUiState())
     val uiState: StateFlow<RiderTrackingUiState> = _uiState.asStateFlow()
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // RIDER STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
     private val _assignedRider = MutableStateFlow<RiderInfo?>(null)
     val assignedRider: StateFlow<RiderInfo?> = _assignedRider.asStateFlow()
 
@@ -66,18 +49,13 @@ class RiderTrackingViewModel @Inject constructor(
     private val _bookingOtp = MutableStateFlow<String?>(null)
     val bookingOtp: StateFlow<String?> = _bookingOtp.asStateFlow()
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CONNECTION STATE
-    // ═══════════════════════════════════════════════════════════════════════
-
     val connectionState: StateFlow<RealTimeConnectionState> = realTimeRepository.connectionState
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // NAVIGATION EVENTS
-    // ═══════════════════════════════════════════════════════════════════════
 
     private val _navigationEvent = MutableSharedFlow<RiderTrackingNavigationEvent>()
     val navigationEvent: SharedFlow<RiderTrackingNavigationEvent> = _navigationEvent.asSharedFlow()
+
+    private val _toastMessage = MutableSharedFlow<String>()
+    val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
     // ═══════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -88,21 +66,34 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private fun observeRealTimeUpdates() {
-        // Observe booking status updates
         viewModelScope.launch {
             realTimeRepository.bookingUpdates.collect { update ->
                 handleBookingStatusUpdate(update)
             }
         }
 
-        // Observe rider location updates
         viewModelScope.launch {
             realTimeRepository.riderLocationUpdates.collect { location ->
                 handleRiderLocationUpdate(location)
             }
         }
 
-        // Observe connection state
+        viewModelScope.launch {
+            realTimeRepository.bookingCancelled.collect { notification ->
+                Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                Log.d(TAG, "📥 BOOKING CANCELLED NOTIFICATION")
+                Log.d(TAG, "Cancelled by: ${notification.cancelledBy}")
+                Log.d(TAG, "Reason: ${notification.reason}")
+                Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+                activeBookingManager.updateStatus(BookingStatus.CANCELLED)
+                realTimeRepository.disconnect()
+
+                _toastMessage.emit(notification.message)
+                _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(notification.message))
+            }
+        }
+
         viewModelScope.launch {
             realTimeRepository.connectionState.collect { state ->
                 when (state) {
@@ -112,8 +103,15 @@ class RiderTrackingViewModel @Inject constructor(
                     is RealTimeConnectionState.Error -> {
                         _uiState.update { it.copy(connectionError = state.message) }
                     }
-                    else -> { }
+                    else -> {}
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            realTimeRepository.errors.collect { error ->
+                Log.e(TAG, "❌ SignalR Error: ${error.message}")
+                _toastMessage.emit(error.message)
             }
         }
     }
@@ -122,9 +120,6 @@ class RiderTrackingViewModel @Inject constructor(
     // PUBLIC METHODS
     // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Connect to real-time service for booking updates
-     */
     fun connectToBooking(
         bookingId: String,
         pickupLatitude: Double,
@@ -140,25 +135,18 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    /**
-     * Disconnect from real-time service
-     */
     fun disconnect() {
         Log.d(TAG, "🔌 Disconnecting...")
         realTimeRepository.disconnect()
         clearState()
     }
 
-    /**
-     * Retry search for rider
-     */
     fun retrySearch() {
         val bookingId = _uiState.value.currentBookingId ?: return
         val activeBooking = activeBookingManager.activeBooking.value ?: return
 
         Log.d(TAG, "🔄 Retrying search...")
 
-        // Reset state
         _uiState.update {
             it.copy(
                 currentStatus = BookingStatusType.SEARCHING,
@@ -167,32 +155,32 @@ class RiderTrackingViewModel @Inject constructor(
             )
         }
 
-        // Reconnect
         realTimeRepository.connectAndSubscribe(
             bookingId = bookingId,
             pickupLatitude = activeBooking.pickupAddress.latitude,
             pickupLongitude = activeBooking.pickupAddress.longitude
         )
 
-        // Update active booking manager
         activeBookingManager.retrySearch()
     }
 
-    /**
-     * Cancel booking
-     */
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
             Log.d(TAG, "❌ Cancelling booking: $reason")
+
+            val bookingId = _uiState.value.currentBookingId?.toIntOrNull()
+                ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
+
+            if (bookingId != null && realTimeRepository.isConnected()) {
+                realTimeRepository.cancelBooking(bookingId, reason)
+            }
+
             realTimeRepository.disconnect()
             activeBookingManager.clearActiveBooking()
             _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(reason))
         }
     }
 
-    /**
-     * Clear all state
-     */
     fun clearState() {
         _assignedRider.value = null
         _riderLocation.value = null
@@ -206,7 +194,10 @@ class RiderTrackingViewModel @Inject constructor(
 
     private fun handleBookingStatusUpdate(update: BookingStatusUpdate) {
         val status = update.getStatusType()
-        Log.d(TAG, "📥 Status update: $status")
+        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        Log.d(TAG, "📥 STATUS UPDATE: $status")
+        Log.d(TAG, "Message: ${update.message}")
+        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
         _uiState.update {
             it.copy(
@@ -238,7 +229,6 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.RIDER_ENROUTE -> {
-                    // Maps to RIDER_EN_ROUTE in your BookingStatus enum (with underscore)
                     activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.RiderEnroute(update.bookingId.toString())
@@ -246,8 +236,8 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.ARRIVED -> {
-                    // No ARRIVED in BookingStatus enum - keep as RIDER_EN_ROUTE
                     activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
+                    _toastMessage.emit(update.message ?: "Rider has arrived at pickup!")
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.RiderArrived(
                             bookingId = update.bookingId.toString(),
@@ -256,23 +246,33 @@ class RiderTrackingViewModel @Inject constructor(
                     )
                 }
 
-                BookingStatusType.PICKED_UP, BookingStatusType.IN_TRANSIT -> {
+                BookingStatusType.PICKED_UP -> {
                     activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+                    _toastMessage.emit("Parcel picked up!")
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString())
                     )
                 }
 
+                BookingStatusType.IN_TRANSIT -> {
+                    activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+                }
+
+                BookingStatusType.ARRIVED_DELIVERY -> {
+                    activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+                    _toastMessage.emit("Rider arrived at delivery location!")
+                }
+
                 BookingStatusType.DELIVERED -> {
                     activeBookingManager.updateStatus(BookingStatus.DELIVERED)
                     realTimeRepository.disconnect()
+                    _toastMessage.emit("Delivery completed!")
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.Delivered(update.bookingId.toString())
                     )
                 }
 
                 BookingStatusType.NO_RIDER -> {
-                    // Maps to SEARCH_TIMEOUT in your BookingStatus enum
                     activeBookingManager.updateStatus(BookingStatus.SEARCH_TIMEOUT)
                     _uiState.update { it.copy(isNoRiderAvailable = true) }
                     _navigationEvent.emit(
@@ -285,6 +285,7 @@ class RiderTrackingViewModel @Inject constructor(
                 BookingStatusType.CANCELLED -> {
                     activeBookingManager.updateStatus(BookingStatus.CANCELLED)
                     realTimeRepository.disconnect()
+                    _toastMessage.emit(update.message ?: "Booking cancelled")
                     _navigationEvent.emit(
                         RiderTrackingNavigationEvent.BookingCancelled(
                             update.message ?: "Booking cancelled"
@@ -298,7 +299,6 @@ class RiderTrackingViewModel @Inject constructor(
     private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
         _riderLocation.value = location
 
-        // Update rider info with new location
         _assignedRider.update { rider ->
             rider?.copy(
                 currentLatitude = location.latitude,

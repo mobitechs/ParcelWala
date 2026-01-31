@@ -8,7 +8,6 @@ import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.data.repository.BookingRepository
-import com.mobitechs.parcelwala.data.repository.RealTimeRepository.Companion.TAG
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
