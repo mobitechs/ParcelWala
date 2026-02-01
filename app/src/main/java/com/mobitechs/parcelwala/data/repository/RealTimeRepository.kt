@@ -1,6 +1,12 @@
 // data/repository/RealTimeRepository.kt
+// ✅ PRODUCTION-GRADE: Infinite reconnection, network monitoring, auto re-join
 package com.mobitechs.parcelwala.data.repository
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -10,37 +16,67 @@ import com.microsoft.signalr.HubConnectionState
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.realtime.*
 import com.mobitechs.parcelwala.utils.Constants
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Single
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
- * CUSTOMER REAL-TIME REPOSITORY
+ * CUSTOMER REAL-TIME REPOSITORY - PRODUCTION GRADE
  * ════════════════════════════════════════════════════════════════════════════
- * Handles SignalR communication for customer booking tracking
+ *
+ * Features:
+ * - Infinite reconnection with exponential backoff (caps at 30 seconds)
+ * - Network connectivity monitoring - auto-reconnect when network returns
+ * - Automatic channel re-subscription after reconnection
+ * - Thread-safe state management with AtomicBoolean/AtomicInteger
+ * - Heartbeat mechanism to detect dead connections
+ *
  * URL: https://parcelwala.azurewebsites.net/Hubs/BookingHub
  * ════════════════════════════════════════════════════════════════════════════
  */
 @Singleton
 class RealTimeRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val preferencesManager: PreferencesManager
 ) {
     companion object {
         private const val TAG = "CustomerRealTimeRepo"
+
+        // Reconnection settings - INFINITE with exponential backoff
+        private const val INITIAL_RETRY_DELAY_MS = 1000L      // Start with 1 second
+        private const val MAX_RETRY_DELAY_MS = 30000L         // Cap at 30 seconds
+        private const val RETRY_MULTIPLIER = 1.5              // Exponential backoff
+
+        // Heartbeat settings
+        private const val HEARTBEAT_INTERVAL_MS = 25000L      // Check connection every 25 seconds
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
 
     private var hubConnection: HubConnection? = null
-    private var reconnectJob: Job? = null
-    private var reconnectAttempts = 0
 
+    // Thread-safe flags
+    private val isConnecting = AtomicBoolean(false)
+    private val shouldBeConnected = AtomicBoolean(false)
+    private val reconnectAttempt = AtomicInteger(0)
+    private val isNetworkAvailable = AtomicBoolean(true)
+
+    // Current state for reconnection
     private var currentBookingId: String? = null
     private var currentCustomerId: String? = null
+    private var lastRetryDelayMs = INITIAL_RETRY_DELAY_MS
+
+    // Jobs
+    private var reconnectJob: Job? = null
+    private var heartbeatJob: Job? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     // ═══════════════════════════════════════════════════════════════════════
     // PUBLIC FLOWS
@@ -64,7 +100,7 @@ class RealTimeRepository @Inject constructor(
     val riderLocationUpdates: SharedFlow<RiderLocationUpdate> = _riderLocationUpdates.asSharedFlow()
 
     private val _bookingCancelled = MutableSharedFlow<BookingCancelledNotification>(
-        replay = 1,
+        replay = 0,
         extraBufferCapacity = 5
     )
     val bookingCancelled: SharedFlow<BookingCancelledNotification> = _bookingCancelled.asSharedFlow()
@@ -74,6 +110,85 @@ class RealTimeRepository @Inject constructor(
         extraBufferCapacity = 10
     )
     val errors: SharedFlow<SignalRError> = _errors.asSharedFlow()
+
+    // For UI to know if SignalR is healthy
+    private val _isSignalRHealthy = MutableStateFlow(false)
+    val isSignalRHealthy: StateFlow<Boolean> = _isSignalRHealthy.asStateFlow()
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // INITIALIZATION - Setup network monitoring
+    // ═══════════════════════════════════════════════════════════════════════
+
+    init {
+        setupNetworkMonitoring()
+    }
+
+    private fun setupNetworkMonitoring() {
+        try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.d(TAG, "📶 Network AVAILABLE")
+                    val wasUnavailable = !isNetworkAvailable.getAndSet(true)
+
+                    // If network just came back and we should be connected, reconnect
+                    if (wasUnavailable && shouldBeConnected.get()) {
+                        Log.d(TAG, "🔄 Network restored - triggering reconnection")
+                        scope.launch {
+                            delay(500) // Small delay to let network stabilize
+                            reconnectIfNeeded()
+                        }
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    Log.d(TAG, "📶 Network LOST")
+                    isNetworkAvailable.set(false)
+
+                    // Update state but don't disconnect - SignalR will detect it
+                    if (_connectionState.value is RealTimeConnectionState.Connected) {
+                        _connectionState.value = RealTimeConnectionState.Reconnecting
+                    }
+                }
+
+                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                    val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    val hasValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+
+                    if (hasInternet && hasValidated && !isNetworkAvailable.get()) {
+                        Log.d(TAG, "📶 Network capabilities restored")
+                        isNetworkAvailable.set(true)
+
+                        if (shouldBeConnected.get()) {
+                            scope.launch {
+                                delay(500)
+                                reconnectIfNeeded()
+                            }
+                        }
+                    }
+                }
+            }
+
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            connectivityManager.registerNetworkCallback(request, networkCallback!!)
+
+            // Check initial network state
+            val activeNetwork = connectivityManager.activeNetwork
+            val capabilities = activeNetwork?.let { connectivityManager.getNetworkCapabilities(it) }
+            isNetworkAvailable.set(
+                capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            )
+
+            Log.d(TAG, "📶 Network monitoring initialized. Available: ${isNetworkAvailable.get()}")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to setup network monitoring", e)
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // CONNECTION
@@ -85,8 +200,13 @@ class RealTimeRepository @Inject constructor(
         pickupLatitude: Double = 0.0,
         pickupLongitude: Double = 0.0
     ) {
+        shouldBeConnected.set(true)
         currentBookingId = bookingId
         currentCustomerId = customerId
+
+        // Reset retry state
+        reconnectAttempt.set(0)
+        lastRetryDelayMs = INITIAL_RETRY_DELAY_MS
 
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         Log.d(TAG, "📡 CONNECTING TO SIGNALR")
@@ -101,15 +221,18 @@ class RealTimeRepository @Inject constructor(
     fun disconnect() {
         Log.d(TAG, "🔌 Disconnecting...")
 
+        shouldBeConnected.set(false)
         reconnectJob?.cancel()
-        reconnectAttempts = 0
+        heartbeatJob?.cancel()
 
         currentBookingId?.let { bookingId ->
             try {
-                hubConnection?.invoke(
-                    Constants.SignalRMethods.LEAVE_BOOKING_CHANNEL,
-                    bookingId
-                )?.blockingAwait()
+                if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+                    hubConnection?.invoke(
+                        Constants.SignalRMethods.LEAVE_BOOKING_CHANNEL,
+                        bookingId
+                    )?.blockingAwait()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error leaving channel: ${e.message}")
             }
@@ -120,10 +243,24 @@ class RealTimeRepository @Inject constructor(
         currentBookingId = null
         currentCustomerId = null
         _connectionState.value = RealTimeConnectionState.Disconnected
+        _isSignalRHealthy.value = false
     }
 
     fun isConnected(): Boolean {
         return hubConnection?.connectionState == HubConnectionState.CONNECTED
+    }
+
+    /**
+     * Get connection status text for UI
+     */
+    fun getConnectionStatusText(): String {
+        return when (_connectionState.value) {
+            is RealTimeConnectionState.Connected -> "Connected"
+            is RealTimeConnectionState.Connecting -> "Connecting..."
+            is RealTimeConnectionState.Reconnecting -> "Reconnecting..."
+            is RealTimeConnectionState.Error -> "Connection error"
+            is RealTimeConnectionState.Disconnected -> "Disconnected"
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -132,7 +269,7 @@ class RealTimeRepository @Inject constructor(
 
     suspend fun cancelBooking(bookingId: Int, reason: String): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            if (!isConnected()) {
+            if (!ensureConnected()) {
                 return@withContext Result.failure(Exception("Not connected to server"))
             }
 
@@ -161,18 +298,38 @@ class RealTimeRepository @Inject constructor(
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun connectSignalR(bookingId: String) {
+        // Prevent concurrent connection attempts
+        if (!isConnecting.compareAndSet(false, true)) {
+            Log.d(TAG, "⚠️ Connection already in progress")
+            return
+        }
+
         scope.launch {
             try {
                 _connectionState.value = RealTimeConnectionState.Connecting
+
+                // Check network first
+                if (!isNetworkAvailable.get()) {
+                    Log.w(TAG, "⚠️ No network available, waiting...")
+                    _connectionState.value = RealTimeConnectionState.Reconnecting
+                    isConnecting.set(false)
+                    scheduleReconnection()
+                    return@launch
+                }
 
                 val token = preferencesManager.getAccessToken() ?: ""
                 if (token.isEmpty()) {
                     Log.e(TAG, "❌ No JWT token!")
                     _connectionState.value = RealTimeConnectionState.Error("Authentication token missing")
+                    isConnecting.set(false)
                     return@launch
                 }
 
                 Log.d(TAG, "🔑 JWT token: ${token.length} chars")
+
+                // Clean up existing connection
+                hubConnection?.stop()
+                hubConnection = null
 
                 hubConnection = HubConnectionBuilder
                     .create(Constants.SIGNALR_HUB_URL)
@@ -194,10 +351,18 @@ class RealTimeRepository @Inject constructor(
                 Log.d(TAG, "✅ Connected in ${duration}ms")
                 Log.d(TAG, "📍 Connection ID: ${hubConnection?.connectionId}")
 
+                // Join booking channel
                 joinBookingChannel(bookingId)
 
                 _connectionState.value = RealTimeConnectionState.Connected
-                reconnectAttempts = 0
+                _isSignalRHealthy.value = true
+
+                // Reset retry state on successful connection
+                reconnectAttempt.set(0)
+                lastRetryDelayMs = INITIAL_RETRY_DELAY_MS
+
+                // Start heartbeat
+                startHeartbeat()
 
             } catch (e: Exception) {
                 Log.e(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -205,8 +370,11 @@ class RealTimeRepository @Inject constructor(
                 Log.e(TAG, "Error: ${e.message}", e)
                 Log.e(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-                _connectionState.value = RealTimeConnectionState.Error(e.message ?: "Connection failed")
-                attemptReconnection(bookingId, currentCustomerId)
+                _connectionState.value = RealTimeConnectionState.Reconnecting
+                _isSignalRHealthy.value = false
+                scheduleReconnection()
+            } finally {
+                isConnecting.set(false)
             }
         }
     }
@@ -226,7 +394,12 @@ class RealTimeRepository @Inject constructor(
         // JOINED BOOKING CHANNEL
         hubConnection?.on(Constants.SignalREvents.JOINED_BOOKING_CHANNEL, { data: Any ->
             scope.launch {
-                Log.d(TAG, "📥 JoinedBookingChannel: $data")
+                Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                Log.d(TAG, "📥 JOINED BOOKING CHANNEL")
+                Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                Log.d(TAG, "Data: $data")
+                _connectionState.value = RealTimeConnectionState.Connected
+                _isSignalRHealthy.value = true
             }
         }, Any::class.java)
 
@@ -246,21 +419,24 @@ class RealTimeRepository @Inject constructor(
             }
         }, Any::class.java)
 
-        // BOOKING STATUS UPDATE ⭐
+        // BOOKING STATUS UPDATE ⭐ MOST IMPORTANT FOR CUSTOMER
         hubConnection?.on(Constants.SignalREvents.BOOKING_STATUS_UPDATE, { data: Any ->
             scope.launch {
                 try {
                     Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    Log.d(TAG, "📥 BOOKING STATUS UPDATE")
-                    Log.d(TAG, "Raw data: $data")
+                    Log.d(TAG, "📥 BOOKING STATUS UPDATE RECEIVED!")
                     Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    Log.d(TAG, "Raw data: $data")
 
                     val update = parseBookingStatusUpdate(data)
                     if (update != null) {
                         Log.d(TAG, "📋 Booking ID: ${update.bookingId}")
                         Log.d(TAG, "📊 Status: ${update.status}")
                         Log.d(TAG, "👤 Driver: ${update.driverName}")
+                        Log.d(TAG, "📱 Phone: ${update.driverPhone}")
+                        Log.d(TAG, "🚗 Vehicle: ${update.vehicleNumber}")
                         Log.d(TAG, "🔑 OTP: ${update.otp}")
+                        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                         _bookingUpdates.emit(update)
                     }
                 } catch (e: Exception) {
@@ -269,7 +445,7 @@ class RealTimeRepository @Inject constructor(
             }
         }, Any::class.java)
 
-        // RIDER LOCATION UPDATE ⭐
+        // RIDER LOCATION UPDATE ⭐ FOR TRACKING
         hubConnection?.on(Constants.SignalREvents.RIDER_LOCATION_UPDATE, { data: Any ->
             scope.launch {
                 try {
@@ -298,6 +474,7 @@ class RealTimeRepository @Inject constructor(
                     if (notification != null) {
                         _bookingCancelled.emit(notification)
 
+                        // Also emit as a status update for consistency
                         val cancelledUpdate = BookingStatusUpdate(
                             bookingId = notification.bookingId,
                             status = "cancelled",
@@ -320,13 +497,24 @@ class RealTimeRepository @Inject constructor(
     private fun setupConnectionLifecycle() {
         hubConnection?.onClosed { error ->
             scope.launch {
+                _isSignalRHealthy.value = false
+                heartbeatJob?.cancel()
+
                 if (error != null) {
                     Log.e(TAG, "❌ Connection closed: ${error.message}", error)
-                    _connectionState.value = RealTimeConnectionState.Error(error.message ?: "Connection lost")
-                    currentBookingId?.let { attemptReconnection(it, currentCustomerId) }
+                    _connectionState.value = RealTimeConnectionState.Reconnecting
+
+                    if (shouldBeConnected.get()) {
+                        scheduleReconnection()
+                    }
                 } else {
                     Log.d(TAG, "🔌 Connection closed gracefully")
-                    _connectionState.value = RealTimeConnectionState.Disconnected
+                    if (shouldBeConnected.get()) {
+                        _connectionState.value = RealTimeConnectionState.Reconnecting
+                        scheduleReconnection()
+                    } else {
+                        _connectionState.value = RealTimeConnectionState.Disconnected
+                    }
                 }
             }
         }
@@ -348,27 +536,113 @@ class RealTimeRepository @Inject constructor(
         }
     }
 
-    private fun attemptReconnection(bookingId: String, customerId: String?) {
-        if (reconnectAttempts >= Constants.SIGNALR_MAX_RECONNECT_ATTEMPTS) {
-            Log.e(TAG, "❌ Max reconnection attempts reached")
-            _connectionState.value = RealTimeConnectionState.Error(
-                "Failed to reconnect after ${Constants.SIGNALR_MAX_RECONNECT_ATTEMPTS} attempts"
-            )
+    // ═══════════════════════════════════════════════════════════════════════
+    // RECONNECTION LOGIC - INFINITE with exponential backoff
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun scheduleReconnection() {
+        if (!shouldBeConnected.get()) {
+            Log.d(TAG, "⏭️ Skipping reconnection - not tracking")
             return
         }
 
-        reconnectAttempts++
-        _connectionState.value = RealTimeConnectionState.Reconnecting
-
+        reconnectJob?.cancel()
         reconnectJob = scope.launch {
-            delay(Constants.SIGNALR_RECONNECT_DELAY_MS)
-            Log.d(TAG, "🔄 Reconnection attempt $reconnectAttempts/${Constants.SIGNALR_MAX_RECONNECT_ATTEMPTS}")
+            val attempt = reconnectAttempt.incrementAndGet()
+            val delay = calculateBackoffDelay()
 
-            hubConnection?.stop()
-            hubConnection = null
+            Log.d(TAG, "🔄 Scheduling reconnection attempt $attempt in ${delay}ms")
+            _connectionState.value = RealTimeConnectionState.Reconnecting
 
+            delay(delay)
+
+            if (shouldBeConnected.get() && isNetworkAvailable.get()) {
+                reconnectIfNeeded()
+            } else if (!isNetworkAvailable.get()) {
+                Log.d(TAG, "⏸️ Waiting for network...")
+            }
+        }
+    }
+
+    private fun calculateBackoffDelay(): Long {
+        lastRetryDelayMs = (lastRetryDelayMs * RETRY_MULTIPLIER).toLong()
+            .coerceAtMost(MAX_RETRY_DELAY_MS)
+        return lastRetryDelayMs
+    }
+
+    private suspend fun reconnectIfNeeded() {
+        if (!shouldBeConnected.get()) return
+        if (hubConnection?.connectionState == HubConnectionState.CONNECTED) return
+        if (isConnecting.get()) return
+
+        Log.d(TAG, "🔄 Attempting reconnection...")
+        currentBookingId?.let { bookingId ->
             connectSignalR(bookingId)
         }
+    }
+
+    private suspend fun ensureConnected(): Boolean {
+        if (isConnected()) return true
+
+        // Try to reconnect
+        if (shouldBeConnected.get() && currentBookingId != null) {
+            connectSignalR(currentBookingId!!)
+
+            // Wait briefly for connection
+            var attempts = 0
+            while (!isConnected() && attempts < 5) {
+                delay(500)
+                attempts++
+            }
+        }
+
+        return isConnected()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HEARTBEAT - Detect dead connections
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun startHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = scope.launch {
+            while (isActive && shouldBeConnected.get()) {
+                delay(HEARTBEAT_INTERVAL_MS)
+
+                if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
+                    Log.v(TAG, "💓 Heartbeat - connection alive")
+                    _isSignalRHealthy.value = true
+                } else {
+                    Log.w(TAG, "💔 Heartbeat - connection lost, triggering reconnect")
+                    _isSignalRHealthy.value = false
+                    reconnectIfNeeded()
+                }
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CLEANUP
+    // ═══════════════════════════════════════════════════════════════════════
+
+    fun cleanup() {
+        Log.d(TAG, "🧹 Cleaning up RealTimeRepository")
+
+        shouldBeConnected.set(false)
+        reconnectJob?.cancel()
+        heartbeatJob?.cancel()
+
+        try {
+            networkCallback?.let { callback ->
+                val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                connectivityManager.unregisterNetworkCallback(callback)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering network callback", e)
+        }
+
+        disconnect()
+        scope.cancel()
     }
 
     // ═══════════════════════════════════════════════════════════════════════

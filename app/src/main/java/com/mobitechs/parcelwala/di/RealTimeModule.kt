@@ -1,11 +1,13 @@
 // di/RealTimeModule.kt
 package com.mobitechs.parcelwala.di
 
+import android.content.Context
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.repository.RealTimeRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -19,8 +21,9 @@ object RealTimeModule {
     @Provides
     @Singleton
     fun provideRealTimeRepository(
-        preferencesManager: PreferencesManager
+        @ApplicationContext context: Context,    // ← First
+        preferencesManager: PreferencesManager   // ← Second
     ): RealTimeRepository {
-        return RealTimeRepository(preferencesManager)
+        return RealTimeRepository(context, preferencesManager)
     }
 }
