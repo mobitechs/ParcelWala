@@ -1,4 +1,5 @@
 // ui/viewmodel/RiderTrackingViewModel.kt
+// ✅ UPDATED: With progress notification for distance tracking
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import android.util.Log
@@ -12,6 +13,7 @@ import com.mobitechs.parcelwala.data.model.realtime.RealTimeConnectionState
 import com.mobitechs.parcelwala.data.model.realtime.RiderInfo
 import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
 import com.mobitechs.parcelwala.data.repository.RealTimeRepository
+import com.mobitechs.parcelwala.utils.BookingNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,14 +25,30 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * RIDER TRACKING VIEWMODEL - ENHANCED
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * ✅ Features:
+ *    - Push notifications for all status changes
+ *    - Progress bar notification for ETA/distance tracking
+ *    - Real-time ETA and distance tracking
+ *    - Proper null handling throughout
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ */
 @HiltViewModel
 class RiderTrackingViewModel @Inject constructor(
     private val realTimeRepository: RealTimeRepository,
-    private val activeBookingManager: ActiveBookingManager
+    private val activeBookingManager: ActiveBookingManager,
+    private val notificationHelper: BookingNotificationHelper
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "RiderTrackingVM"
+        // For progress calculation - initial max distance
+        private const val INITIAL_MAX_DISTANCE_METERS = 10000.0 // 10 km
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -49,6 +67,16 @@ class RiderTrackingViewModel @Inject constructor(
     private val _bookingOtp = MutableStateFlow<String?>(null)
     val bookingOtp: StateFlow<String?> = _bookingOtp.asStateFlow()
 
+    private val _deliveryOtp = MutableStateFlow<String?>(null)
+    val deliveryOtp: StateFlow<String?> = _deliveryOtp.asStateFlow()
+
+    // ETA and Distance StateFlows for UI
+    private val _etaMinutes = MutableStateFlow<Int?>(null)
+    val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
+
+    private val _distanceKm = MutableStateFlow<Double?>(null)
+    val distanceKm: StateFlow<Double?> = _distanceKm.asStateFlow()
+
     val connectionState: StateFlow<RealTimeConnectionState> = realTimeRepository.connectionState
 
     private val _navigationEvent = MutableSharedFlow<RiderTrackingNavigationEvent>()
@@ -56,6 +84,10 @@ class RiderTrackingViewModel @Inject constructor(
 
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
+
+    // Track initial distance for progress calculation
+    private var initialDistanceMeters: Double? = null
+    private var lastNotifiedEta: Int? = null
 
     // ═══════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -66,25 +98,34 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private fun observeRealTimeUpdates() {
+        // Observe booking status updates
         viewModelScope.launch {
             realTimeRepository.bookingUpdates.collect { update ->
                 handleBookingStatusUpdate(update)
             }
         }
 
+        // Observe rider location updates
         viewModelScope.launch {
             realTimeRepository.riderLocationUpdates.collect { location ->
                 handleRiderLocationUpdate(location)
             }
         }
 
+        // Observe booking cancelled
         viewModelScope.launch {
             realTimeRepository.bookingCancelled.collect { notification ->
                 Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                 Log.d(TAG, "📥 BOOKING CANCELLED NOTIFICATION")
-                Log.d(TAG, "Cancelled by: ${notification.cancelledBy}")
-                Log.d(TAG, "Reason: ${notification.reason}")
+                Log.d(TAG, "  CancelledBy: ${notification.cancelledBy ?: "null"}")
+                Log.d(TAG, "  Reason: ${notification.reason ?: "null"}")
                 Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+                notificationHelper.showBookingCancelledNotification(
+                    bookingId = notification.bookingId.toString(),
+                    reason = notification.reason,
+                    cancelledBy = notification.cancelledBy
+                )
 
                 activeBookingManager.updateStatus(BookingStatus.CANCELLED)
                 realTimeRepository.disconnect()
@@ -94,6 +135,7 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
+        // Observe connection state
         viewModelScope.launch {
             realTimeRepository.connectionState.collect { state ->
                 when (state) {
@@ -108,6 +150,7 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
+        // Observe errors
         viewModelScope.launch {
             realTimeRepository.errors.collect { error ->
                 Log.e(TAG, "❌ SignalR Error: ${error.message}")
@@ -175,6 +218,8 @@ class RiderTrackingViewModel @Inject constructor(
                 realTimeRepository.cancelBooking(bookingId, reason)
             }
 
+            notificationHelper.cancelAllNotifications()
+
             realTimeRepository.disconnect()
             activeBookingManager.clearActiveBooking()
             _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(reason))
@@ -185,18 +230,34 @@ class RiderTrackingViewModel @Inject constructor(
         _assignedRider.value = null
         _riderLocation.value = null
         _bookingOtp.value = null
+        _deliveryOtp.value = null
+        _etaMinutes.value = null
+        _distanceKm.value = null
+        initialDistanceMeters = null
+        lastNotifiedEta = null
         _uiState.value = RiderTrackingUiState()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PRIVATE METHODS
+    // STATUS UPDATE HANDLER
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun handleBookingStatusUpdate(update: BookingStatusUpdate) {
         val status = update.getStatusType()
+
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         Log.d(TAG, "📥 STATUS UPDATE: $status")
-        Log.d(TAG, "Message: ${update.message}")
+        Log.d(TAG, "  Message: ${update.message ?: "null"}")
+        Log.d(TAG, "  Driver: ${update.driverName ?: "null"}")
+        Log.d(TAG, "  Phone: ${update.driverPhone ?: "null"}")
+        Log.d(TAG, "  Vehicle: ${update.vehicleNumber ?: "null"}")
+        Log.d(TAG, "  VehicleType: ${update.vehicleType ?: "null"}")
+        Log.d(TAG, "  Rating: ${update.driverRating ?: "null"}")
+        Log.d(TAG, "  OTP: ${update.otp ?: "null"}")
+        Log.d(TAG, "  DeliveryOTP: ${update.deliveryOtp ?: "null"}")
+        Log.d(TAG, "  ETA: ${update.etaMinutes ?: "null"} min")
+        Log.d(TAG, "  Lat: ${update.driverLatitude ?: "null"}")
+        Log.d(TAG, "  Lng: ${update.driverLongitude ?: "null"}")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
         _uiState.update {
@@ -213,19 +274,7 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.RIDER_ASSIGNED -> {
-                    update.rider?.let { rider ->
-                        _assignedRider.value = rider
-                        _bookingOtp.value = update.otp
-                        activeBookingManager.updateStatus(BookingStatus.RIDER_ASSIGNED)
-
-                        _navigationEvent.emit(
-                            RiderTrackingNavigationEvent.RiderAssigned(
-                                bookingId = update.bookingId.toString(),
-                                rider = rider,
-                                otp = update.otp
-                            )
-                        )
-                    }
+                    handleDriverAssigned(update)
                 }
 
                 BookingStatusType.RIDER_ENROUTE -> {
@@ -236,22 +285,11 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.ARRIVED -> {
-                    activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
-                    _toastMessage.emit(update.message ?: "Rider has arrived at pickup!")
-                    _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.RiderArrived(
-                            bookingId = update.bookingId.toString(),
-                            message = update.message ?: "Rider has arrived!"
-                        )
-                    )
+                    handleDriverArrived(update)
                 }
 
                 BookingStatusType.PICKED_UP -> {
-                    activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
-                    _toastMessage.emit("Parcel picked up!")
-                    _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString())
-                    )
+                    handleParcelPickedUp(update)
                 }
 
                 BookingStatusType.IN_TRANSIT -> {
@@ -259,17 +297,11 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.ARRIVED_DELIVERY -> {
-                    activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
-                    _toastMessage.emit("Rider arrived at delivery location!")
+                    handleArrivedAtDelivery(update)
                 }
 
                 BookingStatusType.DELIVERED -> {
-                    activeBookingManager.updateStatus(BookingStatus.DELIVERED)
-                    realTimeRepository.disconnect()
-                    _toastMessage.emit("Delivery completed!")
-                    _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.Delivered(update.bookingId.toString())
-                    )
+                    handleDeliveryCompleted(update)
                 }
 
                 BookingStatusType.NO_RIDER -> {
@@ -283,28 +315,214 @@ class RiderTrackingViewModel @Inject constructor(
                 }
 
                 BookingStatusType.CANCELLED -> {
-                    activeBookingManager.updateStatus(BookingStatus.CANCELLED)
-                    realTimeRepository.disconnect()
-                    _toastMessage.emit(update.message ?: "Booking cancelled")
-                    _navigationEvent.emit(
-                        RiderTrackingNavigationEvent.BookingCancelled(
-                            update.message ?: "Booking cancelled"
-                        )
-                    )
+                    handleCancelled(update)
                 }
             }
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // STATUS HANDLERS WITH NOTIFICATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private suspend fun handleDriverAssigned(update: BookingStatusUpdate) {
+        // Create rider info from update
+        val rider = update.rider
+
+        if (rider != null) {
+            _assignedRider.value = rider
+            Log.d(TAG, "✅ Rider assigned: ${rider.riderName}")
+        } else {
+            // Create a minimal RiderInfo from available data
+            Log.w(TAG, "⚠️ No rider object, creating from update fields")
+            _assignedRider.value = RiderInfo(
+                riderId = update.driverId?.toString() ?: "0",
+                riderName = update.driverName ?: "Driver",
+                riderPhone = update.driverPhone ?: "",
+                vehicleNumber = update.vehicleNumber ?: "",
+                vehicleType = update.vehicleType,
+                rating = update.driverRating,
+                totalTrips = null,
+                currentLatitude = update.driverLatitude ?: 0.0,
+                currentLongitude = update.driverLongitude ?: 0.0,
+                etaMinutes = update.etaMinutes,
+                photoUrl = update.driverPhoto
+            )
+        }
+
+        // Store OTP
+        _bookingOtp.value = update.otp
+        Log.d(TAG, "📝 OTP stored: ${update.otp ?: "null"}")
+
+        // Store ETA
+        _etaMinutes.value = update.etaMinutes ?: rider?.etaMinutes
+        Log.d(TAG, "⏱️ ETA stored: ${_etaMinutes.value ?: "null"}")
+
+        activeBookingManager.updateStatus(BookingStatus.RIDER_ASSIGNED)
+
+        // Show notification
+        notificationHelper.showDriverAssignedNotification(
+            bookingId = update.bookingId.toString(),
+            driverName = update.driverName ?: rider?.riderName,
+            vehicleNumber = update.vehicleNumber ?: rider?.vehicleNumber,
+            vehicleType = update.vehicleType ?: rider?.vehicleType,
+            otp = update.otp,
+            etaMinutes = update.etaMinutes ?: rider?.etaMinutes
+        )
+
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.RiderAssigned(
+                bookingId = update.bookingId.toString(),
+                rider = _assignedRider.value!!,
+                otp = update.otp
+            )
+        )
+    }
+
+    private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
+        activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
+
+        // Cancel progress notification
+        notificationHelper.cancelNotification(BookingNotificationHelper.NOTIFICATION_TRACKING_PROGRESS)
+
+        notificationHelper.showDriverArrivedNotification(
+            bookingId = update.bookingId.toString(),
+            driverName = _assignedRider.value?.riderName ?: update.driverName,
+            otp = _bookingOtp.value ?: update.otp
+        )
+
+        _toastMessage.emit(update.message ?: "Rider has arrived at pickup!")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.RiderArrived(
+                bookingId = update.bookingId.toString(),
+                message = update.message ?: "Rider has arrived!"
+            )
+        )
+    }
+
+    private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
+        activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+
+        update.deliveryOtp?.let { _deliveryOtp.value = it }
+
+        val dropAddress = activeBookingManager.activeBooking.value?.dropAddress?.address
+
+        notificationHelper.showParcelPickedUpNotification(
+            bookingId = update.bookingId.toString(),
+            dropAddress = dropAddress
+        )
+
+        _toastMessage.emit("Parcel picked up!")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString())
+        )
+    }
+
+    private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
+        activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+
+        notificationHelper.showArrivedAtDeliveryNotification(
+            bookingId = update.bookingId.toString(),
+            deliveryOtp = _deliveryOtp.value ?: update.deliveryOtp
+        )
+
+        _toastMessage.emit("Rider arrived at delivery location!")
+    }
+
+    private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
+        activeBookingManager.updateStatus(BookingStatus.DELIVERED)
+
+        val fare = activeBookingManager.activeBooking.value?.fare
+
+        notificationHelper.showDeliveryCompletedNotification(
+            bookingId = update.bookingId.toString(),
+            fare = fare
+        )
+
+        realTimeRepository.disconnect()
+        _toastMessage.emit("Delivery completed!")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.Delivered(update.bookingId.toString())
+        )
+    }
+
+    private suspend fun handleCancelled(update: BookingStatusUpdate) {
+        activeBookingManager.updateStatus(BookingStatus.CANCELLED)
+
+        notificationHelper.showBookingCancelledNotification(
+            bookingId = update.bookingId.toString(),
+            reason = update.cancellationReason,
+            cancelledBy = update.cancelledBy
+        )
+
+        realTimeRepository.disconnect()
+        _toastMessage.emit(update.message ?: "Booking cancelled")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.BookingCancelled(
+                update.message ?: "Booking cancelled"
+            )
+        )
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOCATION UPDATE HANDLER - With Progress Notification
+    // ═══════════════════════════════════════════════════════════════════════
+
     private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
+        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        Log.d(TAG, "📍 LOCATION UPDATE RECEIVED")
+        Log.d(TAG, "  Lat: ${location.latitude}")
+        Log.d(TAG, "  Lng: ${location.longitude}")
+        Log.d(TAG, "  ETA: ${location.etaMinutes ?: "null"} min")
+        Log.d(TAG, "  Distance: ${location.distanceMeters ?: "null"} m")
+        Log.d(TAG, "  Status: ${location.status ?: "null"}")
+        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
         _riderLocation.value = location
 
+        // Update ETA
+        location.etaMinutes?.let { eta ->
+            _etaMinutes.value = eta
+        }
+
+        // Update distance
+        location.distanceMeters?.let { meters ->
+            _distanceKm.value = meters / 1000.0
+
+            // Store initial distance for progress calculation
+            if (initialDistanceMeters == null) {
+                initialDistanceMeters = meters.coerceAtLeast(1000.0) // Minimum 1km for calculation
+                Log.d(TAG, "📏 Initial distance set: ${initialDistanceMeters}m")
+            }
+        }
+
+        // Update rider info with new location
         _assignedRider.update { rider ->
             rider?.copy(
                 currentLatitude = location.latitude,
                 currentLongitude = location.longitude,
-                etaMinutes = location.etaMinutes
+                etaMinutes = location.etaMinutes ?: rider.etaMinutes
             )
+        }
+
+        // Update progress notification (only during driver en-route to pickup)
+        val currentStatus = _uiState.value.currentStatus
+        if (currentStatus == BookingStatusType.RIDER_ASSIGNED ||
+            currentStatus == BookingStatusType.RIDER_ENROUTE) {
+
+            location.distanceMeters?.let { distance ->
+                val bookingId = _uiState.value.currentBookingId ?: return@let
+                val driverName = _assignedRider.value?.riderName
+                val maxDistance = initialDistanceMeters ?: INITIAL_MAX_DISTANCE_METERS
+
+                notificationHelper.showDriverTrackingProgress(
+                    bookingId = bookingId,
+                    driverName = driverName,
+                    distanceMeters = distance,
+                    etaMinutes = location.etaMinutes,
+                    maxDistanceMeters = maxDistance
+                )
+            }
         }
     }
 

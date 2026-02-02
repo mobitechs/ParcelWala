@@ -60,4 +60,8 @@ object AppColors {
     val Background = Gray50
     val Surface = Color.White
     val Divider = Gray200
+
+    val Success = Green500           // Used for "Live Tracking" indicator
+    val Warning = Color(0xFFFFA000)  // Amber/Orange for "Waiting for updates"
+    val Error = Red500
 }
