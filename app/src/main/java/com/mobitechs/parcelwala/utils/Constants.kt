@@ -48,7 +48,7 @@ object Constants {
         const val SEARCHING = "searching"
         const val ASSIGNED = "assigned"
         const val HEADING_TO_PICKUP = "heading_to_pickup"
-        const val ARRIVED_AT_PICKUP = "arrived_at_pickup"
+        const val ARRIVED_AT_PICKUP = "arrived_pickup"
         const val PICKED_UP = "picked_up"
         const val HEADING_TO_DROP = "heading_to_drop"
         const val ARRIVED_AT_DELIVERY = "arrived_at_delivery"
