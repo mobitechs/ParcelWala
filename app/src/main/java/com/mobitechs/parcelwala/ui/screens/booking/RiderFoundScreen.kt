@@ -1,11 +1,17 @@
 // ui/screens/booking/RiderFoundScreen.kt
-// ✅ POLISHED: Industry-standard UI with proper null handling
+// ✅ POLISHED: Industry-standard UI with proper null handling + Permission fix
 package com.mobitechs.parcelwala.ui.screens.booking
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +38,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -45,6 +56,7 @@ import com.mobitechs.parcelwala.data.model.realtime.RiderInfo
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
+import com.mobitechs.parcelwala.utils.hasLocationPermission
 import kotlinx.coroutines.delay
 
 /**
@@ -53,12 +65,13 @@ import kotlinx.coroutines.delay
  * ════════════════════════════════════════════════════════════════════════════
  *
  * ✅ Features:
- *    - Zoomable/Interactive map
+ *    - Zoomable/Interactive map with permission handling
  *    - Proper null handling with fallback displays
  *    - Clean ETA/Distance display (no overlap)
  *    - OTP card with visibility control
  *    - Professional driver info card
  *    - Smooth animations
+ *    - Permission denied banner with Settings redirect
  *
  * ════════════════════════════════════════════════════════════════════════════
  */
@@ -161,7 +174,7 @@ fun RiderFoundScreen(
                     .verticalScroll(rememberScrollState())
             ) {
                 // ═══════════════════════════════════════════════════════════════
-                // MAP SECTION - Zoomable
+                // MAP SECTION - Zoomable with permission handling
                 // ═══════════════════════════════════════════════════════════════
                 Box(
                     modifier = Modifier
@@ -348,7 +361,7 @@ fun RiderFoundScreen(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// INTERACTIVE MAP - Zoomable & Pannable
+// INTERACTIVE MAP - With Location Permission Handling
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -359,6 +372,60 @@ private fun InteractiveMapView(
     riderLongitude: Double?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    // ── Permission State ──────────────────────────────────────────────
+    var hasPermission by remember { mutableStateOf(context.hasLocationPermission()) }
+    var permissionDenied by remember { mutableStateOf(false) }
+    var permanentlyDenied by remember { mutableStateOf(false) }
+
+    val activity = context as? androidx.activity.ComponentActivity
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasPermission = isGranted
+        if (!isGranted) {
+            permissionDenied = true
+            // Check if permanently denied (user selected "Don't ask again")
+            permanentlyDenied = activity?.let {
+                !ActivityCompat.shouldShowRequestPermissionRationale(
+                    it, Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            } ?: false
+        } else {
+            permissionDenied = false
+            permanentlyDenied = false
+        }
+    }
+
+    // Request permission on first load if not granted
+    LaunchedEffect(Unit) {
+        if (!hasPermission) {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    // Re-check permission when returning from Settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val newPermission = context.hasLocationPermission()
+                if (newPermission != hasPermission) {
+                    hasPermission = newPermission
+                    if (newPermission) {
+                        permissionDenied = false
+                        permanentlyDenied = false
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // ── Map Setup ─────────────────────────────────────────────────────
     val pickupLatLng = LatLng(pickupAddress.latitude, pickupAddress.longitude)
     val dropLatLng = LatLng(dropAddress.latitude, dropAddress.longitude)
 
@@ -393,47 +460,149 @@ private fun InteractiveMapView(
         }
     }
 
-    GoogleMap(
-        modifier = modifier,
-        cameraPositionState = cameraPositionState,
-        properties = MapProperties(
-            mapType = MapType.NORMAL,
-            isMyLocationEnabled = true
-        ),
-        uiSettings = MapUiSettings(
-            zoomControlsEnabled = true,        // ✅ Enable zoom controls
-            zoomGesturesEnabled = true,        // ✅ Enable pinch zoom
-            scrollGesturesEnabled = true,      // ✅ Enable pan
-            tiltGesturesEnabled = true,
-            rotationGesturesEnabled = true,
-            myLocationButtonEnabled = true,
-            mapToolbarEnabled = true,
-            compassEnabled = true
-        )
-    ) {
-        // Pickup marker (Green)
-        Marker(
-            state = MarkerState(position = pickupLatLng),
-            title = "Pickup",
-            snippet = pickupAddress.address.take(30),
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-        )
-
-        // Drop marker (Red)
-        Marker(
-            state = MarkerState(position = dropLatLng),
-            title = "Drop",
-            snippet = dropAddress.address.take(30),
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-        )
-
-        // Driver marker (Blue) - Only show if location available
-        riderLatLng?.let { location ->
-            Marker(
-                state = MarkerState(position = location),
-                title = "Driver",
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
+    // ── UI ─────────────────────────────────────────────────────────────
+    Box(modifier = modifier) {
+        GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(
+                mapType = MapType.NORMAL,
+                isMyLocationEnabled = hasPermission       // ✅ Safe: only true when granted
+            ),
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = true,
+                zoomGesturesEnabled = true,
+                scrollGesturesEnabled = true,
+                tiltGesturesEnabled = true,
+                rotationGesturesEnabled = true,
+                myLocationButtonEnabled = hasPermission,  // ✅ Safe
+                mapToolbarEnabled = true,
+                compassEnabled = true
             )
+        ) {
+            // Pickup marker (Green)
+            Marker(
+                state = MarkerState(position = pickupLatLng),
+                title = "Pickup",
+                snippet = pickupAddress.address.take(30),
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
+            )
+
+            // Drop marker (Red)
+            Marker(
+                state = MarkerState(position = dropLatLng),
+                title = "Drop",
+                snippet = dropAddress.address.take(30),
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
+            )
+
+            // Driver marker (Blue) - Only show if location available
+            riderLatLng?.let { location ->
+                Marker(
+                    state = MarkerState(position = location),
+                    title = "Driver",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
+                )
+            }
+        }
+
+        // ── Permission Denied Banner (overlay on map bottom) ──────────
+        if (permissionDenied && !hasPermission) {
+            LocationPermissionBanner(
+                isPermanentlyDenied = permanentlyDenied,
+                onRequestPermission = {
+                    if (permanentlyDenied) {
+                        // Open app settings so user can enable manually
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                    } else {
+                        // Re-request permission
+                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
+                onDismiss = { permissionDenied = false },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LOCATION PERMISSION BANNER - Shows when permission denied
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun LocationPermissionBanner(
+    isPermanentlyDenied: Boolean,
+    onRequestPermission: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                Icons.Outlined.LocationOff,
+                contentDescription = null,
+                tint = AppColors.Warning,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Location access disabled",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.TextPrimary
+                )
+                Text(
+                    text = if (isPermanentlyDenied)
+                        "Enable in Settings for live tracking"
+                    else
+                        "Allow location for better tracking",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextSecondary
+                )
+            }
+
+            TextButton(
+                onClick = onRequestPermission,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = if (isPermanentlyDenied) "Settings" else "Allow",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Primary
+                )
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Dismiss",
+                    tint = AppColors.TextHint,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -469,7 +638,7 @@ private fun ETADistanceCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isLive) 0.dp else 2.dp),
         border = if (isLive) {
-            androidx.compose.foundation.BorderStroke(1.dp, AppColors.Success.copy(alpha = 0.3f))
+            BorderStroke(1.dp, AppColors.Success.copy(alpha = 0.3f))
         } else null
     ) {
         Column(
