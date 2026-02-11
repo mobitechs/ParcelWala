@@ -25,21 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * ════════════════════════════════════════════════════════════════════════════
- * CUSTOMER REAL-TIME REPOSITORY - PRODUCTION GRADE
- * ════════════════════════════════════════════════════════════════════════════
- *
- * Features:
- * - Infinite reconnection with exponential backoff (caps at 30 seconds)
- * - Network connectivity monitoring - auto-reconnect when network returns
- * - Automatic channel re-subscription after reconnection
- * - Thread-safe state management with AtomicBoolean/AtomicInteger
- * - Heartbeat mechanism to detect dead connections
- *
- * URL: https://parcelwala.azurewebsites.net/Hubs/BookingHub
- * ════════════════════════════════════════════════════════════════════════════
- */
+
 @Singleton
 class RealTimeRepository @Inject constructor(
     @ApplicationContext private val context: Context,

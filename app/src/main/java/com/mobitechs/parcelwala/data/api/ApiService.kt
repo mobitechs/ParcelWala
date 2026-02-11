@@ -3,6 +3,8 @@ package com.mobitechs.parcelwala.data.api
 import com.mobitechs.parcelwala.data.model.DistanceMatrixRequest
 import com.mobitechs.parcelwala.data.model.DistanceMatrixResponse
 import com.mobitechs.parcelwala.data.model.GoogleDirectionsResponse
+import com.mobitechs.parcelwala.data.model.RatingSubmitResponse
+import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CompleteProfileRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
@@ -47,7 +49,7 @@ interface ApiService {
     ): Response<ApiResponse<LoginData>>
 
 
-    @PUT("/customer/complete-profile")
+    @PUT("customer/complete-profile")
     suspend fun completeProfile(
         @Body request: CompleteProfileRequest
     ): Response<ApiResponse<User>>
@@ -155,5 +157,15 @@ interface ApiService {
         @Query("key") apiKey: String
     ): Response<GoogleDirectionsResponse>
 
+    @POST("bookings/{bookingId}/rating")
+    suspend fun submitRating(
+        @Path("bookingId") bookingId: String,
+        @Body request: SubmitRatingRequest
+    ): Response<RatingSubmitResponse>
+
+
+
+
 
 }
+

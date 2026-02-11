@@ -1,5 +1,5 @@
 // ui/screens/booking/RiderFoundScreen.kt
-// ✅ POLISHED: Industry-standard UI with proper null handling + Permission fix
+// ✅ POLISHED: Industry-standard UI with permission fix + waiting charge timer
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import android.Manifest
@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,29 +53,15 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.realtime.RiderInfo
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
+import com.mobitechs.parcelwala.ui.viewmodel.WaitingTimerState
 import com.mobitechs.parcelwala.utils.hasLocationPermission
 import kotlinx.coroutines.delay
 
-/**
- * ════════════════════════════════════════════════════════════════════════════
- * RIDER FOUND SCREEN - PREMIUM UI
- * ════════════════════════════════════════════════════════════════════════════
- *
- * ✅ Features:
- *    - Zoomable/Interactive map with permission handling
- *    - Proper null handling with fallback displays
- *    - Clean ETA/Distance display (no overlap)
- *    - OTP card with visibility control
- *    - Professional driver info card
- *    - Smooth animations
- *    - Permission denied banner with Settings redirect
- *
- * ════════════════════════════════════════════════════════════════════════════
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RiderFoundScreen(
@@ -88,14 +75,16 @@ fun RiderFoundScreen(
 ) {
     val context = LocalContext.current
 
-    // State from ViewModel
     val rider by viewModel.assignedRider.collectAsState()
     val riderLocation by viewModel.riderLocation.collectAsState()
     val otp by viewModel.bookingOtp.collectAsState()
     val etaMinutes by viewModel.etaMinutes.collectAsState()
     val distanceKm by viewModel.distanceKm.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val waitingState by viewModel.waitingState.collectAsState()
 
-    // Animation states
+    val isDriverArrived = uiState.currentStatus == BookingStatusType.ARRIVED
+
     var showContent by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
 
@@ -106,33 +95,34 @@ fun RiderFoundScreen(
 
     Scaffold(
         topBar = {
-            Surface(
-                shadowElevation = 2.dp,
-                color = Color.White
-            ) {
+            Surface(shadowElevation = 2.dp, color = Color.White) {
                 TopAppBar(
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Animated checkmark
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .background(AppColors.Success.copy(alpha = 0.1f), CircleShape),
+                                    .background(
+                                        if (isDriverArrived) AppColors.Primary.copy(alpha = 0.1f)
+                                        else AppColors.Success.copy(alpha = 0.1f),
+                                        CircleShape
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Check,
+                                    if (isDriverArrived) Icons.Default.LocationOn
+                                    else Icons.Default.Check,
                                     contentDescription = null,
-                                    tint = AppColors.Success,
+                                    tint = if (isDriverArrived) AppColors.Primary else AppColors.Success,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                             Column {
                                 Text(
-                                    text = "Rider Assigned",
+                                    text = if (isDriverArrived) "Driver Arrived" else "Rider Assigned",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = AppColors.TextPrimary
@@ -146,17 +136,11 @@ fun RiderFoundScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { /* Share trip */ }) {
-                            Icon(
-                                Icons.Outlined.Share,
-                                contentDescription = "Share",
-                                tint = AppColors.Primary
-                            )
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Outlined.Share, "Share", tint = AppColors.Primary)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                 )
             }
         },
@@ -167,15 +151,12 @@ fun RiderFoundScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Scrollable content
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                // ═══════════════════════════════════════════════════════════════
-                // MAP SECTION - Zoomable with permission handling
-                // ═══════════════════════════════════════════════════════════════
+                // ── MAP ───────────────────────────────────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -192,11 +173,22 @@ fun RiderFoundScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ═══════════════════════════════════════════════════════════════
-                // ETA & DISTANCE CARD - Fixed layout
-                // ═══════════════════════════════════════════════════════════════
+                // ── WAITING TIMER (when driver arrived) ───────────────
                 AnimatedVisibility(
-                    visible = showContent,
+                    visible = showContent && waitingState.isActive,
+                    enter = fadeIn() + expandVertically()
+                ) {
+                    WaitingChargeCard(
+                        waitingState = waitingState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+                }
+
+                // ── ETA CARD (hide when waiting timer active) ─────────
+                AnimatedVisibility(
+                    visible = showContent && !waitingState.isActive,
                     enter = fadeIn() + slideInVertically { -20 }
                 ) {
                     ETADistanceCard(
@@ -211,9 +203,7 @@ fun RiderFoundScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // ═══════════════════════════════════════════════════════════════
-                // DRIVER DETAILS CARD
-                // ═══════════════════════════════════════════════════════════════
+                // ── DRIVER DETAILS ────────────────────────────────────
                 AnimatedVisibility(
                     visible = showContent,
                     enter = fadeIn() + slideInVertically { 20 }
@@ -238,9 +228,7 @@ fun RiderFoundScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // ═══════════════════════════════════════════════════════════════
-                // OTP CARD - Only show if OTP exists
-                // ═══════════════════════════════════════════════════════════════
+                // ── OTP CARD ──────────────────────────────────────────
                 AnimatedVisibility(
                     visible = showContent && !otp.isNullOrBlank(),
                     enter = fadeIn() + expandVertically()
@@ -252,8 +240,6 @@ fun RiderFoundScreen(
                             .padding(horizontal = 16.dp)
                     )
                 }
-
-                // Show placeholder if OTP is null
                 AnimatedVisibility(
                     visible = showContent && otp.isNullOrBlank(),
                     enter = fadeIn() + expandVertically()
@@ -267,9 +253,7 @@ fun RiderFoundScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // ═══════════════════════════════════════════════════════════════
-                // TRIP DETAILS CARD
-                // ═══════════════════════════════════════════════════════════════
+                // ── TRIP DETAILS (with waiting charge in fare) ────────
                 AnimatedVisibility(
                     visible = showContent,
                     enter = fadeIn() + slideInVertically { 20 }
@@ -278,6 +262,7 @@ fun RiderFoundScreen(
                         pickupAddress = pickupAddress,
                         dropAddress = dropAddress,
                         fare = fare,
+                        waitingCharge = waitingState.waitingCharge,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
@@ -287,13 +272,8 @@ fun RiderFoundScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // BOTTOM ACTION BUTTONS - Fixed at bottom
-            // ═══════════════════════════════════════════════════════════════
-            Surface(
-                shadowElevation = 8.dp,
-                color = Color.White
-            ) {
+            // ── BOTTOM BUTTONS ────────────────────────────────────────
+            Surface(shadowElevation = 8.dp, color = Color.White) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -306,40 +286,27 @@ fun RiderFoundScreen(
                             .weight(1f)
                             .height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Primary
-                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
                             brush = Brush.linearGradient(listOf(AppColors.Primary, AppColors.Primary))
                         )
                     ) {
-                        Icon(
-                            Icons.Outlined.HeadsetMic,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Outlined.HeadsetMic, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Support", fontWeight = FontWeight.SemiBold)
                     }
-
                     OutlinedButton(
                         onClick = { showCancelDialog = true },
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Error
-                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Error),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
                             brush = Brush.linearGradient(listOf(AppColors.Error, AppColors.Error))
                         )
                     ) {
-                        Icon(
-                            Icons.Outlined.Close,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Outlined.Close, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Cancel", fontWeight = FontWeight.SemiBold)
                     }
@@ -348,7 +315,6 @@ fun RiderFoundScreen(
         }
     }
 
-    // Cancel Dialog
     if (showCancelDialog) {
         CancelBookingDialog(
             onDismiss = { showCancelDialog = false },
@@ -361,7 +327,259 @@ fun RiderFoundScreen(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// INTERACTIVE MAP - With Location Permission Handling
+// WAITING CHARGE CARD - 3 min free → ₹3/min after
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun WaitingChargeCard(
+    waitingState: WaitingTimerState,
+    modifier: Modifier = Modifier
+) {
+    val isFreeOver = waitingState.isFreeWaitingOver
+
+    val infiniteTransition = rememberInfiniteTransition(label = "waiting_pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isFreeOver) 0.5f else 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isFreeOver) 500 else 1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "waiting_pulse_alpha"
+    )
+
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFreeOver) AppColors.Error.copy(alpha = 0.06f)
+            else AppColors.Warning.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.5.dp,
+            if (isFreeOver) AppColors.Error.copy(alpha = 0.4f)
+            else AppColors.Warning.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            if (isFreeOver) AppColors.Error.copy(alpha = pulseAlpha)
+                            else AppColors.Warning.copy(alpha = pulseAlpha),
+                            CircleShape
+                        )
+                )
+                Text(
+                    text = if (isFreeOver) "Waiting charges applied" else "Driver is waiting",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isFreeOver) AppColors.Error else AppColors.Warning
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = waitingState.totalTimeFormatted,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextHint
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Main content
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // LEFT: Circular timer/charge
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    if (!isFreeOver) {
+                        FreeWaitingCountdown(
+                            freeTimeFormatted = waitingState.freeTimeFormatted,
+                            progress = waitingState.freeWaitingProgress
+                        )
+                    } else {
+                        WaitingChargeCounter(
+                            charge = waitingState.waitingCharge,
+                            extraMinutes = waitingState.extraMinutesCharged,
+                            currentMinuteSeconds = waitingState.currentMinuteSeconds
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(70.dp)
+                        .background(AppColors.Border)
+                )
+
+                // RIGHT: Info
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (!isFreeOver) {
+                        Icon(Icons.Outlined.Timer, null, tint = AppColors.Warning, modifier = Modifier.size(28.dp))
+                        Text(
+                            "Free waiting",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.TextPrimary,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "Please hurry to\npickup point",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+                    } else {
+                        Icon(Icons.Outlined.CurrencyRupee, null, tint = AppColors.Error, modifier = Modifier.size(28.dp))
+                        Text(
+                            "₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Error,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "Waiting charge\napplied to fare",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            // Bottom strip
+            if (isFreeOver) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AppColors.Error.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "₹${RiderTrackingViewModel.CHARGE_PER_MINUTE} × ${waitingState.extraMinutesCharged} min",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                    Text(
+                        "+ ₹${waitingState.waitingCharge}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Error
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "After 3 min, ₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min waiting charge applies",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextHint,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FreeWaitingCountdown(freeTimeFormatted: String, progress: Float) {
+    Box(contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            progress = { 1f },
+            modifier = Modifier.size(80.dp),
+            color = AppColors.Warning.copy(alpha = 0.15f),
+            strokeWidth = 6.dp,
+            strokeCap = StrokeCap.Round
+        )
+        CircularProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.size(80.dp),
+            color = AppColors.Warning,
+            strokeWidth = 6.dp,
+            strokeCap = StrokeCap.Round
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                freeTimeFormatted,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Warning
+            )
+            Text(
+                "FREE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Warning.copy(alpha = 0.7f),
+                fontSize = 9.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun WaitingChargeCounter(charge: Int, extraMinutes: Int, currentMinuteSeconds: Int) {
+    val currentMinuteProgress = currentMinuteSeconds / 60f
+    Box(contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            progress = { 1f },
+            modifier = Modifier.size(80.dp),
+            color = AppColors.Error.copy(alpha = 0.15f),
+            strokeWidth = 6.dp,
+            strokeCap = StrokeCap.Round
+        )
+        CircularProgressIndicator(
+            progress = { currentMinuteProgress },
+            modifier = Modifier.size(80.dp),
+            color = AppColors.Error,
+            strokeWidth = 6.dp,
+            strokeCap = StrokeCap.Round
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "₹$charge",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Error
+            )
+            Text(
+                "${extraMinutes} min",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.Error.copy(alpha = 0.7f),
+                fontSize = 9.sp
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INTERACTIVE MAP
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -373,12 +591,9 @@ private fun InteractiveMapView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-
-    // ── Permission State ──────────────────────────────────────────────
     var hasPermission by remember { mutableStateOf(context.hasLocationPermission()) }
     var permissionDenied by remember { mutableStateOf(false) }
     var permanentlyDenied by remember { mutableStateOf(false) }
-
     val activity = context as? androidx.activity.ComponentActivity
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -387,11 +602,8 @@ private fun InteractiveMapView(
         hasPermission = isGranted
         if (!isGranted) {
             permissionDenied = true
-            // Check if permanently denied (user selected "Don't ask again")
             permanentlyDenied = activity?.let {
-                !ActivityCompat.shouldShowRequestPermissionRationale(
-                    it, Manifest.permission.ACCESS_FINE_LOCATION
-                )
+                !ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.ACCESS_FINE_LOCATION)
             } ?: false
         } else {
             permissionDenied = false
@@ -399,25 +611,18 @@ private fun InteractiveMapView(
         }
     }
 
-    // Request permission on first load if not granted
     LaunchedEffect(Unit) {
-        if (!hasPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
+        if (!hasPermission) permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
-    // Re-check permission when returning from Settings
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val newPermission = context.hasLocationPermission()
-                if (newPermission != hasPermission) {
-                    hasPermission = newPermission
-                    if (newPermission) {
-                        permissionDenied = false
-                        permanentlyDenied = false
-                    }
+                val newPerm = context.hasLocationPermission()
+                if (newPerm != hasPermission) {
+                    hasPermission = newPerm
+                    if (newPerm) { permissionDenied = false; permanentlyDenied = false }
                 }
             }
         }
@@ -425,102 +630,58 @@ private fun InteractiveMapView(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ── Map Setup ─────────────────────────────────────────────────────
     val pickupLatLng = LatLng(pickupAddress.latitude, pickupAddress.longitude)
     val dropLatLng = LatLng(dropAddress.latitude, dropAddress.longitude)
-
     val riderLatLng = if (riderLatitude != null && riderLongitude != null &&
         riderLatitude != 0.0 && riderLongitude != 0.0
-    ) {
-        LatLng(riderLatitude, riderLongitude)
-    } else null
+    ) LatLng(riderLatitude, riderLongitude) else null
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(pickupLatLng, 14f)
     }
 
-    // Auto-adjust camera to show all markers
     LaunchedEffect(riderLatLng, pickupLatLng) {
         try {
-            val boundsBuilder = LatLngBounds.builder()
-                .include(pickupLatLng)
-                .include(dropLatLng)
-
+            val boundsBuilder = LatLngBounds.builder().include(pickupLatLng).include(dropLatLng)
             riderLatLng?.let { boundsBuilder.include(it) }
-
-            val bounds = boundsBuilder.build()
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(bounds, 80),
-                durationMs = 500
-            )
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 80), durationMs = 500)
         } catch (e: Exception) {
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(pickupLatLng, 13f)
-            )
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(pickupLatLng, 13f))
         }
     }
 
-    // ── UI ─────────────────────────────────────────────────────────────
     Box(modifier = modifier) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = MapProperties(
-                mapType = MapType.NORMAL,
-                isMyLocationEnabled = hasPermission       // ✅ Safe: only true when granted
-            ),
+            properties = MapProperties(mapType = MapType.NORMAL, isMyLocationEnabled = hasPermission),
             uiSettings = MapUiSettings(
-                zoomControlsEnabled = true,
-                zoomGesturesEnabled = true,
-                scrollGesturesEnabled = true,
-                tiltGesturesEnabled = true,
-                rotationGesturesEnabled = true,
-                myLocationButtonEnabled = hasPermission,  // ✅ Safe
-                mapToolbarEnabled = true,
-                compassEnabled = true
+                zoomControlsEnabled = true, zoomGesturesEnabled = true, scrollGesturesEnabled = true,
+                tiltGesturesEnabled = true, rotationGesturesEnabled = true,
+                myLocationButtonEnabled = hasPermission, mapToolbarEnabled = true, compassEnabled = true
             )
         ) {
-            // Pickup marker (Green)
-            Marker(
-                state = MarkerState(position = pickupLatLng),
-                title = "Pickup",
+            Marker(state = MarkerState(position = pickupLatLng), title = "Pickup",
                 snippet = pickupAddress.address.take(30),
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-            )
-
-            // Drop marker (Red)
-            Marker(
-                state = MarkerState(position = dropLatLng),
-                title = "Drop",
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+            Marker(state = MarkerState(position = dropLatLng), title = "Drop",
                 snippet = dropAddress.address.take(30),
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-            )
-
-            // Driver marker (Blue) - Only show if location available
-            riderLatLng?.let { location ->
-                Marker(
-                    state = MarkerState(position = location),
-                    title = "Driver",
-                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
-                )
+                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+            riderLatLng?.let {
+                Marker(state = MarkerState(position = it), title = "Driver",
+                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
             }
         }
 
-        // ── Permission Denied Banner (overlay on map bottom) ──────────
         if (permissionDenied && !hasPermission) {
             LocationPermissionBanner(
                 isPermanentlyDenied = permanentlyDenied,
                 onRequestPermission = {
                     if (permanentlyDenied) {
-                        // Open app settings so user can enable manually
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                             data = Uri.fromParts("package", context.packageName, null)
-                        }
-                        context.startActivity(intent)
-                    } else {
-                        // Re-request permission
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
+                        })
+                    } else permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                 },
                 onDismiss = { permissionDenied = false },
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -530,7 +691,7 @@ private fun InteractiveMapView(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LOCATION PERMISSION BANNER - Shows when permission denied
+// LOCATION PERMISSION BANNER
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -541,223 +702,99 @@ private fun LocationPermissionBanner(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(8.dp),
+        modifier = modifier.fillMaxWidth().padding(8.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                Icons.Outlined.LocationOff,
-                contentDescription = null,
-                tint = AppColors.Warning,
-                modifier = Modifier.size(24.dp)
-            )
-
+            Icon(Icons.Outlined.LocationOff, null, tint = AppColors.Warning, modifier = Modifier.size(24.dp))
             Column(modifier = Modifier.weight(1f)) {
+                Text("Location access disabled", style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
                 Text(
-                    text = "Location access disabled",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppColors.TextPrimary
-                )
-                Text(
-                    text = if (isPermanentlyDenied)
-                        "Enable in Settings for live tracking"
-                    else
-                        "Allow location for better tracking",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
+                    if (isPermanentlyDenied) "Enable in Settings for live tracking"
+                    else "Allow location for better tracking",
+                    style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary
                 )
             }
-
-            TextButton(
-                onClick = onRequestPermission,
+            TextButton(onClick = onRequestPermission,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text(
-                    text = if (isPermanentlyDenied) "Settings" else "Allow",
+                Text(if (isPermanentlyDenied) "Settings" else "Allow",
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Primary
-                )
+                    fontWeight = FontWeight.Bold, color = AppColors.Primary)
             }
-
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Dismiss",
-                    tint = AppColors.TextHint,
-                    modifier = Modifier.size(16.dp)
-                )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, "Dismiss", tint = AppColors.TextHint, modifier = Modifier.size(16.dp))
             }
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ETA & DISTANCE CARD - Clean layout with no overlap
+// ETA & DISTANCE CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun ETADistanceCard(
-    etaMinutes: Int?,
-    distanceKm: Double?,
-    isLive: Boolean,
-    modifier: Modifier = Modifier
+    etaMinutes: Int?, distanceKm: Double?, isLive: Boolean, modifier: Modifier = Modifier
 ) {
-    // Pulsing animation for live indicator
     val infiniteTransition = rememberInfiniteTransition(label = "live_pulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
+        initialValue = 1f, targetValue = 0.4f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "pulse"
     )
 
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isLive) AppColors.Success.copy(alpha = 0.08f) else Color.White
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isLive) 0.dp else 2.dp),
-        border = if (isLive) {
-            BorderStroke(1.dp, AppColors.Success.copy(alpha = 0.3f))
-        } else null
+        border = if (isLive) BorderStroke(1.dp, AppColors.Success.copy(alpha = 0.3f)) else null
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Live Tracking Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Pulsing dot
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(
-                            if (isLive) AppColors.Success.copy(alpha = pulseAlpha)
-                            else AppColors.Warning,
-                            CircleShape
-                        )
-                )
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.size(10.dp).background(
+                    if (isLive) AppColors.Success.copy(alpha = pulseAlpha) else AppColors.Warning, CircleShape))
                 Text(
-                    text = if (isLive) "Live Tracking" else "Waiting for location...",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    if (isLive) "Live Tracking" else "Waiting for location...",
+                    style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
                     color = if (isLive) AppColors.Success else AppColors.Warning
                 )
-
                 Spacer(modifier = Modifier.weight(1f))
-
-                if (!isLive) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = AppColors.Warning
-                    )
-                }
+                if (!isLive) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = AppColors.Warning)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // ETA & Distance Row - FIXED LAYOUT
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                // ETA Column
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Schedule,
-                            contentDescription = null,
-                            tint = AppColors.Primary,
-                            modifier = Modifier.size(24.dp)
-                        )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Outlined.Schedule, null, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
                         Text(
-                            text = if (etaMinutes != null && etaMinutes > 0) {
-                                "$etaMinutes"
-                            } else {
-                                "--"
-                            },
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.Primary
+                            if (etaMinutes != null && etaMinutes > 0) "$etaMinutes" else "--",
+                            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = AppColors.Primary
                         )
                     }
-                    Text(
-                        text = if (etaMinutes != null && etaMinutes > 0) "min ETA" else "ETA",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
+                    Text(if (etaMinutes != null && etaMinutes > 0) "min ETA" else "ETA",
+                        style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                 }
-
-                // Vertical Divider
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(50.dp)
-                        .background(AppColors.Border)
-                )
-
-                // Distance Column
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.NearMe,
-                            contentDescription = null,
-                            tint = AppColors.Pickup,
-                            modifier = Modifier.size(24.dp)
-                        )
+                Box(modifier = Modifier.width(1.dp).height(50.dp).background(AppColors.Border))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Outlined.NearMe, null, tint = AppColors.Pickup, modifier = Modifier.size(24.dp))
                         Text(
-                            text = if (distanceKm != null) {
-                                String.format("%.1f", distanceKm)
-                            } else {
-                                "--"
-                            },
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.Pickup
+                            if (distanceKm != null) String.format("%.1f", distanceKm) else "--",
+                            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = AppColors.Pickup
                         )
                     }
-                    Text(
-                        text = if (distanceKm != null) "km away" else "Distance",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
+                    Text(if (distanceKm != null) "km away" else "Distance",
+                        style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                 }
             }
         }
@@ -765,415 +802,243 @@ private fun ETADistanceCard(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DRIVER DETAILS CARD - With proper null handling
+// DRIVER DETAILS CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun DriverDetailsCard(
-    rider: RiderInfo?,
-    onCallDriver: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+private fun DriverDetailsCard(rider: RiderInfo?, onCallDriver: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Driver Photo
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
+                modifier = Modifier.size(60.dp).clip(CircleShape)
                     .border(2.dp, AppColors.Primary.copy(alpha = 0.3f), CircleShape)
                     .background(AppColors.Primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!rider?.photoUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(rider?.photoUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Driver photo",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        model = ImageRequest.Builder(LocalContext.current).data(rider?.photoUrl).crossfade(true).build(),
+                        contentDescription = "Driver photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
                     )
                 } else {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Icon(Icons.Default.Person, null, tint = AppColors.Primary, modifier = Modifier.size(32.dp))
                 }
             }
-
             Spacer(modifier = Modifier.width(14.dp))
-
-            // Driver Info
             Column(modifier = Modifier.weight(1f)) {
-                // Name
                 Text(
-                    text = rider?.riderName?.takeIf { it.isNotBlank() } ?: "Driver",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    rider?.riderName?.takeIf { it.isNotBlank() } ?: "Driver",
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
-                // Rating & Trips Row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Rating
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFC107),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = rider?.rating?.let {
-                                String.format("%.1f", it)
-                            } ?: "New",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.TextPrimary
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                        Text(rider?.rating?.let { String.format("%.1f", it) } ?: "New",
+                            style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
                     }
-
-                    // Divider dot
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .background(AppColors.TextHint, CircleShape)
-                    )
-
-                    // Total Trips
-                    Text(
-                        text = rider?.totalTrips?.let { "$it trips" } ?: "New Driver",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
+                    Box(modifier = Modifier.size(4.dp).background(AppColors.TextHint, CircleShape))
+                    Text(rider?.totalTrips?.let { "$it trips" } ?: "New Driver",
+                        style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                 }
-
                 Spacer(modifier = Modifier.height(6.dp))
-
-                // Vehicle Info
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.LocalShipping,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Outlined.LocalShipping, null, tint = AppColors.Primary, modifier = Modifier.size(16.dp))
                     val vehicleText = buildString {
-                        rider?.vehicleType?.takeIf { it.isNotBlank() }?.let {
-                            append(it)
-                            append(" • ")
-                        }
+                        rider?.vehicleType?.takeIf { it.isNotBlank() }?.let { append(it); append(" • ") }
                         append(rider?.vehicleNumber?.takeIf { it.isNotBlank() } ?: "Vehicle")
                     }
-
-                    Text(
-                        text = vehicleText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = AppColors.TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(vehicleText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
+                        color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-
-            // Call Button
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .shadow(4.dp, CircleShape)
-                    .clip(CircleShape)
-                    .background(AppColors.Pickup)
-                    .clickable(onClick = onCallDriver),
+                modifier = Modifier.size(48.dp).shadow(4.dp, CircleShape).clip(CircleShape)
+                    .background(AppColors.Pickup).clickable(onClick = onCallDriver),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Call,
-                    contentDescription = "Call driver",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
+                Icon(Icons.Default.Call, "Call driver", tint = Color.White, modifier = Modifier.size(22.dp))
             }
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// OTP DISPLAY CARD - Prominent display
+// OTP DISPLAY CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun OTPDisplayCard(
-    otp: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+private fun OTPDisplayCard(otp: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            AppColors.Primary.copy(alpha = 0.05f),
-                            AppColors.Primary.copy(alpha = 0.1f)
-                        )
-                    )
-                )
+            modifier = Modifier.fillMaxWidth()
+                .background(brush = Brush.verticalGradient(listOf(
+                    AppColors.Primary.copy(alpha = 0.05f), AppColors.Primary.copy(alpha = 0.1f))))
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Outlined.Lock,
-                    contentDescription = null,
-                    tint = AppColors.Primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Pickup OTP",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppColors.TextSecondary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Lock, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+                Text("Pickup OTP", style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // OTP Digits
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                otp.take(4).padEnd(4, '-').forEach { digit ->
+            // Dynamic: supports 4-digit and 6-digit OTPs
+            val otpDigits = otp.filter { it.isDigit() }
+            val displayLength = if (otpDigits.length >= 6) 6 else 4
+            val displayOtp = otpDigits.take(displayLength).padEnd(displayLength, '-')
+            val boxSize = if (displayLength >= 6) 44.dp else 52.dp
+            val gapSize = if (displayLength >= 6) 8.dp else 12.dp
+            val fontSize = if (displayLength >= 6) MaterialTheme.typography.headlineSmall
+            else MaterialTheme.typography.headlineMedium
+
+            Row(horizontalArrangement = Arrangement.spacedBy(gapSize)) {
+                displayOtp.forEach { digit ->
                     Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .shadow(4.dp, RoundedCornerShape(12.dp))
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.Primary),
+                        modifier = Modifier.size(boxSize).shadow(4.dp, RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(12.dp)).background(AppColors.Primary),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = digit.toString(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Text(digit.toString(), style = fontSize,
+                            fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Share this OTP with driver at pickup",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextHint,
-                textAlign = TextAlign.Center
-            )
+            Text("Share this OTP with driver at pickup", style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextHint, textAlign = TextAlign.Center)
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// OTP PENDING CARD - When OTP is not yet received
+// OTP PENDING CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun OTPPendingCard(
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+private fun OTPPendingCard(modifier: Modifier = Modifier) {
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp,
-                color = AppColors.Primary
-            )
+            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = AppColors.Primary)
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Generating OTP...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppColors.TextPrimary
-                )
-                Text(
-                    text = "OTP will appear here once driver confirms",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
+                Text("Generating OTP...", style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
+                Text("OTP will appear here once driver confirms",
+                    style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
             }
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TRIP DETAILS CARD
+// TRIP DETAILS CARD - Shows waiting charge in fare breakdown
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun TripDetailsCard(
-    pickupAddress: SavedAddress,
-    dropAddress: SavedAddress,
-    fare: Int,
-    modifier: Modifier = Modifier
+    pickupAddress: SavedAddress, dropAddress: SavedAddress,
+    fare: Int, waitingCharge: Int = 0, modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+    val totalFare = fare + waitingCharge
+
+    Card(modifier = modifier, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             // Pickup
-            Row(
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .background(AppColors.Pickup, CircleShape)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(2.dp)
-                            .height(32.dp)
-                            .background(AppColors.Border)
-                    )
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(12.dp).background(AppColors.Pickup, CircleShape))
+                    Box(modifier = Modifier.width(2.dp).height(32.dp).background(AppColors.Border))
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = pickupAddress.contactName?.takeIf { it.isNotBlank() } ?: "Pickup",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = pickupAddress.address,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(pickupAddress.contactName?.takeIf { it.isNotBlank() } ?: "Pickup",
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
+                    Text(pickupAddress.address, style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-
             // Drop
-            Row(
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(AppColors.Drop, CircleShape)
-                )
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(12.dp).background(AppColors.Drop, CircleShape))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = dropAddress.contactName?.takeIf { it.isNotBlank() } ?: "Drop",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = dropAddress.address,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(dropAddress.contactName?.takeIf { it.isNotBlank() } ?: "Drop",
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
+                    Text(dropAddress.address, style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Payment Info
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AppColors.Background)
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Payment section
+            Column(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .background(AppColors.Background).padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Base fare
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Outlined.Payments,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        text = "Cash Payment",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppColors.TextSecondary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Outlined.Payments, null, tint = AppColors.Primary, modifier = Modifier.size(22.dp))
+                        Text(
+                            if (waitingCharge > 0) "Trip Fare" else "Cash Payment",
+                            style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary
+                        )
+                    }
+                    Text("₹$fare",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (waitingCharge > 0) FontWeight.SemiBold else FontWeight.Bold,
+                        color = if (waitingCharge > 0) AppColors.TextPrimary else AppColors.Primary)
                 }
-                Text(
-                    text = "₹$fare",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Primary
-                )
+
+                // Waiting charge (if any)
+                if (waitingCharge > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Outlined.Timer, null, tint = AppColors.Error, modifier = Modifier.size(22.dp))
+                            Text("Waiting Charge", style = MaterialTheme.typography.bodyMedium, color = AppColors.Error)
+                        }
+                        Text("+ ₹$waitingCharge", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, color = AppColors.Error)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = AppColors.Border)
+
+                    // Total
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total (Cash)", style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+                        Text("₹$totalFare", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    }
+                }
             }
         }
     }
@@ -1184,114 +1049,54 @@ private fun TripDetailsCard(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun CancelBookingDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
+private fun CancelBookingDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
-
     val reasons = listOf(
-        "Driver taking too long",
-        "Found another ride",
-        "Plans changed",
-        "Wrong pickup/drop location",
-        "Other reason"
+        "Driver taking too long", "Found another ride", "Plans changed",
+        "Wrong pickup/drop location", "Other reason"
     )
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(20.dp),
-        containerColor = Color.White,
+        onDismissRequest = onDismiss, shape = RoundedCornerShape(20.dp), containerColor = Color.White,
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(AppColors.Error.copy(alpha = 0.1f), CircleShape),
+                    modifier = Modifier.size(40.dp).background(AppColors.Error.copy(alpha = 0.1f), CircleShape),
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Outlined.Cancel,
-                        contentDescription = null,
-                        tint = AppColors.Error,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Text(
-                    "Cancel Booking?",
-                    fontWeight = FontWeight.Bold
-                )
+                ) { Icon(Icons.Outlined.Cancel, null, tint = AppColors.Error, modifier = Modifier.size(22.dp)) }
+                Text("Cancel Booking?", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column {
-                Text(
-                    "Please select a reason:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary
-                )
-
+                Text("Please select a reason:", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
                 Spacer(modifier = Modifier.height(16.dp))
-
                 reasons.forEach { reason ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                             .clickable { selectedReason = reason }
-                            .background(
-                                if (selectedReason == reason)
-                                    AppColors.Primary.copy(alpha = 0.1f)
-                                else Color.Transparent
-                            )
+                            .background(if (selectedReason == reason) AppColors.Primary.copy(alpha = 0.1f) else Color.Transparent)
                             .padding(vertical = 10.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(
-                            selected = selectedReason == reason,
-                            onClick = { selectedReason = reason },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = AppColors.Primary
-                            )
-                        )
+                        RadioButton(selected = selectedReason == reason, onClick = { selectedReason = reason },
+                            colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = reason,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Text(reason, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { selectedReason?.let { onConfirm(it) } },
-                enabled = selectedReason != null,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.Error,
-                    disabledContainerColor = AppColors.Border
-                ),
+                onClick = { selectedReason?.let { onConfirm(it) } }, enabled = selectedReason != null,
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Error, disabledContainerColor = AppColors.Border),
                 shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    "Cancel Booking",
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            ) { Text("Cancel Booking", fontWeight = FontWeight.SemiBold) }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    "Go Back",
-                    color = AppColors.TextSecondary,
-                    fontWeight = FontWeight.SemiBold
-                )
+            TextButton(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) {
+                Text("Go Back", color = AppColors.TextSecondary, fontWeight = FontWeight.SemiBold)
             }
         }
     )

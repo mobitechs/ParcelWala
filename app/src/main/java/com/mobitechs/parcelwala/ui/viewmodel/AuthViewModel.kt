@@ -26,18 +26,16 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val savedStateHandle: SavedStateHandle  // Add this
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    // Use SavedStateHandle for phone number persistence
     companion object {
         private const val KEY_PHONE_NUMBER = "phone_number"
     }
 
-    // Get phone number from SavedStateHandle (survives process death)
     private var currentPhoneNumber: String
         get() = savedStateHandle[KEY_PHONE_NUMBER] ?: ""
         set(value) { savedStateHandle[KEY_PHONE_NUMBER] = value }
@@ -48,7 +46,6 @@ class AuthViewModel @Inject constructor(
             return
         }
 
-        // Save to SavedStateHandle
         currentPhoneNumber = phoneNumber
 
         viewModelScope.launch {
@@ -81,15 +78,14 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Verify OTP - now also accepts phone number as parameter for flexibility
+     * Verify OTP - ✅ FIXED: Changed from 6-digit to 4-digit validation
      */
     fun verifyOtp(otp: String, phoneNumber: String? = null) {
-        if (otp.length != 6) {
-            _uiState.update { it.copy(error = "Please enter a valid 6-digit OTP") }
+        if (otp.length != 4) {  // ✅ FIXED: Was 6, now 4
+            _uiState.update { it.copy(error = "Please enter a valid 4-digit OTP") }  // ✅ FIXED
             return
         }
 
-        // Use provided phone number or fall back to saved one
         val phone = phoneNumber ?: currentPhoneNumber
 
         if (phone.isBlank()) {
@@ -128,7 +124,6 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ... rest of the code remains the same
     fun completeProfile(
         fullName: String,
         email: String?,
@@ -180,9 +175,6 @@ class AuthViewModel @Inject constructor(
         _uiState.update { it.copy(otpSent = false, otpData = null) }
     }
 
-    /**
-     * Set phone number directly (useful when navigating with phone as parameter)
-     */
     fun setPhoneNumber(phoneNumber: String) {
         currentPhoneNumber = phoneNumber
     }

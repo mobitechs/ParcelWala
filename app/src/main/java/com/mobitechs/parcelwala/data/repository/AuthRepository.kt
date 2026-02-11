@@ -136,49 +136,27 @@ class AuthRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            val phoneNumber = preferencesManager.getUser()?.phoneNumber ?: ""
 
-            if (USE_MOCK_DATA) {
-                // ========== MOCK MODE ==========
-                delay(MOCK_DELAY)
+            val request = CompleteProfileRequest(
+                fullName = fullName,
+                email = email,
+                referralCode = referralCode
+            )
 
-                if (fullName.isBlank()) {
-                    emit(NetworkResult.Error("Please enter your name"))
-                    return@flow
-                }
+            val response = apiService.completeProfile(request)
 
-                val mockResponse = MockData.getCompleteProfileResponse(phoneNumber, fullName, email)
-
-                if (mockResponse.success && mockResponse.data != null) {
-                    preferencesManager.saveUser(mockResponse.data)
-                    emit(NetworkResult.Success(mockResponse.data))
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body?.success == true && body.data != null) {
+                    preferencesManager.saveUser(body.data)
+                    emit(NetworkResult.Success(body.data))
                 } else {
-                    emit(NetworkResult.Error(mockResponse.message ?: "Failed to update profile"))
+                    emit(NetworkResult.Error(body?.message ?: "Failed to update profile"))
                 }
-                // ================================
             } else {
-                // ========== REAL API ==========
-                val request = CompleteProfileRequest(
-                    fullName = fullName,
-                    email = email,
-                    referralCode = referralCode
-                )
-
-                val response = apiService.completeProfile(request)
-
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    if (body?.success == true && body.data != null) {
-                        preferencesManager.saveUser(body.data)
-                        emit(NetworkResult.Success(body.data))
-                    } else {
-                        emit(NetworkResult.Error(body?.message ?: "Failed to update profile"))
-                    }
-                } else {
-                    emit(NetworkResult.Error("Network error"))
-                }
-                // ==============================
+                emit(NetworkResult.Error("Network error"))
             }
+
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Unknown error occurred"))
         }

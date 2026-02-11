@@ -1,16 +1,28 @@
 // data/repository/BookingRepository.kt
 package com.mobitechs.parcelwala.data.repository
 
+import android.util.Log
 import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.mock.MockAccountData
 import com.mobitechs.parcelwala.data.mock.MockBookingData
-import com.mobitechs.parcelwala.data.model.request.*
-import com.mobitechs.parcelwala.data.model.response.*
+import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
+import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
+import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
+import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.request.ValidateCouponRequest
+import com.mobitechs.parcelwala.data.model.response.BookingResponse
+import com.mobitechs.parcelwala.data.model.response.CouponResponse
+import com.mobitechs.parcelwala.data.model.response.FareDetails
+import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +48,10 @@ class BookingRepository @Inject constructor(
         return System.currentTimeMillis() - cacheTimestamp < CACHE_DURATION
     }
 
+    companion object {
+        private const val TAG = "BookingRepository"
+    }
+
     fun clearCache() {
         cachedVehicleTypes = null
         cachedGoodsTypes = null
@@ -47,125 +63,137 @@ class BookingRepository @Inject constructor(
 
     // ============ STATIC DATA APIs ============
 
-    fun getVehicleTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<VehicleTypeResponse>>> = flow {
-        emit(NetworkResult.Loading())
+    fun getVehicleTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<VehicleTypeResponse>>> =
+        flow {
+            emit(NetworkResult.Loading())
 
-        try {
-            if (!forceRefresh && isCacheValid() && cachedVehicleTypes != null) {
-                emit(NetworkResult.Success(cachedVehicleTypes!!))
-                return@flow
-            }
-
-            if (USE_MOCK_DATA) {
-                delay(800)
-                val mockData = MockBookingData.getVehicleTypes()
-                cachedVehicleTypes = mockData
-                cacheTimestamp = System.currentTimeMillis()
-                emit(NetworkResult.Success(mockData))
-            } else {
-                val response = apiService.getVehicleTypes()
-                if (response.success && response.data != null) {
-                    cachedVehicleTypes = response.data
-                    cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load vehicle types"))
+            try {
+                if (!forceRefresh && isCacheValid() && cachedVehicleTypes != null) {
+                    emit(NetworkResult.Success(cachedVehicleTypes!!))
+                    return@flow
                 }
-            }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
-        }
-    }
 
-    fun getGoodsTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<GoodsTypeResponse>>> = flow {
-        emit(NetworkResult.Loading())
-
-        try {
-            if (!forceRefresh && isCacheValid() && cachedGoodsTypes != null) {
-                emit(NetworkResult.Success(cachedGoodsTypes!!))
-                return@flow
-            }
-
-            if (USE_MOCK_DATA) {
-                delay(600)
-                val mockData = MockBookingData.getGoodsTypes()
-                cachedGoodsTypes = mockData
-                cacheTimestamp = System.currentTimeMillis()
-                emit(NetworkResult.Success(mockData))
-            } else {
-                val response = apiService.getGoodsTypes()
-                if (response.success && response.data != null) {
-                    cachedGoodsTypes = response.data
+                if (USE_MOCK_DATA) {
+                    delay(800)
+                    val mockData = MockBookingData.getVehicleTypes()
+                    cachedVehicleTypes = mockData
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(response.data))
+                    emit(NetworkResult.Success(mockData))
                 } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load goods types"))
+                    val response = apiService.getVehicleTypes()
+                    if (response.success && response.data != null) {
+                        cachedVehicleTypes = response.data
+                        cacheTimestamp = System.currentTimeMillis()
+                        emit(NetworkResult.Success(response.data))
+                    } else {
+                        emit(
+                            NetworkResult.Error(
+                                response.message ?: "Failed to load vehicle types"
+                            )
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                emit(NetworkResult.Error(e.message ?: "Network error"))
             }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
         }
-    }
 
-    fun getRestrictedItems(forceRefresh: Boolean = false): Flow<NetworkResult<List<RestrictedItemResponse>>> = flow {
-        emit(NetworkResult.Loading())
+    fun getGoodsTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<GoodsTypeResponse>>> =
+        flow {
+            emit(NetworkResult.Loading())
 
-        try {
-            if (!forceRefresh && isCacheValid() && cachedRestrictedItems != null) {
-                emit(NetworkResult.Success(cachedRestrictedItems!!))
-                return@flow
-            }
+            try {
+                if (!forceRefresh && isCacheValid() && cachedGoodsTypes != null) {
+                    emit(NetworkResult.Success(cachedGoodsTypes!!))
+                    return@flow
+                }
 
-            if (USE_MOCK_DATA) {
-                delay(500)
-                val mockData = MockBookingData.getRestrictedItems()
-                cachedRestrictedItems = mockData
-                cacheTimestamp = System.currentTimeMillis()
-                emit(NetworkResult.Success(mockData))
-            } else {
-                val response = apiService.getRestrictedItems()
-                if (response.success && response.data != null) {
-                    cachedRestrictedItems = response.data
+                if (USE_MOCK_DATA) {
+                    delay(600)
+                    val mockData = MockBookingData.getGoodsTypes()
+                    cachedGoodsTypes = mockData
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(response.data))
+                    emit(NetworkResult.Success(mockData))
                 } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load restricted items"))
+                    val response = apiService.getGoodsTypes()
+                    if (response.success && response.data != null) {
+                        cachedGoodsTypes = response.data
+                        cacheTimestamp = System.currentTimeMillis()
+                        emit(NetworkResult.Success(response.data))
+                    } else {
+                        emit(NetworkResult.Error(response.message ?: "Failed to load goods types"))
+                    }
                 }
+            } catch (e: Exception) {
+                emit(NetworkResult.Error(e.message ?: "Network error"))
             }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
         }
-    }
 
-    fun getAvailableCoupons(forceRefresh: Boolean = false): Flow<NetworkResult<List<CouponResponse>>> = flow {
-        emit(NetworkResult.Loading())
+    fun getRestrictedItems(forceRefresh: Boolean = false): Flow<NetworkResult<List<RestrictedItemResponse>>> =
+        flow {
+            emit(NetworkResult.Loading())
 
-        try {
-            if (!forceRefresh && isCacheValid() && cachedCoupons != null) {
-                emit(NetworkResult.Success(cachedCoupons!!))
-                return@flow
-            }
+            try {
+                if (!forceRefresh && isCacheValid() && cachedRestrictedItems != null) {
+                    emit(NetworkResult.Success(cachedRestrictedItems!!))
+                    return@flow
+                }
 
-            if (USE_MOCK_DATA) {
-                delay(700)
-                val mockData = MockBookingData.getAvailableCoupons()
-                cachedCoupons = mockData
-                cacheTimestamp = System.currentTimeMillis()
-                emit(NetworkResult.Success(mockData))
-            } else {
-                val response = apiService.getAvailableCoupons()
-                if (response.success && response.data != null) {
-                    cachedCoupons = response.data
+                if (USE_MOCK_DATA) {
+                    delay(500)
+                    val mockData = MockBookingData.getRestrictedItems()
+                    cachedRestrictedItems = mockData
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(response.data))
+                    emit(NetworkResult.Success(mockData))
                 } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load coupons"))
+                    val response = apiService.getRestrictedItems()
+                    if (response.success && response.data != null) {
+                        cachedRestrictedItems = response.data
+                        cacheTimestamp = System.currentTimeMillis()
+                        emit(NetworkResult.Success(response.data))
+                    } else {
+                        emit(
+                            NetworkResult.Error(
+                                response.message ?: "Failed to load restricted items"
+                            )
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                emit(NetworkResult.Error(e.message ?: "Network error"))
             }
-        } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
         }
-    }
+
+    fun getAvailableCoupons(forceRefresh: Boolean = false): Flow<NetworkResult<List<CouponResponse>>> =
+        flow {
+            emit(NetworkResult.Loading())
+
+            try {
+                if (!forceRefresh && isCacheValid() && cachedCoupons != null) {
+                    emit(NetworkResult.Success(cachedCoupons!!))
+                    return@flow
+                }
+
+                if (USE_MOCK_DATA) {
+                    delay(700)
+                    val mockData = MockBookingData.getAvailableCoupons()
+                    cachedCoupons = mockData
+                    cacheTimestamp = System.currentTimeMillis()
+                    emit(NetworkResult.Success(mockData))
+                } else {
+                    val response = apiService.getAvailableCoupons()
+                    if (response.success && response.data != null) {
+                        cachedCoupons = response.data
+                        cacheTimestamp = System.currentTimeMillis()
+                        emit(NetworkResult.Success(response.data))
+                    } else {
+                        emit(NetworkResult.Error(response.message ?: "Failed to load coupons"))
+                    }
+                }
+            } catch (e: Exception) {
+                emit(NetworkResult.Error(e.message ?: "Network error"))
+            }
+        }
 
     fun validateCoupon(code: String, orderValue: Int): Flow<NetworkResult<CouponResponse>> = flow {
         emit(NetworkResult.Loading())
@@ -342,7 +370,6 @@ class BookingRepository @Inject constructor(
     }
 
 
-
     fun createBooking(request: CreateBookingRequest): Flow<NetworkResult<BookingResponse>> = flow {
         emit(NetworkResult.Loading())
 
@@ -369,7 +396,6 @@ class BookingRepository @Inject constructor(
     }
 
 
-
     fun cancelBooking(bookingId: Int, reason: String): Flow<NetworkResult<Unit>> = flow {
         emit(NetworkResult.Loading())
 
@@ -390,4 +416,37 @@ class BookingRepository @Inject constructor(
             emit(NetworkResult.Error(e.message ?: "Network error"))
         }
     }
+
+    suspend fun submitRating(
+        bookingId: String,
+        rating: Int,
+        feedback: String?
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Submitting rating for booking: $bookingId, Rating: $rating")
+
+            val response = apiService.submitRating(
+                bookingId = bookingId,
+                request = SubmitRatingRequest(
+                    rating = rating,
+                    feedback = feedback
+                )
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                Log.d(TAG, "Rating submitted: ${body.message}")
+                Result.success(body.success)
+            } else {
+                val error = response.errorBody()?.string() ?: "Failed to submit rating"
+                Log.e(TAG, "Submit rating failed: $error")
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Submit rating exception", e)
+            Result.failure(e)
+        }
+    }
+
+
 }

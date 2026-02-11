@@ -35,25 +35,25 @@ import kotlinx.coroutines.delay
 @Composable
 fun OtpScreen(
     phoneNumber: String,
-    receivedOtp: String? = null,  // ✅ ADDED: OTP from backend
+    receivedOtp: String? = null,
     onNavigateToHome: () -> Unit,
     onNavigateToCompleteProfile: () -> Unit,
     onNavigateBack: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var otp by remember { mutableStateOf(List(6) { "" }) }
+    var otp by remember { mutableStateOf(List(4) { "" }) }  // ✅ Changed 6 → 4
     var resendTimer by remember { mutableStateOf(60) }
     var canResend by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    val focusRequesters = remember { List(6) { FocusRequester() } }
+    val focusRequesters = remember { List(4) { FocusRequester() } }  // ✅ Changed 6 → 4
 
-    // Auto-verify when complete - pass phone number
+    // Auto-verify when complete
     LaunchedEffect(otp) {
         val otpString = otp.joinToString("")
-        if (otpString.length == 6) {
+        if (otpString.length == 4) {  // ✅ Changed 6 → 4
             viewModel.verifyOtp(otpString, phoneNumber)
         }
     }
@@ -178,7 +178,7 @@ fun OtpScreen(
 
             // Subtitle
             Text(
-                text = "Enter the 6-digit code sent to",
+                text = "Enter the 4-digit code sent to",  // ✅ Changed 6 → 4
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary
             )
@@ -190,7 +190,7 @@ fun OtpScreen(
                 color = AppColors.Primary
             )
 
-            // ✅ ADDED: Display OTP for testing (simple text)
+            // ✅ Display OTP for testing
             if (!receivedOtp.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Surface(
@@ -232,7 +232,7 @@ fun OtpScreen(
                     newOtp[index] = value
                     otp = newOtp
 
-                    if (value.isNotEmpty() && index < 5) {
+                    if (value.isNotEmpty() && index < 3) {  // ✅ Changed 5 → 3
                         focusRequesters[index + 1].requestFocus()
                     }
                 },
@@ -250,15 +250,15 @@ fun OtpScreen(
                 text = "Verify OTP",
                 onClick = {
                     val otpString = otp.joinToString("")
-                    if (otpString.length == 6) {
+                    if (otpString.length == 4) {  // ✅ Changed 6 → 4
                         viewModel.verifyOtp(otpString, phoneNumber)
                     } else {
-                        errorMessage = "Please enter complete 6-digit OTP"
+                        errorMessage = "Please enter complete 4-digit OTP"  // ✅ Changed 6 → 4
                         showError = true
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && otp.joinToString("").length == 6,
+                enabled = !uiState.isLoading && otp.joinToString("").length == 4,  // ✅ Changed 6 → 4
                 isLoading = uiState.isLoading,
                 icon = Icons.Default.Check
             )
@@ -281,7 +281,7 @@ fun OtpScreen(
                         viewModel.sendOtp(phoneNumber)
                         resendTimer = 60
                         canResend = false
-                        otp = List(6) { "" }
+                        otp = List(4) { "" }  // ✅ Changed 6 → 4
                         focusRequesters[0].requestFocus()
                     },
                     enabled = canResend
@@ -298,7 +298,7 @@ fun OtpScreen(
 }
 
 /**
- * OTP Input Fields
+ * OTP Input Fields - 4 digit
  */
 @Composable
 private fun OtpInputField(
@@ -320,8 +320,8 @@ private fun OtpInputField(
                     }
                 },
                 modifier = Modifier
-                    .width(50.dp)
-                    .height(60.dp)
+                    .width(60.dp)   // ✅ Slightly wider since fewer boxes
+                    .height(64.dp)  // ✅ Slightly taller for better touch target
                     .focusRequester(focusRequesters[index])
                     .onKeyEvent { keyEvent ->
                         if (keyEvent.key == Key.Backspace) {

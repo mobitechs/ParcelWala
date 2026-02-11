@@ -34,7 +34,8 @@ fun LoginScreen(
     // Navigate to OTP when sent - pass OTP from response
     LaunchedEffect(uiState.otpSent) {
         if (uiState.otpSent) {
-            onNavigateToOtp(phoneNumber, uiState.otpData?.otp)  // ✅ CHANGED: Pass OTP
+            onNavigateToOtp(phoneNumber, uiState.otpData?.otp)
+            viewModel.resetOtpState()
         }
     }
 

@@ -1,5 +1,5 @@
 // ui/viewmodel/RiderTrackingViewModel.kt
-// ✅ UPDATED: With progress notification for distance tracking
+// ✅ UPDATED: With waiting timer, charge calculation & progress notifications
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import android.util.Log
@@ -15,6 +15,8 @@ import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
 import com.mobitechs.parcelwala.data.repository.RealTimeRepository
 import com.mobitechs.parcelwala.utils.BookingNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,6 +37,7 @@ import javax.inject.Inject
  *    - Progress bar notification for ETA/distance tracking
  *    - Real-time ETA and distance tracking
  *    - Proper null handling throughout
+ *    - 🆕 Waiting timer with 3-min free period + ₹3/min charge
  *
  * ════════════════════════════════════════════════════════════════════════════
  */
@@ -49,6 +52,10 @@ class RiderTrackingViewModel @Inject constructor(
         private const val TAG = "RiderTrackingVM"
         // For progress calculation - initial max distance
         private const val INITIAL_MAX_DISTANCE_METERS = 10000.0 // 10 km
+
+        // ── Waiting Charge Constants ──────────────────────────────
+        const val FREE_WAITING_SECONDS = 180       // 3 minutes free
+        const val CHARGE_PER_MINUTE = 3            // ₹3 per minute after free period
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -77,6 +84,12 @@ class RiderTrackingViewModel @Inject constructor(
     private val _distanceKm = MutableStateFlow<Double?>(null)
     val distanceKm: StateFlow<Double?> = _distanceKm.asStateFlow()
 
+    // ── Waiting Timer State ──────────────────────────────────────────
+    private val _waitingState = MutableStateFlow(WaitingTimerState())
+    val waitingState: StateFlow<WaitingTimerState> = _waitingState.asStateFlow()
+
+    private var waitingTimerJob: Job? = null
+
     val connectionState: StateFlow<RealTimeConnectionState> = realTimeRepository.connectionState
 
     private val _navigationEvent = MutableSharedFlow<RiderTrackingNavigationEvent>()
@@ -96,6 +109,7 @@ class RiderTrackingViewModel @Inject constructor(
     init {
         observeRealTimeUpdates()
     }
+
 
     private fun observeRealTimeUpdates() {
         // Observe booking status updates
@@ -127,6 +141,7 @@ class RiderTrackingViewModel @Inject constructor(
                     cancelledBy = notification.cancelledBy
                 )
 
+                stopWaitingTimer()
                 activeBookingManager.updateStatus(BookingStatus.CANCELLED)
                 realTimeRepository.disconnect()
 
@@ -160,6 +175,87 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // WAITING TIMER - 3 min free, then ₹3/min
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun startWaitingTimer() {
+        // Don't start if already running
+        if (waitingTimerJob?.isActive == true) {
+            Log.d(TAG, "⏱️ Waiting timer already running, skipping")
+            return
+        }
+
+        Log.d(TAG, "⏱️ Starting waiting timer - 3 min free, then ₹$CHARGE_PER_MINUTE/min")
+
+        _waitingState.value = WaitingTimerState(
+            isActive = true,
+            totalWaitingSeconds = 0,
+            freeSecondsRemaining = FREE_WAITING_SECONDS,
+            isFreeWaitingOver = false,
+            extraMinutesCharged = 0,
+            waitingCharge = 0
+        )
+
+        waitingTimerJob = viewModelScope.launch {
+            var elapsedSeconds = 0
+
+            while (true) {
+                delay(1000L) // Tick every second
+                elapsedSeconds++
+
+                val freeRemaining = (FREE_WAITING_SECONDS - elapsedSeconds).coerceAtLeast(0)
+                val isFreeOver = elapsedSeconds > FREE_WAITING_SECONDS
+
+                // Calculate charge: only for full minutes after free period
+                val extraSeconds = if (isFreeOver) elapsedSeconds - FREE_WAITING_SECONDS else 0
+                val extraMinutes = extraSeconds / 60  // Only charge for complete minutes
+                val charge = extraMinutes * CHARGE_PER_MINUTE
+
+                _waitingState.value = WaitingTimerState(
+                    isActive = true,
+                    totalWaitingSeconds = elapsedSeconds,
+                    freeSecondsRemaining = freeRemaining,
+                    isFreeWaitingOver = isFreeOver,
+                    extraMinutesCharged = extraMinutes,
+                    waitingCharge = charge,
+                    // Seconds into the current (next) chargeable minute
+                    currentMinuteSeconds = if (isFreeOver) extraSeconds % 60 else 0
+                )
+
+                // Log every 30 seconds
+                if (elapsedSeconds % 30 == 0) {
+                    Log.d(TAG, "⏱️ Waiting: ${elapsedSeconds}s | Free: ${freeRemaining}s | Charge: ₹$charge ($extraMinutes min)")
+                }
+
+                // Log when free period ends
+                if (elapsedSeconds == FREE_WAITING_SECONDS) {
+                    Log.d(TAG, "⚠️ FREE WAITING PERIOD OVER - Charges starting now!")
+                }
+            }
+        }
+    }
+
+    private fun stopWaitingTimer() {
+        waitingTimerJob?.cancel()
+        waitingTimerJob = null
+
+        val finalState = _waitingState.value
+        if (finalState.isActive) {
+            Log.d(TAG, "⏱️ Waiting timer stopped - Total: ${finalState.totalWaitingSeconds}s | Charge: ₹${finalState.waitingCharge}")
+        }
+
+        _waitingState.update { it.copy(isActive = false) }
+    }
+
+    /**
+     * Get the final waiting charge to add to fare
+     * Call this when parcel is picked up to get the total waiting charge
+     */
+    fun getFinalWaitingCharge(): Int {
+        return _waitingState.value.waitingCharge
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // PUBLIC METHODS
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -180,6 +276,7 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun disconnect() {
         Log.d(TAG, "🔌 Disconnecting...")
+        stopWaitingTimer()
         realTimeRepository.disconnect()
         clearState()
     }
@@ -211,6 +308,8 @@ class RiderTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d(TAG, "❌ Cancelling booking: $reason")
 
+            stopWaitingTimer()
+
             val bookingId = _uiState.value.currentBookingId?.toIntOrNull()
                 ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
 
@@ -233,8 +332,10 @@ class RiderTrackingViewModel @Inject constructor(
         _deliveryOtp.value = null
         _etaMinutes.value = null
         _distanceKm.value = null
+        _waitingState.value = WaitingTimerState()
         initialDistanceMeters = null
         lastNotifiedEta = null
+        waitingTimerJob = null
         _uiState.value = RiderTrackingUiState()
     }
 
@@ -385,6 +486,9 @@ class RiderTrackingViewModel @Inject constructor(
         // Cancel progress notification
         notificationHelper.cancelNotification(BookingNotificationHelper.NOTIFICATION_TRACKING_PROGRESS)
 
+        // ⏱️ START WAITING TIMER when driver arrives
+        startWaitingTimer()
+
         notificationHelper.showDriverArrivedNotification(
             bookingId = update.bookingId.toString(),
             driverName = _assignedRider.value?.riderName ?: update.driverName,
@@ -402,6 +506,11 @@ class RiderTrackingViewModel @Inject constructor(
 
     private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
+
+        // ⏱️ STOP WAITING TIMER when parcel is picked up
+        val finalCharge = getFinalWaitingCharge()
+        stopWaitingTimer()
+        Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
 
         update.deliveryOtp?.let { _deliveryOtp.value = it }
 
@@ -432,6 +541,8 @@ class RiderTrackingViewModel @Inject constructor(
     private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.DELIVERED)
 
+        stopWaitingTimer()
+
         val fare = activeBookingManager.activeBooking.value?.fare
 
         notificationHelper.showDeliveryCompletedNotification(
@@ -448,6 +559,8 @@ class RiderTrackingViewModel @Inject constructor(
 
     private suspend fun handleCancelled(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.CANCELLED)
+
+        stopWaitingTimer()
 
         notificationHelper.showBookingCancelledNotification(
             bookingId = update.bookingId.toString(),
@@ -528,8 +641,45 @@ class RiderTrackingViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        stopWaitingTimer()
         realTimeRepository.disconnect()
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WAITING TIMER STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+data class WaitingTimerState(
+    val isActive: Boolean = false,
+    val totalWaitingSeconds: Int = 0,
+    val freeSecondsRemaining: Int = RiderTrackingViewModel.FREE_WAITING_SECONDS,
+    val isFreeWaitingOver: Boolean = false,
+    val extraMinutesCharged: Int = 0,        // Complete minutes after free period
+    val waitingCharge: Int = 0,              // Total charge in ₹
+    val currentMinuteSeconds: Int = 0        // Seconds into current chargeable minute (0-59)
+) {
+    /** Formatted free time remaining "2:45" */
+    val freeTimeFormatted: String
+        get() {
+            val min = freeSecondsRemaining / 60
+            val sec = freeSecondsRemaining % 60
+            return "%d:%02d".format(min, sec)
+        }
+
+    /** Formatted total waiting time "5:30" */
+    val totalTimeFormatted: String
+        get() {
+            val min = totalWaitingSeconds / 60
+            val sec = totalWaitingSeconds % 60
+            return "%d:%02d".format(min, sec)
+        }
+
+    /** Progress for circular indicator (0f to 1f) during free period */
+    val freeWaitingProgress: Float
+        get() = if (RiderTrackingViewModel.FREE_WAITING_SECONDS > 0) {
+            1f - (freeSecondsRemaining.toFloat() / RiderTrackingViewModel.FREE_WAITING_SECONDS)
+        } else 1f
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
