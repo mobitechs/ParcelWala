@@ -39,6 +39,7 @@ import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.OrdersViewModel
 import com.mobitechs.parcelwala.utils.DateTimeUtils
+import kotlinx.coroutines.launch
 
 // ═══════════════════════════════════════════════════════════════
 // STATUS CONFIGURATION — matches ACTUAL backend values
@@ -49,13 +50,9 @@ import com.mobitechs.parcelwala.utils.DateTimeUtils
 private data class StatusConfig(
     val icon: ImageVector,
     val color: Color,
-    val displayLabel: String  // Human-readable label for UI
+    val displayLabel: String
 )
 
-/**
- * Maps actual backend status string to display config.
- * Uses equalsIgnoreCase for safety.
- */
 private fun getStatusConfig(status: String): StatusConfig {
     return when (status.lowercase()) {
         "delivery_completed", "completed" -> StatusConfig(
@@ -88,44 +85,24 @@ private fun getStatusConfig(status: String): StatusConfig {
     }
 }
 
-/**
- * Check if a status represents "completed/delivered"
- */
-private fun isCompletedStatus(status: String): Boolean {
-    return status.lowercase() in listOf("delivery_completed", "completed")
-}
+private fun isCompletedStatus(status: String): Boolean =
+    status.lowercase() in listOf("delivery_completed", "completed")
 
-/**
- * Check if a status represents "cancelled"
- */
-private fun isCancelledStatus(status: String): Boolean {
-    return status.lowercase() == "cancelled"
-}
+private fun isCancelledStatus(status: String): Boolean =
+    status.lowercase() == "cancelled"
 
-/**
- * Check if a status represents "searching"
- */
-private fun isSearchingStatus(status: String): Boolean {
-    return status.lowercase() == "searching"
-}
+private fun isSearchingStatus(status: String): Boolean =
+    status.lowercase() == "searching"
 
-/**
- * Check if a status represents an active/in-progress ride
- */
-private fun isActiveStatus(status: String): Boolean {
-    return status.lowercase() in listOf(
-        "in_progress", "in progress", "assigned", "arriving",
-        "driver_arriving", "picked_up"
+private fun isActiveStatus(status: String): Boolean =
+    status.lowercase() in listOf(
+        "in_progress", "in progress", "assigned",
+        "arriving", "driver_arriving", "picked_up"
     )
-}
 
-/**
- * Check if the order needs a rating (completed + not yet rated)
- * Backend sends rating=0 for unrated, NOT null
- */
-private fun needsRating(order: OrderResponse): Boolean {
-    return isCompletedStatus(order.status) && (order.rating == null || order.rating == 0)
-}
+/** Backend sends rating=0 for unrated (not null) */
+private fun needsRating(order: OrderResponse): Boolean =
+    isCompletedStatus(order.status) && (order.rating == null || order.rating == 0)
 
 private fun getVehicleIcon(vehicleType: String): String {
     return when {
@@ -144,12 +121,11 @@ private fun getVehicleIcon(vehicleType: String): String {
 
 // ═══════════════════════════════════════════════════════════════
 // FILTER CHIP DATA
-// filterKey is what we use internally for matching — NOT the API value
 // ═══════════════════════════════════════════════════════════════
 
 private data class FilterChipData(
     val label: String,
-    val filterKey: String?,  // null = All
+    val filterKey: String?,
     val icon: ImageVector,
     val color: Color
 )
@@ -175,10 +151,15 @@ fun OrdersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val hasActiveBooking by viewModel.hasActiveBooking.collectAsState()
     var isRefreshing by remember { mutableStateOf(false) }
 
     // Rating dialog state
     var orderToRate by remember { mutableStateOf<OrderResponse?>(null) }
+
+    // Snackbar for blocking messages
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(uiState.isLoading) {
         if (!uiState.isLoading) isRefreshing = false
@@ -198,6 +179,16 @@ fun OrdersScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF323232),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
         containerColor = AppColors.Background
     ) { paddingValues ->
         Column(
@@ -210,6 +201,11 @@ fun OrdersScreen(
                 selectedFilter = selectedFilter,
                 onFilterSelected = { viewModel.onFilterSelected(it) }
             )
+
+            // ═══ ACTIVE BOOKING BANNER ═══
+            if (hasActiveBooking) {
+                ActiveBookingBanner()
+            }
 
             // ═══ CONTENT ═══
             PullToRefreshBox(
@@ -230,7 +226,18 @@ fun OrdersScreen(
                     else -> OrdersList(
                         orders = uiState.orders,
                         onOrderClick = onOrderClick,
-                        onBookAgain = onBookAgain,
+                        onBookAgain = { order ->
+                            if (hasActiveBooking) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "You have an active booking. Complete or cancel it first.",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } else {
+                                onBookAgain(order)
+                            }
+                        },
                         onRateOrder = { orderToRate = it }
                     )
                 }
@@ -247,6 +254,35 @@ fun OrdersScreen(
                 viewModel.submitRating(order.bookingId, rating, review)
                 orderToRate = null
             }
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVE BOOKING BANNER
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ActiveBookingBanner() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFF3E0))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = Color(0xFFE65100),
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = "You have an active booking. Book Again is disabled until it's completed or cancelled.",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFFE65100),
+            lineHeight = 16.sp
         )
     }
 }
@@ -359,7 +395,7 @@ private fun OrdersList(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ORDER CARD — with left accent strip & status-aware design
+// ORDER CARD
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
@@ -380,7 +416,6 @@ private fun OrderCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            // Left accent strip
 //            .drawBehind {
 //                drawRoundRect(
 //                    color = statusConfig.color,
@@ -389,7 +424,7 @@ private fun OrderCard(
 //                    cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx())
 //                )
 //            }
-            ,
+        ,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -497,7 +532,7 @@ private fun OrderCard(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STATUS BANNER — Contextual top strip per status
+// STATUS BANNER
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
@@ -531,7 +566,6 @@ private fun StatusBanner(
             modifier = Modifier.weight(1f)
         )
 
-        // Contextual right-side info
         when {
             searching -> {
                 Text(
@@ -564,7 +598,6 @@ private fun StatusBanner(
                 }
             }
             completed -> {
-                // Show rating stars if rated (rating > 0), else "Unrated"
                 val rating = order.rating ?: 0
                 if (rating > 0) {
                     Row(

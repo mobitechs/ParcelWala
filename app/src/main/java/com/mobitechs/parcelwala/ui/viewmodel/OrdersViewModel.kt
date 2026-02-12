@@ -3,6 +3,7 @@ package com.mobitechs.parcelwala.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.data.repository.OrdersRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
@@ -13,7 +14,7 @@ import javax.inject.Inject
 
 /**
  * Orders ViewModel
- * Handles order list with client-side status filtering and rating
+ * Handles order list with client-side status filtering, rating, and active booking blocking.
  *
  * IMPORTANT: Backend status values are LOWERCASE with underscores:
  *   searching, delivery_completed, cancelled, assigned, arriving, picked_up, in_progress, pending
@@ -27,7 +28,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
-    private val ordersRepository: OrdersRepository
+    private val ordersRepository: OrdersRepository,
+    private val activeBookingManager: ActiveBookingManager
 ) : ViewModel() {
 
     // UI State
@@ -37,6 +39,14 @@ class OrdersViewModel @Inject constructor(
     // Selected filter key (null = All)
     private val _selectedFilter = MutableStateFlow<String?>(null)
     val selectedFilter: StateFlow<String?> = _selectedFilter.asStateFlow()
+
+    /**
+     * Exposes whether there's an active booking.
+     * Used by OrdersScreen to block "Book Again" action.
+     */
+    val hasActiveBooking: StateFlow<Boolean> = activeBookingManager.activeBooking
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // All orders cache (for client-side filtering)
     private var allOrders: List<OrderResponse> = emptyList()
