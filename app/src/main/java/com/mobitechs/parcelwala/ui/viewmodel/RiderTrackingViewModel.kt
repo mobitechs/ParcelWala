@@ -1,4 +1,7 @@
-// // add timer code in this
+// ui/viewmodel/RiderTrackingViewModel.kt
+// ✅ UPDATED: Full lifecycle tracking - Assigned → Arrived → PickedUp → InTransit → Delivered
+// ✅ UPDATED: Phase-aware map (driver→pickup pre-pickup, driver→drop post-pickup)
+// ✅ UPDATED: Waiting timer, rating integration, cancel logic per phase
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import android.util.Log
@@ -15,7 +18,6 @@ import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
 import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.data.repository.DirectionsRepository
 import com.mobitechs.parcelwala.data.repository.RealTimeRepository
-import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.utils.BookingNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -43,7 +45,7 @@ class RiderTrackingViewModel @Inject constructor(
         private const val TAG = "RiderTrackingVM"
         private const val INITIAL_MAX_DISTANCE_METERS = 10000.0
 
-        // ── Waiting Charge Constants ──
+        // Waiting Charge Constants
         const val FREE_WAITING_SECONDS = 180
         const val CHARGE_PER_MINUTE = 3
     }
@@ -73,7 +75,7 @@ class RiderTrackingViewModel @Inject constructor(
     private val _distanceKm = MutableStateFlow<Double?>(null)
     val distanceKm: StateFlow<Double?> = _distanceKm.asStateFlow()
 
-    // ── Route Polyline (actual road route, not straight line) ──
+    // Route Polylines
     private val _driverToPickupRoute = MutableStateFlow<List<LatLng>>(emptyList())
     val driverToPickupRoute: StateFlow<List<LatLng>> = _driverToPickupRoute.asStateFlow()
 
@@ -82,11 +84,11 @@ class RiderTrackingViewModel @Inject constructor(
 
     private var routeFetchJob: Job? = null
 
-    // ── Waiting Timer State ──
+    // Waiting Timer State
     private val _waitingState = MutableStateFlow(WaitingTimerState())
     val waitingState: StateFlow<WaitingTimerState> = _waitingState.asStateFlow()
 
-    // ── Rating State ──
+    // Rating State
     private val _ratingState = MutableStateFlow(RatingUiState())
     val ratingState: StateFlow<RatingUiState> = _ratingState.asStateFlow()
 
@@ -102,6 +104,43 @@ class RiderTrackingViewModel @Inject constructor(
 
     private var initialDistanceMeters: Double? = null
     private var lastNotifiedEta: Int? = null
+    private var lastRouteFetchTime = 0L
+    private val ROUTE_FETCH_INTERVAL = 30_000L
+    private var hasServerEta = false
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // COMPUTED PROPERTIES FOR UI
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Whether we're in pre-pickup phase (driver heading to pickup) */
+    val isPrePickupPhase: Boolean
+        get() {
+            val status = _uiState.value.currentStatus
+            return status == BookingStatusType.RIDER_ASSIGNED ||
+                    status == BookingStatusType.RIDER_ENROUTE ||
+                    status == BookingStatusType.ARRIVED
+        }
+
+    /** Whether parcel has been picked up (driver heading to drop) */
+    val isPostPickupPhase: Boolean
+        get() {
+            val status = _uiState.value.currentStatus
+            return status == BookingStatusType.PICKED_UP ||
+                    status == BookingStatusType.IN_TRANSIT ||
+                    status == BookingStatusType.ARRIVED_DELIVERY
+        }
+
+    /** Whether booking can be cancelled (only before pickup) */
+    val canCancel: Boolean
+        get() = isPrePickupPhase
+
+    /** Whether OTP should be shown (only before pickup, not after) */
+    val showPickupOtp: Boolean
+        get() = isPrePickupPhase && _bookingOtp.value != null
+
+    /** Whether trip is completed */
+    val isDelivered: Boolean
+        get() = _uiState.value.currentStatus == BookingStatusType.DELIVERED
 
     // ═══════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -234,9 +273,6 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun getFinalWaitingCharge(): Int = _waitingState.value.waitingCharge
 
-    /**
-     * Get total fare including waiting charges
-     */
     fun getTotalFare(): Int {
         val baseFare = activeBookingManager.activeBooking.value?.fare ?: 0
         return baseFare + _waitingState.value.waitingCharge
@@ -275,12 +311,21 @@ class RiderTrackingViewModel @Inject constructor(
         }
     }
 
+    fun skipRating() {
+        viewModelScope.launch {
+            _ratingState.value = RatingUiState()
+            activeBookingManager.clearActiveBooking()
+            _navigationEvent.emit(RiderTrackingNavigationEvent.NavigateToHome)
+        }
+    }
+
     fun dismissRating() {
         _ratingState.value = RatingUiState()
     }
 
     fun onRatingCompleted() {
         viewModelScope.launch {
+            _ratingState.value = RatingUiState()
             activeBookingManager.clearActiveBooking()
             _navigationEvent.emit(RiderTrackingNavigationEvent.NavigateToHome)
         }
@@ -469,8 +514,7 @@ class RiderTrackingViewModel @Inject constructor(
 
         _bookingOtp.value = update.otp
 
-        // ✅ FIX Issue 1: Calculate DRIVER → PICKUP distance only
-        // Do NOT use additionalData.distance (that's pickup→drop = booking distance)
+        // Calculate DRIVER → PICKUP distance
         val driverLat = update.driverLatitude ?: rider?.currentLatitude ?: 0.0
         val driverLng = update.driverLongitude ?: rider?.currentLongitude ?: 0.0
         val pickupLat = activeBookingManager.activeBooking.value?.pickupAddress?.latitude ?: 0.0
@@ -482,30 +526,21 @@ class RiderTrackingViewModel @Inject constructor(
             initialDistanceMeters = distMeters
             Log.d(TAG, "📏 Driver→Pickup distance: ${formatDistance(distMeters / 1000.0)}")
 
-            // Use server ETA if available, otherwise estimate at 25 km/h city speed
             val serverEta = update.etaMinutes ?: rider?.etaMinutes
             if (serverEta != null && serverEta > 0) {
                 _etaMinutes.value = serverEta
             } else {
                 val estimatedEta = ((distMeters / 1000.0) / 25.0 * 60.0).toInt().coerceAtLeast(1)
                 _etaMinutes.value = estimatedEta
-                Log.d(TAG, "⏱️ ETA estimated from distance: $estimatedEta min")
             }
 
-            // Fetch actual road route (polyline for map)
             fetchRoute(driverLat, driverLng, pickupLat, pickupLng, isDriverToPickup = true)
         } else {
-            // ✅ FIX Issue 1: No driver location — use server ETA only
-            // Do NOT use update.distanceKm (additionalData.distance = pickup→drop)
             val serverEta = update.etaMinutes ?: rider?.etaMinutes
             _etaMinutes.value = serverEta
-            Log.d(TAG, "⚠️ No driver location for distance calc, server ETA: $serverEta")
         }
 
-        val eta = _etaMinutes.value
-        Log.d(TAG, "⏱️ Final ETA: $eta min")
-
-        // Also fetch pickup → drop route for later use (after parcel picked up)
+        // Pre-fetch pickup → drop route for later use
         val dropLat = activeBookingManager.activeBooking.value?.dropAddress?.latitude ?: 0.0
         val dropLng = activeBookingManager.activeBooking.value?.dropAddress?.longitude ?: 0.0
         if (pickupLat != 0.0 && pickupLng != 0.0 && dropLat != 0.0 && dropLng != 0.0) {
@@ -514,7 +549,7 @@ class RiderTrackingViewModel @Inject constructor(
 
         activeBookingManager.updateStatus(BookingStatus.RIDER_ASSIGNED)
 
-        // Notification
+        val eta = _etaMinutes.value
         notificationHelper.showStickyStatusNotification(
             bookingId = update.bookingId.toString(),
             title = "Driver Assigned!",
@@ -540,10 +575,10 @@ class RiderTrackingViewModel @Inject constructor(
     private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
 
-        // ⏱️ START WAITING TIMER
+        // START WAITING TIMER
         startWaitingTimer()
 
-        // Clear ETA/distance since driver is already at pickup
+        // Clear ETA/distance since driver is at pickup
         _etaMinutes.value = 0
         _distanceKm.value = 0.0
 
@@ -569,14 +604,17 @@ class RiderTrackingViewModel @Inject constructor(
     private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
 
-        // ⏱️ STOP WAITING TIMER
+        // STOP WAITING TIMER
         val finalCharge = getFinalWaitingCharge()
         stopWaitingTimer()
         Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
 
         update.deliveryOtp?.let { _deliveryOtp.value = it }
 
-        // ✅ FIX Issue 1: NOW show pickup→drop distance (ride has started)
+        // Clear pickup OTP - no longer needed
+        // _bookingOtp remains for reference but showPickupOtp will return false
+
+        // Reset distance tracking for drop phase
         initialDistanceMeters = null
 
         val pickupLat = activeBookingManager.activeBooking.value?.pickupAddress?.latitude ?: 0.0
@@ -590,7 +628,7 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = ((distMeters / 1000.0) / 25.0 * 60.0).toInt().coerceAtLeast(1)
             initialDistanceMeters = distMeters
 
-            // Fetch actual road route for pickup→drop
+            // Fetch road route for pickup→drop
             fetchRoute(pickupLat, pickupLng, dropLat, dropLng, isDriverToPickup = false)
         } else {
             _etaMinutes.value = null
@@ -657,11 +695,14 @@ class RiderTrackingViewModel @Inject constructor(
         realTimeRepository.disconnect()
         _toastMessage.emit("Delivery completed!")
 
+        // Show rating dialog
         _ratingState.update {
             it.copy(
                 showRatingDialog = true,
                 bookingId = update.bookingId.toString(),
                 driverName = _assignedRider.value?.riderName ?: "Driver",
+                driverPhoto = _assignedRider.value?.photoUrl,
+                vehicleType = _assignedRider.value?.vehicleType,
                 totalFare = totalFare,
                 waitingCharge = waitingCharge
             )
@@ -705,10 +746,8 @@ class RiderTrackingViewModel @Inject constructor(
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
-        val isPrePickup = _uiState.value.currentStatus == BookingStatusType.RIDER_ASSIGNED ||
-                _uiState.value.currentStatus == BookingStatusType.RIDER_ENROUTE
+        val isPrePickup = isPrePickupPhase
 
-        // ✅ FIX: Use correct distance field based on phase (pickup vs drop)
         val serverDistMeters = location.getRelevantDistanceMeters(isPrePickup)
 
         Log.d(TAG, "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes} | Dist: ${serverDistMeters?.toInt()}m | toPickup: ${location.distanceToPickupKm} | toDrop: ${location.distanceToDropKm}")
@@ -720,21 +759,17 @@ class RiderTrackingViewModel @Inject constructor(
         val targetLng: Double
 
         if (isPrePickup) {
-            // Driver heading to pickup
             targetLat = activeBookingManager.activeBooking.value?.pickupAddress?.latitude ?: 0.0
             targetLng = activeBookingManager.activeBooking.value?.pickupAddress?.longitude ?: 0.0
         } else {
-            // Driver heading to drop
             targetLat = activeBookingManager.activeBooking.value?.dropAddress?.latitude ?: 0.0
             targetLng = activeBookingManager.activeBooking.value?.dropAddress?.longitude ?: 0.0
         }
 
-        // Calculate distance from coordinates (always, as fallback)
         val calcDistKm = if (targetLat != 0.0 && targetLng != 0.0) {
             haversineDistance(location.latitude, location.longitude, targetLat, targetLng) / 1000.0
         } else null
 
-        // ✅ Priority: server distance (from driver/backend) > haversine calculation
         val distanceKmValue = if (serverDistMeters != null && serverDistMeters > 0) {
             serverDistMeters / 1000.0
         } else {
@@ -748,9 +783,8 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
-        // ✅ ETA sanity check — prioritize server ETA from driver app
         val calculatedEtaMin = distanceKmValue?.let {
-            ((it / 25.0) * 60.0).toInt().coerceAtLeast(1)  // 25 km/h city speed
+            ((it / 25.0) * 60.0).toInt().coerceAtLeast(1)
         }
 
         val serverEta = location.etaMinutes
@@ -758,7 +792,6 @@ class RiderTrackingViewModel @Inject constructor(
         if (serverEta != null && serverEta > 0) {
             val actualDistKm = _distanceKm.value ?: distanceKmValue
             if (actualDistKm != null && actualDistKm > 0) {
-                // Sanity check: if distance is > 2km but server says 1 min, don't trust it
                 val minReasonableEta = (actualDistKm / 40.0 * 60.0).toInt().coerceAtLeast(1)
                 if (serverEta >= minReasonableEta) {
                     _etaMinutes.value = serverEta
@@ -766,7 +799,6 @@ class RiderTrackingViewModel @Inject constructor(
                 } else {
                     _etaMinutes.value = calculatedEtaMin
                     hasServerEta = false
-                    Log.w(TAG, "⚠️ Server ETA($serverEta min) too low for ${String.format("%.1f", actualDistKm)}km, using calculated: $calculatedEtaMin min")
                 }
             } else {
                 _etaMinutes.value = serverEta
@@ -777,24 +809,18 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = calculatedEtaMin
         }
 
-        // ✅ Update route polyline with latest driver position (throttled)
-        if (currentStatus == BookingStatusType.RIDER_ASSIGNED ||
-            currentStatus == BookingStatusType.RIDER_ENROUTE
-        ) {
-            // Pre-pickup: Refresh route from driver → pickup
+        // Update route polyline with latest driver position (throttled)
+        if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
             if (targetLat != 0.0 && targetLng != 0.0) {
                 fetchRouteThrottled(location.latitude, location.longitude, targetLat, targetLng, isDriverToPickup = true)
             }
-        } else if (currentStatus == BookingStatusType.PICKED_UP ||
-            currentStatus == BookingStatusType.IN_TRANSIT
-        ) {
-            // Post-pickup: Refresh route from driver → drop
+        } else if (isPostPickupPhase) {
             if (targetLat != 0.0 && targetLng != 0.0) {
                 fetchRouteThrottled(location.latitude, location.longitude, targetLat, targetLng, isDriverToPickup = false)
             }
         }
 
-        // Update rider info with new location
+        // Update rider info
         _assignedRider.update { rider ->
             rider?.copy(
                 currentLatitude = location.latitude,
@@ -803,10 +829,8 @@ class RiderTrackingViewModel @Inject constructor(
             )
         }
 
-        // ✅ Update sticky notification with latest ETA (using formatDistance)
-        if (currentStatus == BookingStatusType.RIDER_ASSIGNED ||
-            currentStatus == BookingStatusType.RIDER_ENROUTE
-        ) {
+        // Update notification
+        if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
             val driverName = _assignedRider.value?.riderName
             val bookingId = _uiState.value.currentBookingId ?: return
             val distKm = _distanceKm.value
@@ -826,18 +850,9 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ROUTE FETCHING (Google Directions API for actual road polyline)
+    // ROUTE FETCHING
     // ═══════════════════════════════════════════════════════════════════════
 
-    private var lastRouteFetchTime = 0L
-    private val ROUTE_FETCH_INTERVAL = 30_000L // Fetch new route max every 30 seconds
-    private var hasServerEta = false // Track if we have ETA from driver via SignalR
-
-    /**
-     * Fetch actual road route from Google Directions API
-     * Primary purpose: polyline for map display
-     * Secondary purpose: ETA/distance fallback when driver doesn't send them
-     */
     private fun fetchRoute(
         fromLat: Double, fromLng: Double,
         toLat: Double, toLng: Double,
@@ -848,7 +863,6 @@ class RiderTrackingViewModel @Inject constructor(
             try {
                 val result = directionsRepository.getRouteInfo(fromLat, fromLng, toLat, toLng)
                 result.onSuccess { routeInfo ->
-                    // Always update polyline for map display
                     if (isDriverToPickup) {
                         _driverToPickupRoute.value = routeInfo.polylinePoints
                     } else {
@@ -856,16 +870,12 @@ class RiderTrackingViewModel @Inject constructor(
                     }
                     Log.d(TAG, "🗺️ Route fetched: ${routeInfo.polylinePoints.size} points (${if (isDriverToPickup) "driver→pickup" else "pickup→drop"})")
 
-                    // Only use route ETA/distance if server (driver) hasn't provided them
                     if (!hasServerEta) {
                         _distanceKm.value = routeInfo.distanceMeters / 1000.0
                         _etaMinutes.value = (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
-                        Log.d(TAG, "📏 Using route ETA (no server ETA): ${routeInfo.distanceText}, ${routeInfo.durationText}")
-                    } else {
-                        Log.d(TAG, "📏 Route polyline updated, keeping server ETA: ${_etaMinutes.value}min")
                     }
                 }.onFailure { e ->
-                    Log.w(TAG, "⚠️ Route fetch failed: ${e.message}, using straight line fallback")
+                    Log.w(TAG, "⚠️ Route fetch failed: ${e.message}")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "⚠️ Route fetch error: ${e.message}")
@@ -873,9 +883,6 @@ class RiderTrackingViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Throttled route fetch - only fetches if enough time has passed
-     */
     private fun fetchRouteThrottled(
         fromLat: Double, fromLng: Double,
         toLat: Double, toLng: Double,
@@ -892,11 +899,8 @@ class RiderTrackingViewModel @Inject constructor(
     // UTILITY
     // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Haversine distance calculation in meters
-     */
     private fun haversineDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val R = 6371000.0 // Earth's radius in meters
+        val R = 6371000.0
         val dLat = Math.toRadians(lat2 - lat1)
         val dLng = Math.toRadians(lng2 - lng1)
         val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -906,11 +910,6 @@ class RiderTrackingViewModel @Inject constructor(
         return R * c
     }
 
-    /**
-     * ✅ FIX Issue 3: Format distance for display
-     * < 1 km → "400 m", "200 m"
-     * >= 1 km → "1.4 km", "3.2 km"
-     */
     fun formatDistance(distanceKm: Double?): String {
         if (distanceKm == null) return ""
         val meters = (distanceKm * 1000).toInt()
@@ -918,6 +917,19 @@ class RiderTrackingViewModel @Inject constructor(
             "${meters} m"
         } else {
             String.format("%.1f km", distanceKm)
+        }
+    }
+
+    /** Get status display text for the bottom sheet header */
+    fun getStatusDisplayText(): String {
+        return when (_uiState.value.currentStatus) {
+            BookingStatusType.RIDER_ASSIGNED, BookingStatusType.RIDER_ENROUTE -> "Driver is on the way"
+            BookingStatusType.ARRIVED -> "Driver has arrived"
+            BookingStatusType.PICKED_UP -> "Parcel picked up"
+            BookingStatusType.IN_TRANSIT -> "On the way to delivery"
+            BookingStatusType.ARRIVED_DELIVERY -> "Arrived at delivery"
+            BookingStatusType.DELIVERED -> "Delivery completed"
+            else -> "Tracking your delivery"
         }
     }
 
@@ -969,6 +981,8 @@ data class RatingUiState(
     val showRatingDialog: Boolean = false,
     val bookingId: String = "",
     val driverName: String = "",
+    val driverPhoto: String? = null,
+    val vehicleType: String? = null,
     val totalFare: Int = 0,
     val waitingCharge: Int = 0,
     val isSubmitting: Boolean = false,
