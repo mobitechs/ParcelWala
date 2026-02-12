@@ -166,6 +166,9 @@ data class CreateBookingRequest(
 
 /**
  * Builder helper to create request from FareDetails and UI state
+ *
+ * ✅ FIX: Now accepts optional roadDistanceKm and roadDurationMinutes from Google Directions.
+ * When available, these override the fare API's distance/duration for more accurate data.
  */
 object CreateBookingRequestBuilder {
 
@@ -184,11 +187,18 @@ object CreateBookingRequestBuilder {
         couponDiscountValue: Int?,
         couponDiscountAmount: Int,
         paymentMethod: String,
-        gstin: String?
+        gstin: String?,
+        // ✅ NEW: Optional road distance/ETA from Google Directions API
+        roadDistanceKm: Double? = null,
+        roadDurationMinutes: Int? = null
     ): CreateBookingRequest {
 
         val fareBeforeDiscount = fareDetails.roundedFare
         val finalFare = fareBeforeDiscount - couponDiscountAmount
+
+        // ✅ Use road distance if available, fallback to fare API distance
+        val distanceKm = roadDistanceKm ?: fareDetails.distanceKm
+        val durationMinutes = roadDurationMinutes ?: fareDetails.estimatedDurationMinutes
 
         return CreateBookingRequest(
             // Vehicle Info
@@ -220,9 +230,9 @@ object CreateBookingRequestBuilder {
             goodsPackages = goodsPackages,
             goodsValue = goodsValue,
 
-            // Fare Calculation
-            distanceKm = fareDetails.distanceKm,
-            estimatedDurationMinutes = fareDetails.estimatedDurationMinutes,
+            // ✅ Fare Calculation - uses road distance when available
+            distanceKm = distanceKm,
+            estimatedDurationMinutes = durationMinutes,
             baseFare = fareDetails.baseFare,
             freeDistanceKm = fareDetails.freeDistanceKm,
             chargeableDistanceKm = fareDetails.chargeableDistanceKm,
@@ -261,11 +271,11 @@ object CreateBookingRequestBuilder {
 
 /**
  * Fare calculation request
+ * When distance_km and estimated_duration_minutes are provided (from Google Directions),
+ * backend uses these values instead of calculating its own (straight-line) distance.
+ * This ensures fare calculation uses accurate road distance.
  */
 data class CalculateFareRequest(
-//    @SerializedName("vehicle_type_id")
-//    val vehicleTypeId: Int,
-
     @SerializedName("pickup_latitude")
     val pickupLatitude: Double,
 
@@ -276,7 +286,17 @@ data class CalculateFareRequest(
     val dropLatitude: Double,
 
     @SerializedName("drop_longitude")
-    val dropLongitude: Double
+    val dropLongitude: Double,
+
+    // Optional: Road distance from Google Directions API
+    // If provided, backend uses this instead of calculating its own distance
+    @SerializedName("distance_km")
+    val distanceKm: Double? = null,
+
+    // Optional: Road ETA from Google Directions API
+    // If provided, backend uses this instead of calculating its own duration
+    @SerializedName("estimated_duration_minutes")
+    val estimatedDurationMinutes: Int? = null
 )
 
 

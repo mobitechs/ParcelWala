@@ -58,7 +58,6 @@ class DirectionsRepository @Inject constructor(
                 val route = directionsResponse.routes[0]
                 val leg = route.legs[0]
 
-                // ✅ Correct way to decode polyline
                 val polylinePoints: List<LatLng> = PolyUtil.decode(route.overviewPolyline.points)
 
                 return RouteInfo(

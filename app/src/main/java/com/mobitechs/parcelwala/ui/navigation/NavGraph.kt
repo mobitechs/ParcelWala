@@ -693,6 +693,11 @@ fun NavGraph(
                             is RiderTrackingNavigationEvent.NoRiderAvailable -> {
                                 // Stay on this screen - UI will show retry option
                             }
+                            is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
                             is RiderTrackingNavigationEvent.BookingCancelled -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
@@ -767,13 +772,19 @@ fun NavGraph(
                     riderTrackingViewModel.navigationEvent.collect { event ->
                         when (event) {
                             is RiderTrackingNavigationEvent.RiderArrived -> {
-                                // TODO: Navigate to RiderArrivedScreen
+                                // Stay on RiderFoundScreen - UI updates via state
                             }
                             is RiderTrackingNavigationEvent.ParcelPickedUp -> {
-                                // TODO: Navigate to TrackingScreen
+                                // Stay on RiderFoundScreen - map switches to delivery route
                             }
                             is RiderTrackingNavigationEvent.Delivered -> {
-                                // TODO: Navigate to DeliveredScreen
+                                // Rating dialog shown in RiderFoundScreen
+                                // NavigateToHome fires after rating completes
+                            }
+                            is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
                             }
                             is RiderTrackingNavigationEvent.BookingCancelled -> {
                                 navController.navigate(Screen.Main.route) {

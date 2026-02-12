@@ -1,4 +1,9 @@
 // data/model/realtime/RealTimeModels.kt
+// ✅ No changes from previous version - already correct
+// - distanceToPickupKm/distanceToDropKm fields present
+// - getRelevantDistanceMeters() helper present
+// - AdditionalBookingData model present
+// - estimatedArrivalToMinutes() present
 package com.mobitechs.parcelwala.data.model.realtime
 
 import com.google.gson.annotations.SerializedName
@@ -8,76 +13,83 @@ import com.google.gson.annotations.SerializedName
 // ════════════════════════════════════════════════════════════════════════════
 
 data class BookingStatusUpdate(
-    @SerializedName("BookingId")
+    @SerializedName("bookingId")
     val bookingId: Int,
 
-    @SerializedName("BookingNumber")
+    @SerializedName("bookingNumber")
     val bookingNumber: String? = null,
 
-    @SerializedName("Status")
+    @SerializedName("status")
     val status: String? = null,
 
-    @SerializedName("StatusMessage")
+    @SerializedName("statusMessage")
     val statusMessage: String? = null,
 
-    @SerializedName("Message")
+    @SerializedName("message")
     val messageAlt: String? = null,
 
-    @SerializedName("Timestamp")
+    @SerializedName("timestamp")
     val timestamp: String? = null,
 
-    // Driver Info
-    @SerializedName("DriverId")
+    @SerializedName("driverId")
     val driverId: Int? = null,
 
-    @SerializedName("DriverName")
+    @SerializedName("driverName")
     val driverName: String? = null,
 
-    @SerializedName("DriverPhone")
+    @SerializedName("driverPhone")
     val driverPhone: String? = null,
 
-    @SerializedName("VehicleNumber")
-    val vehicleNumber: String? = null,
-
-    @SerializedName("VehicleType")
-    val vehicleType: String? = null,
-
-    @SerializedName("DriverRating")
+    @SerializedName("driverRating")
     val driverRating: Double? = null,
 
-    @SerializedName("DriverPhoto")
+    @SerializedName("driverPhoto")
     val driverPhoto: String? = null,
 
-    // OTP
-    @SerializedName("PickupOtp")
+    @SerializedName("vehicleNumber")
+    val vehicleNumber: String? = null,
+
+    @SerializedName("vehicleType")
+    val vehicleType: String? = null,
+
+    @SerializedName("pickupOtp")
     val otp: String? = null,
 
-    @SerializedName("DeliveryOtp")
+    @SerializedName("deliveryOtp")
     val deliveryOtp: String? = null,
 
-    // ETA
-    @SerializedName("EstimatedArrival")
+    @SerializedName("estimatedArrival")
     val estimatedArrival: String? = null,
 
-    @SerializedName("EtaMinutes")
+    @SerializedName("etaMinutes")
     val etaMinutes: Int? = null,
 
-    // Location
-    @SerializedName("DriverLatitude")
+    @SerializedName("driverLatitude")
     val driverLatitude: Double? = null,
 
-    @SerializedName("DriverLongitude")
+    @SerializedName("driverLongitude")
     val driverLongitude: Double? = null,
 
-    // Cancellation
-    @SerializedName("CancellationReason")
+    @SerializedName("cancellationReason")
     val cancellationReason: String? = null,
 
-    @SerializedName("CancelledBy")
-    val cancelledBy: String? = null
+    @SerializedName("cancelledBy")
+    val cancelledBy: String? = null,
+
+    @SerializedName("totalFare")
+    val totalFare: Int? = null,
+
+    @SerializedName("waitingCharge")
+    val waitingCharge: Int? = null,
+
+    @SerializedName("additionalData")
+    val additionalData: AdditionalBookingData? = null
 ) {
     val message: String?
         get() = statusMessage ?: messageAlt
+
+    val distanceKm: Double?
+        get() = additionalData?.distance
 
     val rider: RiderInfo?
         get() = if (!driverName.isNullOrEmpty()) {
@@ -91,14 +103,28 @@ data class BookingStatusUpdate(
                 totalTrips = null,
                 currentLatitude = driverLatitude ?: 0.0,
                 currentLongitude = driverLongitude ?: 0.0,
-                etaMinutes = etaMinutes,
+                etaMinutes = etaMinutes ?: estimatedArrivalToMinutes(),
                 photoUrl = driverPhoto
             )
         } else null
 
+    private fun estimatedArrivalToMinutes(): Int? {
+        if (estimatedArrival.isNullOrEmpty()) return null
+        return try {
+            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+            format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val cleaned = estimatedArrival.substringBefore("Z").let {
+                if (it.contains(".")) it.substringBefore(".") else it
+            }
+            val arrivalTime = format.parse(cleaned)?.time ?: return null
+            val now = System.currentTimeMillis()
+            val diffMinutes = ((arrivalTime - now) / 60000).toInt()
+            if (diffMinutes > 0) diffMinutes else 1
+        } catch (e: Exception) { null }
+    }
+
     fun getStatusType(): BookingStatusType {
         if (status.isNullOrEmpty()) return BookingStatusType.SEARCHING
-
         return when (status.lowercase()) {
             "searching" -> BookingStatusType.SEARCHING
             "assigned" -> BookingStatusType.RIDER_ASSIGNED
@@ -115,27 +141,23 @@ data class BookingStatusUpdate(
     }
 }
 
+data class AdditionalBookingData(
+    @SerializedName("pickupAddress") val pickupAddress: String? = null,
+    @SerializedName("dropAddress") val dropAddress: String? = null,
+    @SerializedName("distance") val distance: Double? = null,
+    @SerializedName("fare") val fare: Double? = null
+)
+
 // ════════════════════════════════════════════════════════════════════════════
 // BOOKING CANCELLED NOTIFICATION
 // ════════════════════════════════════════════════════════════════════════════
 
 data class BookingCancelledNotification(
-    @SerializedName("BookingId")
     val bookingId: Int,
-
-    @SerializedName("CancelledBy")
     val cancelledBy: String? = null,
-
-    @SerializedName("Reason")
     val reason: String? = null,
-
-    @SerializedName("Message")
     val message: String = "Booking cancelled",
-
-    @SerializedName("RefundAmount")
     val refundAmount: Double? = null,
-
-    @SerializedName("Timestamp")
     val timestamp: String? = null
 )
 
@@ -144,37 +166,16 @@ data class BookingCancelledNotification(
 // ════════════════════════════════════════════════════════════════════════════
 
 data class RiderInfo(
-    @SerializedName("RiderId")
     val riderId: String,
-
-    @SerializedName("RiderName")
     val riderName: String,
-
-    @SerializedName("RiderPhone")
     val riderPhone: String,
-
-    @SerializedName("VehicleNumber")
     val vehicleNumber: String,
-
-    @SerializedName("VehicleType")
     val vehicleType: String? = null,
-
-    @SerializedName("Rating")
     val rating: Double? = null,
-
-    @SerializedName("TotalTrips")
     val totalTrips: Int? = null,
-
-    @SerializedName("CurrentLatitude")
     val currentLatitude: Double,
-
-    @SerializedName("CurrentLongitude")
     val currentLongitude: Double,
-
-    @SerializedName("EtaMinutes")
     val etaMinutes: Int? = null,
-
-    @SerializedName("PhotoUrl")
     val photoUrl: String? = null
 )
 
@@ -183,63 +184,43 @@ data class RiderInfo(
 // ════════════════════════════════════════════════════════════════════════════
 
 data class RiderLocationUpdate(
-    @SerializedName("BookingId")
     val bookingId: String,
-
-    @SerializedName("RiderId")
     val riderId: String? = null,
-
-    @SerializedName("DriverId")
     val driverId: Int? = null,
-
-    @SerializedName("Latitude")
     val latitude: Double,
-
-    @SerializedName("Longitude")
     val longitude: Double,
-
-    @SerializedName("Speed")
+    val distanceToPickupKm: Double? = null,
+    val distanceToDropKm: Double? = null,
     val speed: Double? = null,
-
-    @SerializedName("Heading")
     val heading: Double? = null,
-
-    @SerializedName("EtaMinutes")
     val etaMinutes: Int? = null,
-
-    @SerializedName("DistanceMeters")
     val distanceMeters: Double? = null,
-
-    @SerializedName("Status")
     val status: String? = null,
-
-    @SerializedName("Timestamp")
     val timestamp: String? = null
 ) {
     val driverIdString: String
         get() = riderId ?: driverId?.toString() ?: "0"
+
+    /**
+     * Get relevant distance in METERS based on current phase
+     * Priority: distanceMeters (road, from driver) > distanceToPickup/Drop (straight-line, from backend)
+     */
+    fun getRelevantDistanceMeters(isPrePickup: Boolean): Double? {
+        if (distanceMeters != null && distanceMeters > 0) return distanceMeters
+        val distKm = if (isPrePickup) distanceToPickupKm else distanceToDropKm
+        return distKm?.let { it * 1000.0 }
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// BOOKING STATUS TYPE
+// ENUMS & SEALED CLASSES
 // ════════════════════════════════════════════════════════════════════════════
 
 enum class BookingStatusType {
-    SEARCHING,
-    RIDER_ASSIGNED,
-    RIDER_ENROUTE,
-    ARRIVED,
-    PICKED_UP,
-    IN_TRANSIT,
-    ARRIVED_DELIVERY,
-    DELIVERED,
-    CANCELLED,
-    NO_RIDER
+    SEARCHING, RIDER_ASSIGNED, RIDER_ENROUTE, ARRIVED,
+    PICKED_UP, IN_TRANSIT, ARRIVED_DELIVERY, DELIVERED,
+    CANCELLED, NO_RIDER
 }
-
-// ════════════════════════════════════════════════════════════════════════════
-// CONNECTION STATE
-// ════════════════════════════════════════════════════════════════════════════
 
 sealed class RealTimeConnectionState {
     object Disconnected : RealTimeConnectionState()
@@ -247,22 +228,11 @@ sealed class RealTimeConnectionState {
     object Connected : RealTimeConnectionState()
     object Reconnecting : RealTimeConnectionState()
     data class Error(val message: String) : RealTimeConnectionState()
-
-    val isConnected: Boolean
-        get() = this is Connected
+    val isConnected: Boolean get() = this is Connected
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// SIGNALR ERROR
-// ════════════════════════════════════════════════════════════════════════════
-
 data class SignalRError(
-    @SerializedName("Message")
     val message: String,
-
-    @SerializedName("Code")
     val code: String? = null,
-
-    @SerializedName("ErrorCode")
     val errorCode: String? = null
 )

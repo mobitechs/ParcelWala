@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
+import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
@@ -31,10 +32,31 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     // Active booking state - exposed from ActiveBookingManager
-    val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
+    // ✅ FIX: Filter out completed/cancelled bookings so they don't show on home
+    private val _filteredActiveBooking = MutableStateFlow<ActiveBooking?>(null)
+    val activeBooking: StateFlow<ActiveBooking?> = _filteredActiveBooking.asStateFlow()
 
     init {
         loadVehicleTypes()
+        observeActiveBooking()
+    }
+
+    /**
+     * ✅ FIX: Only show active bookings that are NOT delivered or cancelled
+     */
+    private fun observeActiveBooking() {
+        viewModelScope.launch {
+            activeBookingManager.activeBooking.collect { booking ->
+                _filteredActiveBooking.value = when (booking?.status) {
+                    BookingStatus.DELIVERED, BookingStatus.CANCELLED -> {
+                        // Clear stale delivered/cancelled bookings
+                        activeBookingManager.clearActiveBooking()
+                        null
+                    }
+                    else -> booking
+                }
+            }
+        }
     }
 
     /**

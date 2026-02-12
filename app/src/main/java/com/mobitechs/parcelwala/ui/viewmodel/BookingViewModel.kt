@@ -38,12 +38,12 @@ import javax.inject.Inject
  *
  * FLOW (Like Ola/Uber):
  * 1. User selects pickup & drop locations
- * 2. Call calculateFaresForAllVehicles API
- * 3. Show list of vehicles with calculated fares
+ * 2. Call Google Directions FIRST → then calculateFaresForAllVehicles with road distance
+ * 3. Show list of vehicles with calculated fares + road distance/ETA
  * 4. User selects a vehicle → proceed to review
  * 5. User can apply coupon → discount calculated
- * 6. Confirm booking → sends complete fare breakdown to API
- * 7. Navigate to SearchingRiderScreen
+ * 6. Confirm booking → sends road distance in request
+ * 7. Navigate to SearchingRiderScreen (reuses cached route)
  * 8. On cancel → calls cancelBooking API → navigates home
  */
 @HiltViewModel
@@ -86,12 +86,14 @@ class BookingViewModel @Inject constructor(
     private val _navigationEvent = MutableSharedFlow<BookingNavigationEvent>()
     val navigationEvent: SharedFlow<BookingNavigationEvent> = _navigationEvent.asSharedFlow()
 
-    // ============ ROUTE INFO ============
+    // ============ ROUTE INFO (Google Directions - road distance/ETA) ============
     private val _routeInfo = MutableStateFlow<RouteInfo?>(null)
     val routeInfo: StateFlow<RouteInfo?> = _routeInfo.asStateFlow()
 
     private val _isRouteLoading = MutableStateFlow(false)
     val isRouteLoading: StateFlow<Boolean> = _isRouteLoading.asStateFlow()
+
+    private var routeCalculationJob: Job? = null
 
     // ============ ACTIVE BOOKING ============
     val activeBooking: StateFlow<ActiveBooking?> = activeBookingManager.activeBooking
@@ -102,7 +104,54 @@ class BookingViewModel @Inject constructor(
 
     // ============ FARE CALCULATION ============
 
-    fun calculateFaresForAllVehicles() {
+    /**
+     * Step 1: Calculate route via Google Directions
+     * Step 2: Once route ready, calculate fares with road distance
+     * This ensures fare API uses accurate road distance, not straight-line.
+     */
+    private fun calculateRouteAndThenFares() {
+        val pickup = _uiState.value.pickupAddress
+        val drop = _uiState.value.dropAddress
+        if (pickup == null || drop == null || pickup.latitude == 0.0 || drop.latitude == 0.0) return
+
+        // Cancel any existing jobs
+        fareCalculationJob?.cancel()
+        routeCalculationJob?.cancel()
+
+        routeCalculationJob = viewModelScope.launch {
+            _isRouteLoading.value = true
+            _isFareLoading.value = true
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            // Step 1: Get road distance from Google Directions
+            directionsRepository.getRouteInfo(
+                pickup.latitude, pickup.longitude,
+                drop.latitude, drop.longitude
+            ).onSuccess { routeInfo ->
+                _routeInfo.value = routeInfo
+                _isRouteLoading.value = false
+
+                // Step 2: Calculate fares with road distance & ETA
+                val roadDistanceKm = routeInfo.distanceMeters / 1000.0
+                val roadDurationMinutes = (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
+                calculateFaresForAllVehicles(
+                    roadDistanceKm = roadDistanceKm,
+                    roadDurationMinutes = roadDurationMinutes
+                )
+            }.onFailure {
+                // Route failed - fallback: calculate fares without road distance
+                // Backend will use its own distance calculation
+                _routeInfo.value = null
+                _isRouteLoading.value = false
+                calculateFaresForAllVehicles()
+            }
+        }
+    }
+
+    fun calculateFaresForAllVehicles(
+        roadDistanceKm: Double? = null,
+        roadDurationMinutes: Int? = null
+    ) {
         val pickup = _uiState.value.pickupAddress
         val drop = _uiState.value.dropAddress
 
@@ -125,7 +174,9 @@ class BookingViewModel @Inject constructor(
                 pickupLatitude = pickup.latitude,
                 pickupLongitude = pickup.longitude,
                 dropLatitude = drop.latitude,
-                dropLongitude = drop.longitude
+                dropLongitude = drop.longitude,
+                distanceKm = roadDistanceKm,
+                estimatedDurationMinutes = roadDurationMinutes
             )
 
             bookingRepository.calculateFaresForAllVehicles(request).collect { result ->
@@ -166,6 +217,85 @@ class BookingViewModel @Inject constructor(
         _vehicleFares.value = emptyList()
         _selectedFareDetails.value = null
         _uiState.update { it.copy(hasFaresLoaded = false, selectedVehicleId = null) }
+    }
+
+    // ============ ROUTE CALCULATION (Google Directions) ============
+
+    /**
+     * Calculate road route between pickup and drop.
+     * Called automatically when both addresses are set.
+     * Result is cached and reused on BookingConfirmation, Review, and SearchingRider screens.
+     */
+    fun calculateRoute(pickupLat: Double, pickupLng: Double, dropLat: Double, dropLng: Double) {
+        // Skip if same route already cached
+        val existingRoute = _routeInfo.value
+        if (existingRoute != null && !_isRouteLoading.value) {
+            // Route already available, no need to recalculate
+            return
+        }
+        fetchRoute(pickupLat, pickupLng, dropLat, dropLng)
+    }
+
+    /**
+     * Force recalculate route (used when locations change)
+     */
+    private fun recalculateRoute() {
+        val pickup = _uiState.value.pickupAddress
+        val drop = _uiState.value.dropAddress
+        if (pickup != null && drop != null && pickup.latitude != 0.0 && drop.latitude != 0.0) {
+            fetchRoute(pickup.latitude, pickup.longitude, drop.latitude, drop.longitude)
+        }
+    }
+
+    private fun fetchRoute(pickupLat: Double, pickupLng: Double, dropLat: Double, dropLng: Double) {
+        routeCalculationJob?.cancel()
+        routeCalculationJob = viewModelScope.launch {
+            _isRouteLoading.value = true
+            directionsRepository.getRouteInfo(pickupLat, pickupLng, dropLat, dropLng)
+                .onSuccess { routeInfo ->
+                    _routeInfo.value = routeInfo
+                }
+                .onFailure {
+                    // Route fetch failed - not critical, fare API distance will be used as fallback
+                    _routeInfo.value = null
+                }
+            _isRouteLoading.value = false
+        }
+    }
+
+    fun clearRouteInfo() {
+        _routeInfo.value = null
+        routeCalculationJob?.cancel()
+    }
+
+    /**
+     * Get the best available distance in km.
+     * Priority: Google Directions (road) > Fare API (straight-line/server)
+     */
+    fun getRoadDistanceKm(): Double? {
+        return _routeInfo.value?.let { it.distanceMeters / 1000.0 }
+    }
+
+    /**
+     * Get the best available ETA in minutes.
+     * Priority: Google Directions > Fare API
+     */
+    fun getRoadEtaMinutes(): Int? {
+        return _routeInfo.value?.let { (it.durationSeconds / 60.0).toInt().coerceAtLeast(1) }
+    }
+
+    /**
+     * Get formatted distance text (e.g., "3.7 km")
+     */
+    fun getDistanceText(): String? {
+        return _routeInfo.value?.distanceText
+    }
+
+    /**
+     * Get formatted duration text (e.g., "12 mins")
+     */
+    fun getDurationText(): String? {
+        return _routeInfo.value?.durationText
     }
 
     // ============ LOAD STATIC DATA ============
@@ -235,13 +365,21 @@ class BookingViewModel @Inject constructor(
     fun setPickupAddress(address: SavedAddress) {
         _uiState.update { it.copy(pickupAddress = address) }
         clearVehicleFares()
-        if (_uiState.value.dropAddress != null) calculateFaresForAllVehicles()
+        clearRouteInfo()
+        if (_uiState.value.dropAddress != null) {
+            // ✅ Calculate route FIRST, then fare with road distance
+            calculateRouteAndThenFares()
+        }
     }
 
     fun setDropAddress(address: SavedAddress) {
         _uiState.update { it.copy(dropAddress = address) }
         clearVehicleFares()
-        if (_uiState.value.pickupAddress != null) calculateFaresForAllVehicles()
+        clearRouteInfo()
+        if (_uiState.value.pickupAddress != null) {
+            // ✅ Calculate route FIRST, then fare with road distance
+            calculateRouteAndThenFares()
+        }
     }
 
     fun setSelectedVehicle(vehicleType: VehicleTypeResponse) {
@@ -331,23 +469,11 @@ class BookingViewModel @Inject constructor(
         return maxOf(0, baseFare - _uiState.value.discount)
     }
 
-    fun calculateRoute(pickupLat: Double, pickupLng: Double, dropLat: Double, dropLng: Double) {
-        viewModelScope.launch {
-            _isRouteLoading.value = true
-            directionsRepository.getRouteInfo(pickupLat, pickupLng, dropLat, dropLng)
-                .onSuccess { _routeInfo.value = it }
-                .onFailure { _uiState.update { s -> s.copy(error = "Failed to calculate route") } }
-            _isRouteLoading.value = false
-        }
-    }
-
-    fun clearRouteInfo() {
-        _routeInfo.value = null
-    }
-
     /**
      * Confirm booking
      * Creates booking and navigates to SearchingRiderScreen
+     *
+     * ✅ FIX: Uses road distance/ETA from Google Directions when available
      */
     fun confirmBooking() {
         viewModelScope.launch {
@@ -364,6 +490,7 @@ class BookingViewModel @Inject constructor(
                 return@launch
             }
 
+            // ✅ Pass road distance/ETA override from Google Directions
             val request = CreateBookingRequestBuilder.build(
                 fareDetails = selectedFare,
                 pickupAddress = state.pickupAddress,
@@ -379,7 +506,9 @@ class BookingViewModel @Inject constructor(
                 couponDiscountValue = state.appliedCouponDiscountValue,
                 couponDiscountAmount = state.discount,
                 paymentMethod = state.paymentMethod,
-                gstin = state.gstin
+                gstin = state.gstin,
+                roadDistanceKm = getRoadDistanceKm(),
+                roadDurationMinutes = getRoadEtaMinutes()
             )
 
             bookingRepository.createBooking(request).collect { result ->
@@ -387,12 +516,11 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { booking ->
-                            // ✅ Store booking ID for cancel API
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
                                     error = null,
-                                    currentBookingId = booking.bookingId  // Store the numeric ID
+                                    currentBookingId = booking.bookingId
                                 )
                             }
 
@@ -423,18 +551,15 @@ class BookingViewModel @Inject constructor(
     }
 
     /**
-     * ✅ FIXED: Cancel booking - calls actual API
-     * @param reason Cancellation reason from bottom sheet
+     * Cancel booking - calls actual API
      */
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
-            // ✅ Get actual booking ID from state or active booking
             val bookingId = _uiState.value.currentBookingId
                 ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
                 ?: 0
 
             if (bookingId == 0) {
-                // Fallback: Just clear and navigate home
                 activeBookingManager.clearActiveBooking()
                 _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                 return@launch
@@ -449,7 +574,6 @@ class BookingViewModel @Inject constructor(
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
                     is NetworkResult.Error -> {
-                        // Still navigate home even on error, but show error message
                         _uiState.update { it.copy(isLoading = false, error = result.message) }
                         activeBookingManager.clearActiveBooking()
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
@@ -473,8 +597,10 @@ class BookingViewModel @Inject constructor(
 
     fun resetBooking() {
         fareCalculationJob?.cancel()
+        routeCalculationJob?.cancel()
         _vehicleFares.value = emptyList()
         _selectedFareDetails.value = null
+        _routeInfo.value = null
         _uiState.value = BookingUiState()
     }
 
@@ -518,7 +644,8 @@ class BookingViewModel @Inject constructor(
             }
 
             if ((order.pickupLatitude ?: 0.0) != 0.0 && (order.dropLatitude ?: 0.0) != 0.0) {
-                calculateFaresForAllVehicles()
+                // ✅ Calculate route first, then fares with road distance
+                calculateRouteAndThenFares()
             }
         }
     }
@@ -555,7 +682,7 @@ data class BookingUiState(
     val paymentMethod: String = "Cash",
     val gstin: String? = null,
 
-    // ✅ Added: Track current booking for cancel API
+    // Track current booking for cancel API
     val currentBookingId: Int? = null,
 
     // State flags
