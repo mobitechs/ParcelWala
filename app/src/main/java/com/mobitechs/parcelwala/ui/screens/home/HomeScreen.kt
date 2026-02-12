@@ -34,6 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CurrencyRupee
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -59,6 +60,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,6 +73,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,10 +99,16 @@ import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Home Screen
  * Main landing screen showing vehicle types, pickup location, and active booking
+ *
+ * KEY BEHAVIOR:
+ * - When active booking exists → shows active booking card prominently
+ * - When active booking exists → blocks new booking with snackbar message
+ * - Vehicle grid & pickup card are dimmed/disabled during active booking
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,9 +119,15 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val activeBooking by viewModel.activeBooking.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // ✅ Determine if new booking should be blocked
+    val hasActiveBooking = activeBooking != null
 
     Scaffold(
         containerColor = AppColors.Background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -168,7 +185,7 @@ fun HomeScreen(
                 ) {
                     // ✅ Active Booking Card (shows when there's an active booking)
                     AnimatedVisibility(
-                        visible = activeBooking != null,
+                        visible = hasActiveBooking,
                         enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
                         exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
                     ) {
@@ -183,10 +200,22 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Pickup Location
+                    // ✅ Pickup Location - Blocked when active booking exists
                     PickupLocationCard(
                         location = uiState.pickupLocation,
-                        onClick = onNavigateToLocationSearch
+                        onClick = {
+                            if (hasActiveBooking) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "You already have an active booking. Complete or cancel it to book a new ride.",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } else {
+                                onNavigateToLocationSearch()
+                            }
+                        },
+                        isDisabled = hasActiveBooking
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -196,17 +225,38 @@ fun HomeScreen(
                         text = "Select Vehicle Type",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary,
+                        color = if (hasActiveBooking) AppColors.TextHint else AppColors.TextPrimary,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
 
+                    // ✅ Active booking blocking banner
+                    if (hasActiveBooking) {
+                        ActiveBookingBlockingBanner(
+                            onViewBooking = {
+                                activeBooking?.let { onNavigateToActiveBooking(it) }
+                            }
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Vehicles Grid
+                    // ✅ Vehicles Grid - Disabled when active booking exists
                     if (uiState.vehicleTypes.isNotEmpty()) {
                         VehicleTypesGrid(
                             vehicleTypes = uiState.vehicleTypes,
-                            onVehicleSelected = { onNavigateToLocationSearch() }
+                            onVehicleSelected = {
+                                if (hasActiveBooking) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "Complete your current booking first.",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                } else {
+                                    onNavigateToLocationSearch()
+                                }
+                            },
+                            isDisabled = hasActiveBooking
                         )
                     } else {
                         EmptyState(
@@ -259,7 +309,56 @@ fun HomeScreen(
 }
 
 /**
- * Active Booking Card - Professional Ola/Uber Style
+ * Active Booking Blocking Banner
+ * Shown between "Select Vehicle Type" header and the grid when booking is active
+ */
+@Composable
+private fun ActiveBookingBlockingBanner(
+    onViewBooking: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .clickable(onClick = onViewBooking),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFF3E0)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Block,
+                contentDescription = null,
+                tint = Color(0xFFFF9800),
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "You have an active booking. Tap to view.",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFE65100),
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFFFF9800),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Active Booking Card - Improved Professional Design
  * Shows complete booking details with pickup/drop addresses
  * Includes 3-minute countdown timer with progress bar and retry option
  */
@@ -269,15 +368,8 @@ private fun ActiveBookingCard(
     onClick: () -> Unit,
     onRetry: () -> Unit
 ) {
-    // ═══════════════════════════════════════════════════════════════
-    // COUNTDOWN TIMER STATE (3 minutes = 180 seconds)
-    // ═══════════════════════════════════════════════════════════════
+    // ═══ COUNTDOWN TIMER STATE (3 minutes = 180 seconds) ═══
     val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS
-
-    // Stable fallback time - only calculated once
-    val fallbackStartTime = remember { System.currentTimeMillis() }
-
-    // Get searchStartTime from activeBooking, with stable fallback
     val searchStartTime = activeBooking.searchStartTime
 
     var remainingTimeMs by remember(searchStartTime) {
@@ -289,123 +381,88 @@ private fun ActiveBookingCard(
         mutableStateOf(elapsed >= totalTimeMs)
     }
 
-    // Only run countdown for SEARCHING status
     val isSearching = activeBooking.status == BookingStatus.SEARCHING
 
-    // Countdown timer effect - synced with searchStartTime
+    // Countdown timer effect
     LaunchedEffect(searchStartTime, isSearching) {
         if (!isSearching) return@LaunchedEffect
-
-        // Calculate initial remaining time based on actual elapsed time
         val initialElapsed = System.currentTimeMillis() - searchStartTime
         remainingTimeMs = maxOf(0L, totalTimeMs - initialElapsed)
         isTimedOut = remainingTimeMs <= 0
-
-        // Continue countdown only if not already timed out
         while (remainingTimeMs > 0) {
             delay(1000L)
             val newElapsed = System.currentTimeMillis() - searchStartTime
             remainingTimeMs = maxOf(0L, totalTimeMs - newElapsed)
         }
-
         isTimedOut = true
     }
 
-    // Format remaining time as MM:SS
     val minutes = (remainingTimeMs / 60000).toInt()
     val seconds = ((remainingTimeMs % 60000) / 1000).toInt()
     val timeText = String.format("%02d:%02d", minutes, seconds)
 
-    // Pulse animation for the searching indicator
+    // Pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.3f,
+        targetValue = 1.2f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
     )
 
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
+    // Card colors based on state
+    val headerGradient = if (isTimedOut && isSearching) {
+        listOf(Color(0xFFFF9800), Color(0xFFF57C00))
+    } else {
+        listOf(AppColors.Primary, AppColors.Primary.copy(alpha = 0.9f))
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .shadow(
-                elevation = 8.dp,
+                elevation = 6.dp,
                 shape = RoundedCornerShape(20.dp),
                 spotColor = if (isTimedOut && isSearching)
-                    Color(0xFFFF9800).copy(alpha = 0.3f)
+                    Color(0xFFFF9800).copy(alpha = 0.25f)
                 else
-                    AppColors.Primary.copy(alpha = 0.3f)
+                    AppColors.Primary.copy(alpha = 0.25f)
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // ═══════════════════════════════════════════════════════════════
-            // TOP SECTION - Status Header with Gradient
-            // ═══════════════════════════════════════════════════════════════
+        Column(modifier = Modifier.fillMaxWidth()) {
+
+            // ═══ HEADER: Status with Gradient ═══
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = if (isTimedOut && isSearching) {
-                                listOf(
-                                    Color(0xFFFF9800),
-                                    Color(0xFFFF9800).copy(alpha = 0.85f)
-                                )
-                            } else {
-                                listOf(
-                                    AppColors.Primary,
-                                    AppColors.Primary.copy(alpha = 0.85f)
-                                )
-                            }
-                        )
-                    )
+                    .background(brush = Brush.horizontalGradient(headerGradient))
                     .padding(16.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Animated Status Indicator
+                    // Status Icon with pulse
                     Box(
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(44.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (!isTimedOut || !isSearching) {
-                            // Searching animation
+                            // Animated rings
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(44.dp)
                                     .scale(pulseScale)
                                     .background(
-                                        color = Color.White.copy(alpha = 0.15f),
-                                        shape = CircleShape
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        color = Color.White.copy(alpha = 0.2f),
+                                        color = Color.White.copy(alpha = 0.12f),
                                         shape = CircleShape
                                     )
                             )
@@ -416,17 +473,23 @@ private fun ActiveBookingCard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.LocalShipping,
+                                    imageVector = when (activeBooking.status) {
+                                        BookingStatus.SEARCHING -> Icons.Default.LocalShipping
+                                        BookingStatus.RIDER_ASSIGNED -> Icons.Default.Person
+                                        BookingStatus.RIDER_EN_ROUTE -> Icons.Default.DirectionsCar
+                                        BookingStatus.PICKED_UP -> Icons.Default.LocalShipping
+                                        BookingStatus.IN_TRANSIT -> Icons.Default.LocalShipping
+                                        else -> Icons.Default.LocalShipping
+                                    },
                                     contentDescription = null,
                                     tint = if (isTimedOut) Color(0xFFFF9800) else AppColors.Primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                         } else {
-                            // Timeout warning icon
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(44.dp)
                                     .background(Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -434,30 +497,26 @@ private fun ActiveBookingCard(
                                     imageVector = Icons.Default.SearchOff,
                                     contentDescription = null,
                                     tint = Color(0xFFFF9800),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                    // Status Info
+                    // Status text
                     Column(modifier = Modifier.weight(1f)) {
-                        // Status Text with animated dot
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             if (!isTimedOut && isSearching) {
                                 Box(
                                     modifier = Modifier
-                                        .size(8.dp)
+                                        .size(6.dp)
                                         .scale(pulseScale)
-                                        .background(
-                                            color = Color.White.copy(alpha = pulseAlpha),
-                                            shape = CircleShape
-                                        )
+                                        .background(Color.White, CircleShape)
                                 )
                             }
                             Text(
@@ -470,68 +529,58 @@ private fun ActiveBookingCard(
                                     activeBooking.status == BookingStatus.IN_TRANSIT -> "On the way to drop"
                                     else -> "Booking in progress"
                                 },
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Trip ID & Attempt count
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isSearching) {
                                 "Trip #${activeBooking.bookingId} • Attempt ${activeBooking.searchAttempts}"
                             } else {
                                 "Trip #${activeBooking.bookingId}"
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f)
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.8f)
                         )
                     }
 
-                    // Timer Display (only for searching status)
+                    // Timer or Arrow
                     if (isSearching) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = timeText,
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             Text(
                                 text = if (isTimedOut) "Timed out" else "remaining",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.85f)
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 9.sp
                             )
                         }
                     } else {
-                        // Arrow for non-searching states
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .background(
-                                    color = Color.White.copy(alpha = 0.2f),
-                                    shape = CircleShape
-                                ),
+                                .size(32.dp)
+                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowForward,
                                 contentDescription = "View Details",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                 }
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // PROGRESS BAR SECTION (only for searching status)
-            // ═══════════════════════════════════════════════════════════════
+            // ═══ PROGRESS BAR (searching only) ═══
             if (isSearching) {
                 Column(
                     modifier = Modifier
@@ -539,75 +588,62 @@ private fun ActiveBookingCard(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     if (!isTimedOut) {
-                        // Calculate elapsed time
                         val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
-                        val elapsedMinutes = (elapsedMs / 60000).toInt()
-                        val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
-                        val elapsedTimeText =
-                            String.format("%d:%02d", elapsedMinutes, elapsedSeconds)
+                        val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
 
-                        // Progress fills from left to right (0 = empty, 1 = full)
-                        val elapsedProgress =
-                            (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
-
-                        // Progress bar
                         LinearProgressIndicator(
                             progress = { elapsedProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(6.dp)
+                                .height(5.dp)
                                 .clip(RoundedCornerShape(3.dp)),
                             color = when {
-                                elapsedProgress > 0.66f -> AppColors.Drop  // Last minute - red
-                                elapsedProgress > 0.33f -> Color(0xFFFF9800)  // Middle - orange
-                                else -> AppColors.Primary  // First minute - Primary
+                                elapsedProgress > 0.66f -> AppColors.Drop
+                                elapsedProgress > 0.33f -> Color(0xFFFF9800)
+                                else -> AppColors.Primary
                             },
                             trackColor = AppColors.Border,
                             strokeCap = StrokeCap.Round
                         )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        // Progress labels - elapsed time on left, total time on right
+                        val elapsedMinutes = (elapsedMs / 60000).toInt()
+                        val elapsedSeconds = ((elapsedMs % 60000) / 1000).toInt()
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = elapsedTimeText,  // Shows elapsed time (0:00 → 3:00)
+                                text = String.format("%d:%02d", elapsedMinutes, elapsedSeconds),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.TextSecondary
+                                color = AppColors.TextSecondary,
+                                fontSize = 10.sp
                             )
                             Text(
                                 text = "3:00",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.TextHint
+                                color = AppColors.TextHint,
+                                fontSize = 10.sp
                             )
                         }
                     } else {
-                        // ═══════════════════════════════════════════════════════════════
-                        // RETRY BUTTON (when timed out)
-                        // ═══════════════════════════════════════════════════════════════
+                        // Retry button
                         Button(
                             onClick = onRetry,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AppColors.Primary
-                            )
+                                .height(40.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Retry Search",
-                                fontWeight = FontWeight.Bold
-                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Retry Search", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
@@ -618,14 +654,17 @@ private fun ActiveBookingCard(
                 )
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // MIDDLE SECTION - Route Details
-            // ═══════════════════════════════════════════════════════════════
-            AddressesCard(activeBooking.pickupAddress.contactName,activeBooking.pickupAddress.contactPhone,activeBooking.pickupAddress.address, activeBooking.dropAddress.contactName,activeBooking.dropAddress.contactPhone,activeBooking.dropAddress.address)
+            // ═══ ROUTE DETAILS ═══
+            AddressesCard(
+                activeBooking.pickupAddress.contactName,
+                activeBooking.pickupAddress.contactPhone,
+                activeBooking.pickupAddress.address,
+                activeBooking.dropAddress.contactName,
+                activeBooking.dropAddress.contactPhone,
+                activeBooking.dropAddress.address
+            )
 
-            // ═══════════════════════════════════════════════════════════════
-            // BOTTOM SECTION - Vehicle & Fare Info
-            // ═══════════════════════════════════════════════════════════════
+            // ═══ VEHICLE & FARE ═══
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 color = AppColors.Border
@@ -634,31 +673,28 @@ private fun ActiveBookingCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Vehicle Info
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Vehicle Icon
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .background(
-                                color = AppColors.Primary.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(12.dp)
+                                color = AppColors.Primary.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(10.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = activeBooking.fareDetails.vehicleTypeIcon ?: "🚚",
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
-
                     Column {
                         Text(
                             text = activeBooking.fareDetails.vehicleTypeName ?: "Vehicle",
@@ -669,65 +705,63 @@ private fun ActiveBookingCard(
                         Text(
                             text = activeBooking.fareDetails.capacity ?: "",
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
+                            color = AppColors.TextSecondary,
+                            fontSize = 10.sp
                         )
                     }
                 }
 
-                // Fare Info
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "₹${activeBooking.fare}",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.Primary
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Payments,
                             contentDescription = null,
                             tint = AppColors.TextSecondary,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(12.dp)
                         )
                         Text(
                             text = "Cash",
                             style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
+                            color = AppColors.TextSecondary,
+                            fontSize = 10.sp
                         )
                     }
                 }
             }
 
-            // ═══════════════════════════════════════════════════════════════
-            // TAP TO VIEW HINT
-            // ═══════════════════════════════════════════════════════════════
+            // ═══ TAP TO VIEW ═══
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(AppColors.Background)
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "Tap to view details",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
-                        color = AppColors.Primary
+                        color = AppColors.Primary,
+                        fontSize = 11.sp
                     )
                     Icon(
                         imageVector = Icons.Default.TouchApp,
                         contentDescription = null,
                         tint = AppColors.Primary,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -741,7 +775,8 @@ private fun ActiveBookingCard(
 @Composable
 private fun PickupLocationCard(
     location: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isDisabled: Boolean = false
 ) {
     Card(
         modifier = Modifier
@@ -764,7 +799,8 @@ private fun PickupLocationCard(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        color = AppColors.Pickup.copy(alpha = 0.1f),
+                        color = if (isDisabled) AppColors.Border.copy(alpha = 0.3f)
+                        else AppColors.Pickup.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(12.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -772,7 +808,7 @@ private fun PickupLocationCard(
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = "Pickup",
-                    tint = AppColors.Pickup,
+                    tint = if (isDisabled) AppColors.TextHint else AppColors.Pickup,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -783,14 +819,14 @@ private fun PickupLocationCard(
                 Text(
                     text = "Pick up from",
                     style = MaterialTheme.typography.labelLarge,
-                    color = AppColors.TextSecondary
+                    color = if (isDisabled) AppColors.TextHint else AppColors.TextSecondary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = location,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary,
+                    color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary,
                     maxLines = 1
                 )
             }
@@ -798,9 +834,9 @@ private fun PickupLocationCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             Icon(
-                imageVector = Icons.Default.Edit,
+                imageVector = if (isDisabled) Icons.Default.Block else Icons.Default.Edit,
                 contentDescription = "Change",
-                tint = AppColors.Primary,
+                tint = if (isDisabled) AppColors.TextHint else AppColors.Primary,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -813,7 +849,8 @@ private fun PickupLocationCard(
 @Composable
 private fun VehicleTypesGrid(
     vehicleTypes: List<VehicleTypeResponse>,
-    onVehicleSelected: (VehicleTypeResponse) -> Unit
+    onVehicleSelected: (VehicleTypeResponse) -> Unit,
+    isDisabled: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -829,7 +866,8 @@ private fun VehicleTypesGrid(
                     VehicleCard(
                         vehicle = vehicle,
                         onClick = onVehicleSelected,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        isDisabled = isDisabled
                     )
                 }
                 repeat(3 - rowVehicles.size) {
@@ -844,14 +882,12 @@ private fun VehicleTypesGrid(
 /**
  * Vehicle Card with Emoji Icon
  */
-/**
- * Vehicle Card with Emoji Icon
- */
 @Composable
 private fun VehicleCard(
     vehicle: VehicleTypeResponse,
     onClick: (VehicleTypeResponse) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDisabled: Boolean = false
 ) {
     Card(
         modifier = modifier
@@ -861,7 +897,7 @@ private fun VehicleCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDisabled) 0.dp else 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -874,7 +910,10 @@ private fun VehicleCard(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(AppColors.Primary.copy(alpha = 0.08f)),
+                    .background(
+                        if (isDisabled) AppColors.Border.copy(alpha = 0.2f)
+                        else AppColors.Primary.copy(alpha = 0.08f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -890,7 +929,7 @@ private fun VehicleCard(
                 text = vehicle.name,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary,
+                color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -906,19 +945,19 @@ private fun VehicleCard(
                 Icon(
                     imageVector = Icons.Default.CurrencyRupee,
                     contentDescription = null,
-                    tint = AppColors.Primary,
+                    tint = if (isDisabled) AppColors.TextHint else AppColors.Primary,
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
                     text = "${vehicle.basePrice}",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.Primary
+                    color = if (isDisabled) AppColors.TextHint else AppColors.Primary
                 )
                 Text(
                     text = " onwards",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
+                    color = if (isDisabled) AppColors.TextHint else AppColors.TextSecondary
                 )
             }
         }
@@ -960,9 +999,7 @@ private fun AnnouncementsSection() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White
-            ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(

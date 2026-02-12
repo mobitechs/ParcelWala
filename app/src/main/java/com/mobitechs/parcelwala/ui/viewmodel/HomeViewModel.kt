@@ -20,6 +20,10 @@ import javax.inject.Inject
 /**
  * ViewModel for Home Screen
  * Manages vehicle types, pickup location, and active booking state
+ *
+ * KEY RESPONSIBILITY:
+ * - Exposes active booking state (filtered to exclude completed/cancelled)
+ * - Provides `canStartNewBooking` flag to prevent duplicate bookings
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -32,9 +36,16 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     // Active booking state - exposed from ActiveBookingManager
-    // ✅ FIX: Filter out completed/cancelled bookings so they don't show on home
+    // ✅ Filter out completed/cancelled bookings so they don't show on home
     private val _filteredActiveBooking = MutableStateFlow<ActiveBooking?>(null)
     val activeBooking: StateFlow<ActiveBooking?> = _filteredActiveBooking.asStateFlow()
+
+    /**
+     * ✅ NEW: Whether the user can start a new booking
+     * Returns false when there's any active (non-terminal) booking
+     */
+    val canStartNewBooking: Boolean
+        get() = _filteredActiveBooking.value == null
 
     init {
         loadVehicleTypes()
@@ -42,7 +53,7 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * ✅ FIX: Only show active bookings that are NOT delivered or cancelled
+     * ✅ Only show active bookings that are NOT delivered or cancelled
      */
     private fun observeActiveBooking() {
         viewModelScope.launch {

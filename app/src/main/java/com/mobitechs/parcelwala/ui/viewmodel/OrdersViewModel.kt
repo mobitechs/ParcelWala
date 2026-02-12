@@ -13,8 +13,17 @@ import javax.inject.Inject
 
 /**
  * Orders ViewModel
- * Handles order list operations only
- * No need to fetch order details - we pass the object directly
+ * Handles order list with client-side status filtering and rating
+ *
+ * IMPORTANT: Backend status values are LOWERCASE with underscores:
+ *   searching, delivery_completed, cancelled, assigned, arriving, picked_up, in_progress, pending
+ *
+ * Filter keys (used in filter chips):
+ *   null        → All orders
+ *   "searching" → status == "searching"
+ *   "active"    → status in [assigned, arriving, picked_up, in_progress]
+ *   "completed" → status in [delivery_completed, completed]
+ *   "cancelled" → status == "cancelled"
  */
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
@@ -25,21 +34,24 @@ class OrdersViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OrdersUiState())
     val uiState: StateFlow<OrdersUiState> = _uiState.asStateFlow()
 
-    // Selected Tab
-    private val _selectedTab = MutableStateFlow(0)
-    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+    // Selected filter key (null = All)
+    private val _selectedFilter = MutableStateFlow<String?>(null)
+    val selectedFilter: StateFlow<String?> = _selectedFilter.asStateFlow()
+
+    // All orders cache (for client-side filtering)
+    private var allOrders: List<OrderResponse> = emptyList()
 
     init {
         loadOrders()
     }
 
     /**
-     * Load orders from API/Mock
+     * Load all orders from API/Mock
      */
-    fun loadOrders(status: String? = null, forceRefresh: Boolean = false) {
+    private fun loadOrders(forceRefresh: Boolean = false) {
         viewModelScope.launch {
             ordersRepository.getMyBookings(
-                status = status,
+                status = null, // Always fetch all, filter client-side
                 forceRefresh = forceRefresh
             ).collect { result ->
                 when (result) {
@@ -47,10 +59,11 @@ class OrdersViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
                     is NetworkResult.Success -> {
+                        allOrders = result.data ?: emptyList()
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                orders = result.data ?: emptyList(),
+                                orders = applyFilter(allOrders, _selectedFilter.value),
                                 error = null
                             )
                         }
@@ -69,30 +82,77 @@ class OrdersViewModel @Inject constructor(
     }
 
     /**
-     * Refresh orders
+     * Handle filter chip selection
+     */
+    fun onFilterSelected(filterKey: String?) {
+        _selectedFilter.value = filterKey
+        _uiState.update {
+            it.copy(orders = applyFilter(allOrders, filterKey))
+        }
+    }
+
+    /**
+     * Apply filter to orders list.
+     * Uses .lowercase() comparison to be safe regardless of backend casing.
+     */
+    private fun applyFilter(orders: List<OrderResponse>, filterKey: String?): List<OrderResponse> {
+        if (filterKey == null) return orders
+
+        return when (filterKey) {
+            "searching" -> orders.filter {
+                it.status.lowercase() == "searching"
+            }
+            "active" -> orders.filter {
+                it.status.lowercase() in listOf(
+                    "in_progress", "in progress", "assigned",
+                    "arriving", "driver_arriving", "picked_up"
+                )
+            }
+            "completed" -> orders.filter {
+                it.status.lowercase() in listOf("delivery_completed", "completed")
+            }
+            "cancelled" -> orders.filter {
+                it.status.lowercase() == "cancelled"
+            }
+            else -> orders
+        }
+    }
+
+    /**
+     * Refresh orders (pull-to-refresh)
      */
     fun refreshOrders() {
-        val status = getStatusForTab(_selectedTab.value)
-        loadOrders(status = status, forceRefresh = true)
+        loadOrders(forceRefresh = true)
     }
 
     /**
-     * Handle tab selection
+     * Submit rating for a completed order.
+     * Updates local state immediately for instant UI feedback.
+     * TODO: Wire to actual backend API when endpoint is ready.
      */
-    fun onTabSelected(index: Int) {
-        _selectedTab.value = index
-        val status = getStatusForTab(index)
-        loadOrders(status = status)
-    }
+    fun submitRating(bookingId: Int, rating: Int, review: String) {
+        viewModelScope.launch {
+            val updatedOrders = allOrders.map { order ->
+                if (order.bookingId == bookingId) {
+                    order.copy(
+                        rating = rating,
+                        review = review.ifBlank { null }
+                    )
+                } else {
+                    order
+                }
+            }
+            allOrders = updatedOrders
+            _uiState.update {
+                it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
+            }
 
-    /**
-     * Get status filter for tab index
-     */
-    private fun getStatusForTab(tabIndex: Int): String? {
-        return when (tabIndex) {
-            0 -> null // All/Past orders
-            1 -> "Scheduled" // Scheduled orders
-            else -> null
+            // TODO: Call actual API
+            // try {
+            //     ordersRepository.submitRating(bookingId, rating, review)
+            // } catch (e: Exception) {
+            //     // Revert local state on failure
+            // }
         }
     }
 
@@ -105,7 +165,7 @@ class OrdersViewModel @Inject constructor(
 }
 
 /**
- * Orders UI State - simplified
+ * Orders UI State
  */
 data class OrdersUiState(
     val isLoading: Boolean = false,
