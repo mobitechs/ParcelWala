@@ -1,4 +1,8 @@
 // ui/screens/booking/RiderFoundScreen.kt
+// ✅ UPDATED: Bottom sheet matches DriverActiveBookingScreen pattern
+//    - Sheet starts EXPANDED
+//    - Transparent container with floating ETA chip + white rounded box
+//    - Custom drag handle inside the white box
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import android.content.Intent
@@ -54,7 +58,7 @@ import kotlinx.coroutines.delay
 private const val TAG = "RiderFoundScreen"
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MAIN SCREEN
+// MAIN SCREEN — Full Map + BottomSheetScaffold (Expanded by default)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,7 +74,6 @@ fun RiderFoundScreen(
 ) {
     val context = LocalContext.current
 
-    // ── State from ViewModel ──
     val rider by viewModel.assignedRider.collectAsState()
     val riderLocation by viewModel.riderLocation.collectAsState()
     val otp by viewModel.bookingOtp.collectAsState()
@@ -84,7 +87,6 @@ fun RiderFoundScreen(
 
     val currentStatus = uiState.currentStatus
 
-    // ── Phase detection ──
     val isPrePickup = currentStatus == BookingStatusType.RIDER_ASSIGNED ||
             currentStatus == BookingStatusType.RIDER_ENROUTE ||
             currentStatus == BookingStatusType.ARRIVED
@@ -94,85 +96,113 @@ fun RiderFoundScreen(
             currentStatus == BookingStatusType.ARRIVED_DELIVERY
     val isDelivered = currentStatus == BookingStatusType.DELIVERED
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ✅ FIX: Derive driver LatLng from BOTH sources with fallback
-    // Priority: live location > initial assignment location
-    // ═══════════════════════════════════════════════════════════════════════
+    // Driver LatLng: live location > initial assignment location
     val driverLatLng: LatLng? = remember(riderLocation, rider) {
-        // Source 1: Live location updates (most recent)
         val liveLat = riderLocation?.latitude
         val liveLng = riderLocation?.longitude
         if (liveLat != null && liveLng != null && liveLat != 0.0 && liveLng != 0.0) {
-            Log.d(TAG, "📍 Driver LatLng from LIVE: $liveLat, $liveLng")
             return@remember LatLng(liveLat, liveLng)
         }
-
-        // Source 2: Initial assignment (from BookingStatusUpdate)
         val assignedLat = rider?.currentLatitude
         val assignedLng = rider?.currentLongitude
         if (assignedLat != null && assignedLng != null && assignedLat != 0.0 && assignedLng != 0.0) {
-            Log.d(TAG, "📍 Driver LatLng from ASSIGNED: $assignedLat, $assignedLng")
             return@remember LatLng(assignedLat, assignedLng)
         }
-
-        Log.w(TAG, "⚠️ No valid driver location! live=($liveLat,$liveLng) assigned=($assignedLat,$assignedLng)")
         null
     }
 
-    // ── Cancel dialog ──
     var showCancelDialog by remember { mutableStateOf(false) }
 
-    // ── BottomSheetScaffold ──
+    // ── BottomSheetScaffold — EXPANDED, Transparent (matches DriverActiveBookingScreen) ──
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
-            initialValue = SheetValue.PartiallyExpanded
+            initialValue = SheetValue.Expanded
         )
     )
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetContainerColor = Color.White,
-        sheetShadowElevation = 16.dp,
-        sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        sheetDragHandle = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(AppColors.Border, RoundedCornerShape(2.dp))
-                )
-            }
-        },
-        sheetPeekHeight = 280.dp,
+        sheetContainerColor = Color.Transparent,
+        sheetShadowElevation = 0.dp,
+        sheetShape = RoundedCornerShape(0.dp),
+        sheetDragHandle = null,
+        sheetPeekHeight = 340.dp,
         sheetContent = {
-            SheetBody(
-                rider = rider,
-                otp = otp,
-                isPrePickup = isPrePickup,
-                isDriverArrived = isDriverArrived,
-                isPostPickup = isPostPickup,
-                isDelivered = isDelivered,
-                waitingState = waitingState,
-                pickupAddress = pickupAddress,
-                dropAddress = dropAddress,
-                fare = fare,
-                currentStatus = currentStatus,
-                onCallRider = {
-                    rider?.riderPhone?.let { phone ->
-                        context.startActivity(
-                            Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$phone") }
+            Column(Modifier.fillMaxWidth()) {
+                // 1. Floating ETA chip — above the white box, aligned end
+                if (isPrePickup || isPostPickup) {
+                    val hasEta = etaMinutes != null && etaMinutes!! > 0
+                    val hasDistance = distanceKm != null && distanceKm!! > 0.0
+                    if (hasEta || hasDistance) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            CompactEtaChip(
+                                etaMinutes = etaMinutes,
+                                distanceKm = distanceKm,
+                                isPostPickup = isPostPickup,
+                                formatDistance = { viewModel.formatDistance(it) },
+                                modifier = Modifier.align(Alignment.CenterEnd)
+                            )
+                        }
+                    }
+                }
+
+                // 2. White box — the actual sheet visual
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color.White,
+                            RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                        )
+                ) {
+                    Column(Modifier.fillMaxWidth()) {
+                        // Drag handle
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp, bottom = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier
+                                    .width(40.dp)
+                                    .height(4.dp)
+                                    .background(Color(0xFFE0E0E0), RoundedCornerShape(2.dp))
+                            )
+                        }
+
+                        // Sheet body
+                        SheetBody(
+                            rider = rider,
+                            otp = otp,
+                            isPrePickup = isPrePickup,
+                            isDriverArrived = isDriverArrived,
+                            isPostPickup = isPostPickup,
+                            isDelivered = isDelivered,
+                            waitingState = waitingState,
+                            pickupAddress = pickupAddress,
+                            dropAddress = dropAddress,
+                            fare = fare,
+                            currentStatus = currentStatus,
+                            onCallRider = {
+                                rider?.riderPhone?.let { phone ->
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_DIAL).apply {
+                                            data = Uri.parse("tel:$phone")
+                                        }
+                                    )
+                                }
+                            },
+                            onContactSupport = onContactSupport,
+                            onCancelBooking = { showCancelDialog = true }
                         )
                     }
-                },
-                onContactSupport = onContactSupport,
-                onCancelBooking = { showCancelDialog = true }
-            )
+                }
+            }
         },
         content = { paddingValues ->
             Box(
@@ -193,7 +223,7 @@ fun RiderFoundScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // ── Floating status pill ──
+                // ── Floating status pill on map ──
                 StatusPill(
                     status = currentStatus,
                     etaMinutes = etaMinutes,
@@ -233,6 +263,80 @@ fun RiderFoundScreen(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// COMPACT ETA CHIP — Floats above the white sheet (matches DriverActiveBookingScreen)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun CompactEtaChip(
+    etaMinutes: Int?,
+    distanceKm: Double?,
+    isPostPickup: Boolean,
+    formatDistance: (Double?) -> String,
+    modifier: Modifier = Modifier
+) {
+    val hasEta = etaMinutes != null && etaMinutes > 0
+    val hasDistance = distanceKm != null && distanceKm > 0.0
+
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (hasEta) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.AccessTime, null,
+                        tint = if (isPostPickup) Color(0xFF7C3AED) else Color(0xFF1A73E8),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        "~${etaMinutes} min",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+            if (hasEta && hasDistance) {
+                Box(
+                    Modifier
+                        .width(1.dp)
+                        .height(14.dp)
+                        .background(Color(0xFFE5E7EB))
+                )
+            }
+            if (hasDistance) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Route, null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        formatDistance(distanceKm),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // FULL-SCREEN MAP
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -248,59 +352,41 @@ private fun LiveTrackingMap(
     vehicleType: String?,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
-    // ── Driver marker state — tracks position updates ──
     val driverMarkerState = rememberMarkerState(
         position = driverLatLng ?: pickupLatLng
     )
 
-    // ✅ Update marker position whenever driverLatLng changes
     LaunchedEffect(driverLatLng) {
         if (driverLatLng != null) {
-            Log.d(TAG, "🚗 Moving driver marker to: ${driverLatLng.latitude}, ${driverLatLng.longitude}")
             driverMarkerState.position = driverLatLng
         }
     }
 
-    // ── Load bike_marker drawable as BitmapDescriptor ──
     val bikeMarkerIcon = remember {
         try {
             BitmapDescriptorFactory.fromResource(R.drawable.bike_marker)
         } catch (e: Exception) {
-            Log.w(TAG, "⚠️ bike_marker.xml not found, using default marker")
             BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
         }
     }
 
     val cameraPositionState = rememberCameraPositionState()
 
-    // ── Camera bounds — fit all visible markers ──
     LaunchedEffect(driverLatLng, isPrePickup) {
         try {
             val boundsBuilder = LatLngBounds.builder()
-
             if (isPrePickup) {
-                // Show driver + pickup
                 boundsBuilder.include(pickupLatLng)
-                if (driverLatLng != null) {
-                    boundsBuilder.include(driverLatLng)
-                }
+                if (driverLatLng != null) boundsBuilder.include(driverLatLng)
             } else {
-                // Show pickup + drop + driver
                 boundsBuilder.include(pickupLatLng)
                 boundsBuilder.include(dropLatLng)
-                if (driverLatLng != null) {
-                    boundsBuilder.include(driverLatLng)
-                }
+                if (driverLatLng != null) boundsBuilder.include(driverLatLng)
             }
-
-            val bounds = boundsBuilder.build()
             cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(bounds, 120), 600
+                CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120), 600
             )
         } catch (e: Exception) {
-            Log.w(TAG, "Camera bounds error: ${e.message}")
             cameraPositionState.animate(
                 CameraUpdateFactory.newLatLngZoom(pickupLatLng, 14f)
             )
@@ -317,16 +403,16 @@ private fun LiveTrackingMap(
             mapToolbarEnabled = false,
             compassEnabled = false
         ),
-        contentPadding = PaddingValues(bottom = 260.dp, top = 60.dp)
+        contentPadding = PaddingValues(bottom = 280.dp, top = 60.dp)
     ) {
-        // ── Pickup marker (always visible) ──
+        // Pickup marker (always visible)
         Marker(
             state = MarkerState(position = pickupLatLng),
             title = "Pickup",
             icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
         )
 
-        // ── Drop marker (visible after pickup) ──
+        // Drop marker (visible after pickup)
         if (!isPrePickup) {
             Marker(
                 state = MarkerState(position = dropLatLng),
@@ -335,9 +421,7 @@ private fun LiveTrackingMap(
             )
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // ✅ DRIVER MARKER — uses bike_marker.xml drawable
-        // ══════════════════════════════════════════════════════════════════
+        // Driver marker
         if (driverLatLng != null) {
             Marker(
                 state = driverMarkerState,
@@ -347,15 +431,12 @@ private fun LiveTrackingMap(
                 rotation = driverHeading?.toFloat() ?: 0f,
                 flat = true,
                 anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
-                zIndex = 2f  // On top of everything
+                zIndex = 2f
             )
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // ✅ ROUTE POLYLINE
-        // ══════════════════════════════════════════════════════════════════
+        // Route polyline
         if (isPrePickup) {
-            // Driver → Pickup route
             if (driverToPickupRoute.isNotEmpty()) {
                 Polyline(
                     points = driverToPickupRoute,
@@ -363,7 +444,6 @@ private fun LiveTrackingMap(
                     width = 14f
                 )
             } else if (driverLatLng != null) {
-                // Fallback: straight dashed line while Google Directions loads
                 Polyline(
                     points = listOf(driverLatLng, pickupLatLng),
                     color = AppColors.Primary.copy(alpha = 0.5f),
@@ -372,7 +452,6 @@ private fun LiveTrackingMap(
                 )
             }
         } else {
-            // Pickup → Drop route
             if (pickupToDropRoute.isNotEmpty()) {
                 Polyline(
                     points = pickupToDropRoute,
@@ -392,7 +471,7 @@ private fun LiveTrackingMap(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SHEET BODY — slides over map
+// SHEET BODY — All content scrolls together
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -465,7 +544,9 @@ private fun SheetBody(
             ) {
                 OutlinedButton(
                     onClick = onContactSupport,
-                    modifier = Modifier.weight(1f).height(48.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary),
                     border = BorderStroke(1.dp, AppColors.Primary)
@@ -478,7 +559,9 @@ private fun SheetBody(
                 if (isPrePickup) {
                     OutlinedButton(
                         onClick = onCancelBooking,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Drop),
                         border = BorderStroke(1.dp, AppColors.Drop)
@@ -540,7 +623,7 @@ private fun StatusPill(
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        elevation = CardDefaults.cardElevation(6.dp),
         modifier = modifier
     ) {
         Row(
@@ -589,8 +672,8 @@ private fun DriverCardWithOtp(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -617,7 +700,9 @@ private fun DriverCardWithOtp(
                         Icon(
                             Icons.Default.Person, null,
                             tint = AppColors.TextHint,
-                            modifier = Modifier.size(30.dp).align(Alignment.Center)
+                            modifier = Modifier
+                                .size(30.dp)
+                                .align(Alignment.Center)
                         )
                     }
                 }
@@ -641,13 +726,25 @@ private fun DriverCardWithOtp(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                Icon(Icons.Default.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(14.dp))
-                                Text(String.format("%.1f", rider.rating), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                Icon(
+                                    Icons.Default.Star, null,
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    String.format("%.1f", rider.rating),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                         rider.totalTrips?.let {
                             Text("·", color = AppColors.TextHint, fontSize = 10.sp)
-                            Text("$it trips", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
+                            Text(
+                                "$it trips",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextSecondary
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
@@ -657,7 +754,11 @@ private fun DriverCardWithOtp(
                     ) {
                         Text(getVehicleEmoji(rider.vehicleType), fontSize = 14.sp)
                         rider.vehicleType?.let {
-                            Text(it, style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextSecondary
+                            )
                         }
                         Text("·", color = AppColors.TextHint, fontSize = 10.sp)
                         Text(
@@ -695,10 +796,23 @@ private fun DriverCardWithOtp(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Lock, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Lock, null,
+                            tint = AppColors.Primary,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Column {
-                            Text("Pickup OTP", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
-                            Text("Share with driver", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, fontSize = 10.sp)
+                            Text(
+                                "Pickup OTP",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextSecondary
+                            )
+                            Text(
+                                "Share with driver",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppColors.TextHint,
+                                fontSize = 10.sp
+                            )
                         }
                     }
 
@@ -730,13 +844,19 @@ private fun DriverCardWithOtp(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifier = Modifier) {
+private fun WaitingChargeCard(
+    waitingState: WaitingTimerState,
+    modifier: Modifier = Modifier
+) {
     val isFreeOver = waitingState.isFreeWaitingOver
     val infiniteTransition = rememberInfiniteTransition(label = "waiting")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = if (isFreeOver) 0.5f else 0.7f,
-        animationSpec = infiniteRepeatable(tween(if (isFreeOver) 500 else 1000), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(
+            tween(if (isFreeOver) 500 else 1000),
+            RepeatMode.Reverse
+        ),
         label = "pulse"
     )
 
@@ -744,11 +864,14 @@ private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifie
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isFreeOver) AppColors.Drop.copy(alpha = 0.06f) else Color(0xFFFFF3E0)
+            containerColor = if (isFreeOver) AppColors.Drop.copy(alpha = 0.06f)
+            else Color(0xFFFFF3E0)
         ),
         elevation = CardDefaults.cardElevation(0.dp),
-        border = BorderStroke(1.dp,
-            if (isFreeOver) AppColors.Drop.copy(alpha = 0.3f) else Color(0xFFFF9800).copy(alpha = 0.3f)
+        border = BorderStroke(
+            1.dp,
+            if (isFreeOver) AppColors.Drop.copy(alpha = 0.3f)
+            else Color(0xFFFF9800).copy(alpha = 0.3f)
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -756,10 +879,15 @@ private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifie
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(Modifier.size(8.dp).background(
-                    if (isFreeOver) AppColors.Drop.copy(alpha = pulseAlpha)
-                    else Color(0xFFFF9800).copy(alpha = pulseAlpha), CircleShape
-                ))
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .background(
+                            if (isFreeOver) AppColors.Drop.copy(alpha = pulseAlpha)
+                            else Color(0xFFFF9800).copy(alpha = pulseAlpha),
+                            CircleShape
+                        )
+                )
                 Text(
                     if (isFreeOver) "Waiting charges applied" else "Driver is waiting",
                     style = MaterialTheme.typography.labelMedium,
@@ -767,7 +895,11 @@ private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifie
                     color = if (isFreeOver) AppColors.Drop else Color(0xFFE65100)
                 )
                 Spacer(Modifier.weight(1f))
-                Text(waitingState.totalTimeFormatted, style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
+                Text(
+                    waitingState.totalTimeFormatted,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextHint
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -779,21 +911,65 @@ private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifie
             ) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     if (!isFreeOver) {
-                        CircularTimerDisplay(waitingState.freeTimeFormatted, waitingState.freeWaitingProgress, Color(0xFFFF9800), Color(0xFFE65100), "FREE")
+                        CircularTimerDisplay(
+                            waitingState.freeTimeFormatted,
+                            waitingState.freeWaitingProgress,
+                            Color(0xFFFF9800),
+                            Color(0xFFE65100),
+                            "FREE"
+                        )
                     } else {
-                        CircularTimerDisplay("₹${waitingState.waitingCharge}", waitingState.currentMinuteSeconds / 60f, AppColors.Drop, AppColors.Drop, "${waitingState.extraMinutesCharged} min")
+                        CircularTimerDisplay(
+                            "₹${waitingState.waitingCharge}",
+                            waitingState.currentMinuteSeconds / 60f,
+                            AppColors.Drop,
+                            AppColors.Drop,
+                            "${waitingState.extraMinutesCharged} min"
+                        )
                     }
                 }
-                Box(Modifier.width(1.dp).height(60.dp).background(AppColors.Border))
-                Column(Modifier.weight(1f).padding(start = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    Modifier
+                        .width(1.dp)
+                        .height(60.dp)
+                        .background(AppColors.Border)
+                )
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(start = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     if (!isFreeOver) {
                         Text("⏱️", fontSize = 24.sp)
-                        Text("Free waiting", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                        Text("Hurry to pickup!", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary, textAlign = TextAlign.Center)
+                        Text(
+                            "Free waiting",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "Hurry to pickup!",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary,
+                            textAlign = TextAlign.Center
+                        )
                     } else {
                         Text("💰", fontSize = 24.sp)
-                        Text("₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = AppColors.Drop, textAlign = TextAlign.Center)
-                        Text("Added to fare", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary, textAlign = TextAlign.Center)
+                        Text(
+                            "₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Drop,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "Added to fare",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextSecondary,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -801,29 +977,77 @@ private fun WaitingChargeCard(waitingState: WaitingTimerState, modifier: Modifie
             if (isFreeOver) {
                 Spacer(Modifier.height(10.dp))
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(AppColors.Drop.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AppColors.Drop.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("₹${RiderTrackingViewModel.CHARGE_PER_MINUTE} × ${waitingState.extraMinutesCharged} min", style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
-                    Text("+ ₹${waitingState.waitingCharge}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = AppColors.Drop)
+                    Text(
+                        "₹${RiderTrackingViewModel.CHARGE_PER_MINUTE} × ${waitingState.extraMinutesCharged} min",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary
+                    )
+                    Text(
+                        "+ ₹${waitingState.waitingCharge}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Drop
+                    )
                 }
             } else {
                 Spacer(Modifier.height(6.dp))
-                Text("After 3 min, ₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min applies", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(
+                    "After 3 min, ₹${RiderTrackingViewModel.CHARGE_PER_MINUTE}/min applies",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppColors.TextHint,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CircularTimerDisplay(mainText: String, progress: Float, trackColor: Color, textColor: Color, subText: String) {
+private fun CircularTimerDisplay(
+    mainText: String,
+    progress: Float,
+    trackColor: Color,
+    textColor: Color,
+    subText: String
+) {
     Box(contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(progress = { 1f }, modifier = Modifier.size(70.dp), color = trackColor.copy(alpha = 0.15f), strokeWidth = 5.dp, strokeCap = StrokeCap.Round)
-        CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(70.dp), color = trackColor, strokeWidth = 5.dp, strokeCap = StrokeCap.Round)
+        CircularProgressIndicator(
+            progress = { 1f },
+            modifier = Modifier.size(70.dp),
+            color = trackColor.copy(alpha = 0.15f),
+            strokeWidth = 5.dp,
+            strokeCap = StrokeCap.Round
+        )
+        CircularProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.size(70.dp),
+            color = trackColor,
+            strokeWidth = 5.dp,
+            strokeCap = StrokeCap.Round
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(mainText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = textColor)
-            Text(subText, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = trackColor.copy(alpha = 0.7f), fontSize = 9.sp)
+            Text(
+                mainText,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+            Text(
+                subText,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = trackColor.copy(alpha = 0.7f),
+                fontSize = 9.sp
+            )
         }
     }
 }
@@ -833,64 +1057,160 @@ private fun CircularTimerDisplay(mainText: String, progress: Float, trackColor: 
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun JourneySummaryCard(pickupAddress: SavedAddress, dropAddress: SavedAddress, fare: Int, waitingCharge: Int = 0, currentStatus: BookingStatusType) {
+private fun JourneySummaryCard(
+    pickupAddress: SavedAddress,
+    dropAddress: SavedAddress,
+    fare: Int,
+    waitingCharge: Int = 0,
+    currentStatus: BookingStatusType
+) {
     val totalFare = fare + waitingCharge
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Pickup
-            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(10.dp).background(AppColors.Pickup, CircleShape))
-                    Box(Modifier.width(2.dp).height(28.dp).background(AppColors.Border))
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .background(AppColors.Pickup, CircleShape)
+                    )
+                    Box(
+                        Modifier
+                            .width(2.dp)
+                            .height(28.dp)
+                            .background(AppColors.Border)
+                    )
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(pickupAddress.contactName ?: "Pickup", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text(pickupAddress.address, style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        pickupAddress.contactName ?: "Pickup",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        pickupAddress.address,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
             // Drop
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.size(10.dp).background(AppColors.Drop, CircleShape))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .background(AppColors.Drop, CircleShape)
+                )
                 Column(Modifier.weight(1f)) {
-                    Text(dropAddress.contactName ?: "Drop", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text(dropAddress.address, style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        dropAddress.contactName ?: "Drop",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        dropAddress.address,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Fare
+            // Fare section
             Column(
-                modifier = Modifier.fillMaxWidth().background(AppColors.Background, RoundedCornerShape(10.dp)).padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text("💵", fontSize = 16.sp)
-                        Text(if (waitingCharge > 0) "Trip Fare" else "Cash Payment", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                        Text(
+                            if (waitingCharge > 0) "Trip Fare" else "Cash Payment",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextSecondary
+                        )
                     }
-                    Text("₹$fare", style = MaterialTheme.typography.titleSmall, fontWeight = if (waitingCharge > 0) FontWeight.SemiBold else FontWeight.Bold, color = if (waitingCharge > 0) AppColors.TextPrimary else AppColors.Primary)
+                    Text(
+                        "₹$fare",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (waitingCharge > 0) FontWeight.SemiBold else FontWeight.Bold,
+                        color = if (waitingCharge > 0) AppColors.TextPrimary else AppColors.Primary
+                    )
                 }
 
                 if (waitingCharge > 0) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Text("⏱️", fontSize = 16.sp)
-                            Text("Waiting Charge", style = MaterialTheme.typography.bodySmall, color = AppColors.Drop)
+                            Text(
+                                "Waiting Charge",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.Drop
+                            )
                         }
-                        Text("+ ₹$waitingCharge", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = AppColors.Drop)
+                        Text(
+                            "+ ₹$waitingCharge",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.Drop
+                        )
                     }
-                    HorizontalDivider(Modifier.padding(vertical = 4.dp), color = AppColors.Border)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Total (Cash)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text("₹$totalFare", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    HorizontalDivider(
+                        Modifier.padding(vertical = 4.dp),
+                        color = AppColors.Border
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Total (Cash)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "₹$totalFare",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Primary
+                        )
                     }
                 }
             }
@@ -903,21 +1223,39 @@ private fun JourneySummaryCard(pickupAddress: SavedAddress, dropAddress: SavedAd
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun RatingBottomSheet(ratingState: RatingUiState, onSubmitRating: (Int, String?) -> Unit, onDismiss: () -> Unit) {
+private fun RatingBottomSheet(
+    ratingState: RatingUiState,
+    onSubmitRating: (Int, String?) -> Unit,
+    onDismiss: () -> Unit
+) {
     var selectedRating by remember { mutableIntStateOf(0) }
     var feedback by remember { mutableStateOf("") }
     val starLabels = listOf("", "Terrible", "Bad", "Okay", "Good", "Excellent")
 
     if (ratingState.isSubmitted) {
         AlertDialog(
-            onDismissRequest = onDismiss, shape = RoundedCornerShape(24.dp), containerColor = Color.White,
+            onDismissRequest = onDismiss,
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Color.White,
             title = null,
             text = {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text("✅", fontSize = 48.sp)
                     Spacer(Modifier.height(12.dp))
-                    Text("Thank you!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Your feedback helps us improve", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary, textAlign = TextAlign.Center)
+                    Text(
+                        "Thank you!",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Your feedback helps us improve",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
                 }
             },
             confirmButton = {}
@@ -926,61 +1264,137 @@ private fun RatingBottomSheet(ratingState: RatingUiState, onSubmitRating: (Int, 
     }
 
     AlertDialog(
-        onDismissRequest = {}, shape = RoundedCornerShape(24.dp), containerColor = Color.White,
+        onDismissRequest = {},
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color.White,
         title = {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text("🎉", fontSize = 40.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("Delivery Complete!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(
+                    "Delivery Complete!",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
                 if (ratingState.totalFare > 0) {
                     Spacer(Modifier.height(4.dp))
-                    Text("Total: ₹${ratingState.totalFare}", style = MaterialTheme.typography.titleMedium, color = AppColors.Primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Total: ₹${ratingState.totalFare}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = AppColors.Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                     if (ratingState.waitingCharge > 0) {
-                        Text("(incl. ₹${ratingState.waitingCharge} waiting)", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
+                        Text(
+                            "(incl. ₹${ratingState.waitingCharge} waiting)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppColors.TextHint
+                        )
                     }
                 }
             }
         },
         text = {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Rate ${ratingState.driverName}", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Rate ${ratingState.driverName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary
+                )
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (i in 1..5) {
-                        IconButton(onClick = { selectedRating = i }, modifier = Modifier.size(44.dp)) {
-                            Text(if (i <= selectedRating) "⭐" else "☆", fontSize = if (i <= selectedRating) 32.sp else 28.sp)
+                        IconButton(
+                            onClick = { selectedRating = i },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Text(
+                                if (i <= selectedRating) "⭐" else "☆",
+                                fontSize = if (i <= selectedRating) 32.sp else 28.sp
+                            )
                         }
                     }
                 }
                 if (selectedRating > 0) {
-                    Text(starLabels[selectedRating], style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = AppColors.Primary)
+                    Text(
+                        starLabels[selectedRating],
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AppColors.Primary
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
-                    value = feedback, onValueChange = { feedback = it }, modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Share your experience (optional)", style = MaterialTheme.typography.bodySmall, color = AppColors.TextHint) },
-                    shape = RoundedCornerShape(12.dp), maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border)
+                    value = feedback,
+                    onValueChange = { feedback = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            "Share your experience (optional)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppColors.TextHint
+                        )
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    maxLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    )
                 )
                 ratingState.error?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = AppColors.Drop)
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.Drop
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSubmitRating(selectedRating, feedback.takeIf { it.isNotBlank() }) },
+                onClick = {
+                    onSubmitRating(selectedRating, feedback.takeIf { it.isNotBlank() })
+                },
                 enabled = selectedRating > 0 && !ratingState.isSubmitting,
-                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary, disabledContainerColor = AppColors.Border)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AppColors.Primary,
+                    disabledContainerColor = AppColors.Border
+                )
             ) {
-                if (ratingState.isSubmitting) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text("Submit Rating", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                if (ratingState.isSubmitting) {
+                    CircularProgressIndicator(
+                        Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        "Submit Rating",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Skip", color = AppColors.TextHint, fontWeight = FontWeight.SemiBold) }
+            TextButton(onClick = onDismiss) {
+                Text(
+                    "Skip",
+                    color = AppColors.TextHint,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     )
 }
@@ -990,30 +1404,65 @@ private fun RatingBottomSheet(ratingState: RatingUiState, onSubmitRating: (Int, 
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun CancelBookingDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun CancelBookingDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
     var selectedReason by remember { mutableStateOf<String?>(null) }
-    val reasons = listOf("Driver taking too long", "Found another ride", "Plans changed", "Wrong pickup/drop location", "Other reason")
+    val reasons = listOf(
+        "Driver taking too long",
+        "Found another ride",
+        "Plans changed",
+        "Wrong pickup/drop location",
+        "Other reason"
+    )
 
     AlertDialog(
-        onDismissRequest = onDismiss, shape = RoundedCornerShape(20.dp), containerColor = Color.White,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(40.dp).background(AppColors.Drop.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) { Text("❌", fontSize = 20.sp) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .background(AppColors.Drop.copy(alpha = 0.1f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("❌", fontSize = 20.sp)
+                }
                 Text("Cancel Booking?", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column {
-                Text("Please select a reason:", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+                Text(
+                    "Please select a reason:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary
+                )
                 Spacer(Modifier.height(12.dp))
                 reasons.forEach { reason ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { selectedReason = reason }
-                            .background(if (selectedReason == reason) AppColors.Primary.copy(alpha = 0.08f) else Color.Transparent)
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { selectedReason = reason }
+                            .background(
+                                if (selectedReason == reason) AppColors.Primary.copy(alpha = 0.08f)
+                                else Color.Transparent
+                            )
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(selected = selectedReason == reason, onClick = { selectedReason = reason }, colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary))
+                        RadioButton(
+                            selected = selectedReason == reason,
+                            onClick = { selectedReason = reason },
+                            colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary)
+                        )
                         Spacer(Modifier.width(4.dp))
                         Text(reason, style = MaterialTheme.typography.bodyMedium)
                     }
@@ -1022,12 +1471,28 @@ private fun CancelBookingDialog(onDismiss: () -> Unit, onConfirm: (String) -> Un
         },
         confirmButton = {
             Button(
-                onClick = { selectedReason?.let { onConfirm(it) } }, enabled = selectedReason != null,
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop, disabledContainerColor = AppColors.Border), shape = RoundedCornerShape(12.dp)
-            ) { Text("Cancel Booking", fontWeight = FontWeight.SemiBold) }
+                onClick = { selectedReason?.let { onConfirm(it) } },
+                enabled = selectedReason != null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AppColors.Drop,
+                    disabledContainerColor = AppColors.Border
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Cancel Booking", fontWeight = FontWeight.SemiBold)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, shape = RoundedCornerShape(12.dp)) { Text("Go Back", color = AppColors.TextSecondary, fontWeight = FontWeight.SemiBold) }
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Go Back",
+                    color = AppColors.TextSecondary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     )
 }

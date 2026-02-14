@@ -1,4 +1,8 @@
 // ui/screens/booking/SearchingRiderScreen.kt
+// ✅ UPDATED: Bottom sheet matches DriverActiveBookingScreen pattern
+//    - Sheet starts EXPANDED
+//    - Transparent container with floating status chip + white rounded box
+//    - Custom drag handle inside the white box
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.animation.core.*
@@ -54,7 +58,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import kotlinx.coroutines.delay
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SEARCHING RIDER SCREEN — Full-map + BottomSheetScaffold
+// SEARCHING RIDER SCREEN — Full-map + BottomSheetScaffold (Expanded by default)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,53 +142,102 @@ fun SearchingRiderScreen(
         }
     }
 
-    // ── BottomSheetScaffold ──
+    // ── BottomSheetScaffold — EXPANDED, Transparent (matches DriverActiveBookingScreen) ──
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
-            initialValue = SheetValue.PartiallyExpanded
+            initialValue = SheetValue.Expanded
         )
     )
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetContainerColor = Color.White,
-        sheetShadowElevation = 16.dp,
-        sheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        sheetDragHandle = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .background(AppColors.Border, RoundedCornerShape(2.dp))
-                )
-            }
-        },
-        sheetPeekHeight = 310.dp,
+        sheetContainerColor = Color.Transparent,
+        sheetShadowElevation = 0.dp,
+        sheetShape = RoundedCornerShape(0.dp),
+        sheetDragHandle = null,
+        sheetPeekHeight = 340.dp,
         sheetContent = {
-            SearchingSheetBody(
-                bookingId = bookingId,
-                pickupAddress = pickupAddress,
-                dropAddress = dropAddress,
-                selectedFareDetails = selectedFareDetails,
-                fare = fare,
-                routeInfo = routeInfo,
-                isSearching = isSearching,
-                isRiderAssigned = isRiderAssigned,
-                isTimedOut = showRetryUi,
-                remainingTimeMs = remainingTimeMs,
-                totalTimeMs = totalTimeMs,
-                timeText = timeText,
-                searchAttempt = searchAttempt,
-                onRetry = { riderTrackingViewModel.retrySearch() },
-                onContactSupport = onContactSupport,
-                onCancelBooking = { showCancelSheet = true }
-            )
+            Column(Modifier.fillMaxWidth()) {
+                // 1. Floating status chip — above the white box
+                Box(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    // Route info chip (distance + duration) — right aligned
+                    routeInfo?.let { route ->
+                        Card(
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(6.dp)
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Route, null, tint = AppColors.Primary, modifier = Modifier.size(14.dp))
+                                    Text(route.distanceText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                }
+                                Box(Modifier.width(1.dp).height(14.dp).background(Color(0xFFE5E7EB)))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(14.dp))
+                                    Text(route.durationText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. White box — the actual sheet visual
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color.White,
+                            RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                        )
+                ) {
+                    Column(Modifier.fillMaxWidth()) {
+                        // Drag handle
+                        Box(
+                            Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier.width(40.dp).height(4.dp)
+                                    .background(Color(0xFFE0E0E0), RoundedCornerShape(2.dp))
+                            )
+                        }
+
+                        // Sheet body
+                        SearchingSheetBody(
+                            bookingId = bookingId,
+                            pickupAddress = pickupAddress,
+                            dropAddress = dropAddress,
+                            selectedFareDetails = selectedFareDetails,
+                            fare = fare,
+                            routeInfo = routeInfo,
+                            isSearching = isSearching,
+                            isRiderAssigned = isRiderAssigned,
+                            isTimedOut = showRetryUi,
+                            remainingTimeMs = remainingTimeMs,
+                            totalTimeMs = totalTimeMs,
+                            timeText = timeText,
+                            searchAttempt = searchAttempt,
+                            onRetry = { riderTrackingViewModel.retrySearch() },
+                            onContactSupport = onContactSupport,
+                            onCancelBooking = { showCancelSheet = true }
+                        )
+                    }
+                }
+            }
         },
         content = { paddingValues ->
             Box(
@@ -201,7 +254,7 @@ fun SearchingRiderScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // ── Floating status pill ──
+                // ── Floating status pill on map ──
                 SearchingStatusPill(
                     isSearching = isSearching,
                     isRiderAssigned = isRiderAssigned,
@@ -213,36 +266,21 @@ fun SearchingRiderScreen(
                         .padding(top = 12.dp)
                 )
 
-                // ── Route info chip at bottom of map ──
-                routeInfo?.let { route ->
-                    Card(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(6.dp)
+                // ── Route loading indicator ──
+                if (isRouteLoading) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 64.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        shadowElevation = 4.dp
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Default.Route, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                                Text(route.distanceText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            }
-                            Box(Modifier.width(1.dp).height(20.dp).background(AppColors.Border))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(18.dp))
-                                Text(route.durationText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            }
+                            CircularProgressIndicator(Modifier.size(16.dp), color = AppColors.Primary, strokeWidth = 2.dp)
+                            Text("Finding route…", style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
                         }
                     }
                 }
@@ -373,8 +411,8 @@ private fun SearchingSheetBody(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(Modifier.padding(16.dp)) {
                     // Pickup
@@ -436,8 +474,8 @@ private fun SearchingSheetBody(
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(2.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -465,8 +503,8 @@ private fun SearchingSheetBody(
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(2.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -529,7 +567,7 @@ private fun SearchingSheetBody(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SEARCHING ANIMATION CARD — The hero of the screen
+// SEARCHING ANIMATION CARD
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -545,7 +583,6 @@ private fun SearchingAnimationCard(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "search_anim")
 
-    // Pulsing ring animation
     val ring1Scale by infiniteTransition.animateFloat(
         initialValue = 0.6f, targetValue = 1.4f,
         animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Restart),
@@ -558,73 +595,47 @@ private fun SearchingAnimationCard(
     )
     val ring2Scale by infiniteTransition.animateFloat(
         initialValue = 0.6f, targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, delayMillis = 600, easing = FastOutSlowInEasing), RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 600, easing = FastOutSlowInEasing), RepeatMode.Restart),
         label = "ring2"
     )
     val ring2Alpha by infiniteTransition.animateFloat(
         initialValue = 0.4f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, delayMillis = 600, easing = FastOutSlowInEasing), RepeatMode.Restart
-        ),
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 600, easing = FastOutSlowInEasing), RepeatMode.Restart),
         label = "ring2a"
     )
 
     val bgColor = when {
         isRiderAssigned -> Color(0xFFE8F5E9)
         isTimedOut -> Color(0xFFFFF3E0)
-        else -> Color.White
+        else -> Color(0xFFF9FAFB)
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = bgColor),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Animated icon area ──
-            Box(
-                modifier = Modifier.size(100.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(100.dp), contentAlignment = Alignment.Center) {
                 when {
                     isRiderAssigned -> {
-                        // ✅ Success state
-                        Box(
-                            Modifier.size(80.dp).background(AppColors.Pickup.copy(0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.size(80.dp).background(AppColors.Pickup.copy(0.15f), CircleShape), contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.CheckCircle, null, tint = AppColors.Pickup, modifier = Modifier.size(44.dp))
                         }
                     }
                     isTimedOut -> {
-                        // ⚠️ Timeout state
-                        Box(
-                            Modifier.size(80.dp).background(Color(0xFFFF9800).copy(0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.size(80.dp).background(Color(0xFFFF9800).copy(0.15f), CircleShape), contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.SearchOff, null, tint = Color(0xFFE65100), modifier = Modifier.size(40.dp))
                         }
                     }
                     else -> {
-                        // 🔍 Searching — pulsing rings
-                        Box(
-                            Modifier.size(100.dp).scale(ring1Scale).alpha(ring1Alpha)
-                                .background(AppColors.Primary.copy(alpha = 0.3f), CircleShape)
-                        )
-                        Box(
-                            Modifier.size(100.dp).scale(ring2Scale).alpha(ring2Alpha)
-                                .background(AppColors.Primary.copy(alpha = 0.2f), CircleShape)
-                        )
-                        Box(
-                            Modifier.size(56.dp).background(AppColors.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.size(100.dp).scale(ring1Scale).alpha(ring1Alpha).background(AppColors.Primary.copy(alpha = 0.3f), CircleShape))
+                        Box(Modifier.size(100.dp).scale(ring2Scale).alpha(ring2Alpha).background(AppColors.Primary.copy(alpha = 0.2f), CircleShape))
+                        Box(Modifier.size(56.dp).background(AppColors.Primary, CircleShape), contentAlignment = Alignment.Center) {
                             Icon(Icons.Default.LocalShipping, null, tint = Color.White, modifier = Modifier.size(28.dp))
                         }
                     }
@@ -633,7 +644,6 @@ private fun SearchingAnimationCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Title ──
             Text(
                 text = when {
                     isRiderAssigned -> "Rider Found! 🎉"
@@ -664,7 +674,6 @@ private fun SearchingAnimationCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Progress / Timer / Retry ──
             when {
                 isRiderAssigned -> {
                     LinearProgressIndicator(
@@ -685,16 +694,9 @@ private fun SearchingAnimationCard(
                         Text("Try Again", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        "Attempt $searchAttempt completed",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextHint,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text("Attempt $searchAttempt completed", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
                 else -> {
-                    // Timer + progress bar
                     val progress = ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs).coerceIn(0f, 1f)
                     val progressColor = when {
                         progress > 0.66f -> AppColors.Drop
@@ -702,29 +704,12 @@ private fun SearchingAnimationCard(
                         else -> AppColors.Primary
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Timer display
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Timer, null, tint = progressColor, modifier = Modifier.size(18.dp))
-                            Text(
-                                timeText,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = progressColor
-                            )
+                            Text(timeText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = progressColor)
                         }
-                        Text(
-                            "remaining",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextHint
-                        )
+                        Text("remaining", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -764,9 +749,7 @@ private fun RouteMapView(
                 .include(pickupLatLng)
                 .include(dropLatLng)
             routeInfo?.polylinePoints?.forEach { boundsBuilder.include(it) }
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100), 800
-            )
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100), 800)
         } catch (e: Exception) {
             val center = LatLng(
                 (pickupLatLng.latitude + dropLatLng.latitude) / 2,
@@ -780,53 +763,20 @@ private fun RouteMapView(
         modifier = modifier,
         cameraPositionState = cameraPositionState,
         properties = MapProperties(mapType = MapType.NORMAL),
-        uiSettings = MapUiSettings(
-            zoomControlsEnabled = false,
-            myLocationButtonEnabled = false,
-            mapToolbarEnabled = false,
-            compassEnabled = false
-        ),
+        uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
         contentPadding = PaddingValues(bottom = 280.dp, top = 60.dp)
     ) {
-        // Pickup marker
-        Marker(
-            state = MarkerState(position = pickupLatLng),
-            title = "Pickup",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-        )
-        // Drop marker
-        Marker(
-            state = MarkerState(position = dropLatLng),
-            title = "Drop",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-        )
-        // Route polyline
+        Marker(state = MarkerState(position = pickupLatLng), title = "Pickup", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        Marker(state = MarkerState(position = dropLatLng), title = "Drop", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
         routeInfo?.let { route ->
-            // Shadow line
-            Polyline(
-                points = route.polylinePoints,
-                color = Color(0xFF1565C0),
-                width = 14f,
-                jointType = JointType.ROUND,
-                startCap = RoundCap(),
-                endCap = RoundCap()
-            )
-            // Main line
-            Polyline(
-                points = route.polylinePoints,
-                color = AppColors.Primary,
-                width = 10f,
-                jointType = JointType.ROUND,
-                startCap = RoundCap(),
-                endCap = RoundCap(),
-                zIndex = 1f
-            )
+            Polyline(points = route.polylinePoints, color = Color(0xFF1565C0), width = 14f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap())
+            Polyline(points = route.polylinePoints, color = AppColors.Primary, width = 10f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CANCELLATION BOTTOM SHEET (unchanged logic, updated styling)
+// CANCELLATION BOTTOM SHEET
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -856,14 +806,10 @@ private fun CancellationReasonBottomSheet(
         containerColor = Color.White,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
-            Box(
-                Modifier.padding(vertical = 12.dp).width(40.dp).height(4.dp)
-                    .background(AppColors.Border, RoundedCornerShape(2.dp))
-            )
+            Box(Modifier.padding(vertical = 12.dp).width(40.dp).height(4.dp).background(AppColors.Border, RoundedCornerShape(2.dp)))
         }
     ) {
         Column(Modifier.fillMaxHeight(0.9f).fillMaxWidth()) {
-            // Header
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -873,40 +819,24 @@ private fun CancellationReasonBottomSheet(
                     Text("Cancel Trip?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("Please select a reason", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary)
-                }
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
             }
 
-            // Reasons
-            Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
-            ) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
                 reasons.forEach { reason ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                            .clickable {
-                                selectedReason = reason.id
-                                if (reason.id != "other") { otherReason = ""; keyboardController?.hide(); focusManager.clearFocus() }
-                            },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable {
+                            selectedReason = reason.id
+                            if (reason.id != "other") { otherReason = ""; keyboardController?.hide(); focusManager.clearFocus() }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(
-                            if (selectedReason == reason.id) 2.dp else 1.dp,
-                            if (selectedReason == reason.id) AppColors.Primary else AppColors.Border
-                        )
+                        border = BorderStroke(if (selectedReason == reason.id) 2.dp else 1.dp, if (selectedReason == reason.id) AppColors.Primary else AppColors.Border)
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Icon(reason.icon, null, tint = if (selectedReason == reason.id) AppColors.Primary else AppColors.TextSecondary, modifier = Modifier.size(24.dp))
-                            Text(reason.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selectedReason == reason.id) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedReason == reason.id) AppColors.Primary else AppColors.TextPrimary)
-                            RadioButton(selected = selectedReason == reason.id, onClick = { selectedReason = reason.id },
-                                colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary))
+                            Text(reason.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = if (selectedReason == reason.id) FontWeight.Bold else FontWeight.Normal, color = if (selectedReason == reason.id) AppColors.Primary else AppColors.TextPrimary)
+                            RadioButton(selected = selectedReason == reason.id, onClick = { selectedReason = reason.id }, colors = RadioButtonDefaults.colors(selectedColor = AppColors.Primary))
                         }
                     }
                 }
@@ -926,12 +856,7 @@ private fun CancellationReasonBottomSheet(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Cancellation policy warning
-                Card(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
-                ) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))) {
                     Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
                         Column {
@@ -944,31 +869,17 @@ private fun CancellationReasonBottomSheet(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // Buttons
             Surface(color = Color.White, shadowElevation = 8.dp) {
                 Row(Modifier.fillMaxWidth().padding(20.dp).navigationBarsPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp),
-                        shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, AppColors.Primary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)
-                    ) { Text("Keep Trip", fontWeight = FontWeight.Bold) }
-
-                    Button(
-                        onClick = { if (selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank())) showConfirmDialog = true },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop, disabledContainerColor = AppColors.Drop.copy(0.3f)),
-                        shape = RoundedCornerShape(14.dp),
-                        enabled = selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank()) && !isLoading
-                    ) {
-                        if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Cancel Trip", fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, AppColors.Primary), colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)) { Text("Keep Trip", fontWeight = FontWeight.Bold) }
+                    Button(onClick = { if (selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank())) showConfirmDialog = true }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop, disabledContainerColor = AppColors.Drop.copy(0.3f)), shape = RoundedCornerShape(14.dp), enabled = selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank()) && !isLoading) {
+                        if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp) else Text("Cancel Trip", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     }
 
-    // Confirm Dialog
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
@@ -976,16 +887,8 @@ private fun CancellationReasonBottomSheet(
             title = { Text("Confirm Cancellation", fontWeight = FontWeight.Bold) },
             text = { Text("Are you sure you want to cancel this trip?", color = AppColors.TextSecondary, textAlign = TextAlign.Center) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val reason = if (selectedReason == "other") otherReason.ifBlank { "Other" }
-                        else reasons.find { it.id == selectedReason }?.title ?: "Cancelled"
-                        onConfirmCancel(reason); showConfirmDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop), enabled = !isLoading
-                ) {
-                    if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    else Text("Yes, Cancel")
+                Button(onClick = { val reason = if (selectedReason == "other") otherReason.ifBlank { "Other" } else reasons.find { it.id == selectedReason }?.title ?: "Cancelled"; onConfirmCancel(reason); showConfirmDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop), enabled = !isLoading) {
+                    if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp) else Text("Yes, Cancel")
                 }
             },
             dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("No, Keep It", color = AppColors.Primary) } },
