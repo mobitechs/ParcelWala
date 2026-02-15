@@ -1,6 +1,7 @@
 // ui/screens/main/MainScreen.kt
 package com.mobitechs.parcelwala.ui.screens.main
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -18,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
@@ -75,6 +78,7 @@ sealed class BottomNavItem(
  * - Payments tab
  * - Account tab with profile management
  */
+@SuppressLint("ContextCastToActivity")
 @Composable
 fun MainScreen(
     preferencesManager: PreferencesManager,
@@ -136,7 +140,10 @@ fun MainScreen(
 
                 // ============ PAYMENTS TAB ============
                 composable(BottomNavItem.Payments.route) {
-                    PaymentsScreen()
+                    val activity = LocalContext.current as? MainActivity
+                    activity?.let {
+                        PaymentsScreen(paymentViewModel = it.paymentViewModel)
+                    }
                 }
 
                 // ============ ACCOUNT TAB ============

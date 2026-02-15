@@ -8,10 +8,13 @@ import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CompleteProfileRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
+import com.mobitechs.parcelwala.data.model.request.*
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.request.SendOtpRequest
 import com.mobitechs.parcelwala.data.model.request.ValidateCouponRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyOtpRequest
+import com.mobitechs.parcelwala.data.model.request.WalletTopupOrderRequest
+import com.mobitechs.parcelwala.data.model.request.WalletTopupVerifyRequest
 import com.mobitechs.parcelwala.data.model.response.ApiResponse
 import com.mobitechs.parcelwala.data.model.response.AuthTokens
 import com.mobitechs.parcelwala.data.model.response.BookingResponse
@@ -164,6 +167,57 @@ interface ApiService {
     ): Response<RatingSubmitResponse>
 
 
+
+    // ============ PAYMENT ENDPOINTS ============
+
+    // Create Razorpay order for booking payment
+    @POST("payments/create-order")
+    suspend fun createPaymentOrder(
+        @Body request: CreatePaymentOrderRequest
+    ): ApiResponse<CreateOrderResponse>
+
+    // Verify payment after Razorpay checkout
+    @POST("payments/verify")
+    suspend fun verifyPayment(
+        @Body request: VerifyPaymentRequest
+    ): ApiResponse<VerifyPaymentResponse>
+
+    // Get saved payment methods
+    @GET("customer/payment-methods")
+    suspend fun getPaymentMethods(): ApiResponse<List<PaymentMethodResponse>>
+
+    // Get transaction history
+    @GET("customer/transactions")
+    suspend fun getTransactions(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20,
+        @Query("type") type: String? = null
+    ): ApiResponse<TransactionListResponse>
+
+// ============ WALLET ENDPOINTS ============
+
+    // Get wallet balance
+    @GET("customer/wallet")
+    suspend fun getWalletBalance(): ApiResponse<WalletBalanceResponse>
+
+    // Create wallet topup order
+    @POST("payments/wallet/create-order")
+    suspend fun createWalletTopupOrder(
+        @Body request: WalletTopupOrderRequest
+    ): ApiResponse<CreateOrderResponse>
+
+    // Verify wallet topup
+    @POST("payments/wallet/verify")
+    suspend fun verifyWalletTopup(
+        @Body request: WalletTopupVerifyRequest
+    ): ApiResponse<WalletTopupResponse>
+
+    // Get wallet transactions
+    @GET("customer/wallet/transactions")
+    suspend fun getWalletTransactions(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): ApiResponse<TransactionListResponse>
 
 
 

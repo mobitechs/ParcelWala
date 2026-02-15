@@ -405,21 +405,9 @@ private fun LiveTrackingMap(
         ),
         contentPadding = PaddingValues(bottom = 280.dp, top = 60.dp)
     ) {
-        // Pickup marker (always visible)
-        Marker(
-            state = MarkerState(position = pickupLatLng),
-            title = "Pickup",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-        )
 
-        // Drop marker (visible after pickup)
-        if (!isPrePickup) {
-            Marker(
-                state = MarkerState(position = dropLatLng),
-                title = "Drop",
-                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
-            )
-        }
+        Marker(state = MarkerState(position = pickupLatLng), title = "Pickup", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        Marker(state = MarkerState(position = dropLatLng), title = "Drop", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
 
         // Driver marker
         if (driverLatLng != null) {

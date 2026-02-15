@@ -2,6 +2,7 @@
 // ✅ UPDATED: Full lifecycle tracking - Assigned → Arrived → PickedUp → InTransit → Delivered
 // ✅ UPDATED: Phase-aware map (driver→pickup pre-pickup, driver→drop post-pickup)
 // ✅ UPDATED: Waiting timer, rating integration, cancel logic per phase
+// ✅ FIX: bookingCancelled collector now only logs — handleCancelled() is sole cancel handler
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import android.util.Log
@@ -163,32 +164,14 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
+        // ✅ FIX: bookingCancelled collector now ONLY logs.
+        // The repo also emits to _bookingUpdates with status="cancelled",
+        // which triggers handleCancelled() — the SOLE cancel handler that
+        // checks cancelledBy to decide: retry search (driver) or go home (customer/system).
         viewModelScope.launch {
             realTimeRepository.bookingCancelled.collect { notification ->
-                Log.d(TAG, "📥 BOOKING CANCELLED: ${notification.cancelledBy} - ${notification.reason}")
-
-                notificationHelper.showStickyStatusNotification(
-                    bookingId = notification.bookingId.toString(),
-                    title = "Booking Cancelled",
-                    body = buildString {
-                        when (notification.cancelledBy?.lowercase()) {
-                            "driver" -> append("Driver cancelled the booking")
-                            "system" -> append("Booking was cancelled by system")
-                            else -> append("Booking has been cancelled")
-                        }
-                        notification.reason?.takeIf { it.isNotBlank() }?.let {
-                            append("\nReason: $it")
-                        }
-                    },
-                    isFinal = true
-                )
-
-                stopWaitingTimer()
-                activeBookingManager.clearActiveBooking()
-                realTimeRepository.disconnect()
-
-                _toastMessage.emit(notification.message)
-                _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(notification.message))
+                Log.d(TAG, "📥 BOOKING_CANCELLED event received: cancelledBy=${notification.cancelledBy} | reason=${notification.reason} | bookingId=${notification.bookingId}")
+                // ✅ Don't handle here — handleCancelled() via _bookingUpdates handles everything
             }
         }
 
@@ -380,20 +363,39 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
-            Log.d(TAG, "❌ Cancelling booking: $reason")
-            stopWaitingTimer()
-
             val bookingId = _uiState.value.currentBookingId?.toIntOrNull()
-                ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
+            Log.d(TAG, "🚫 cancelBooking() called - bookingId=$bookingId, reason=$reason")
+            Log.d(TAG, "🚫 Connection state: ${realTimeRepository.connectionState.value}")
 
-            if (bookingId != null && realTimeRepository.isConnected()) {
-                realTimeRepository.cancelBooking(bookingId, reason)
+            if (bookingId != null && bookingId > 0) {
+                // ✅ Cancel via SignalR so the hub notifies BOTH parties
+                Log.d(TAG, "🚫 Sending cancel via SignalR for booking $bookingId...")
+                val result = realTimeRepository.cancelBooking(bookingId, reason)
+
+                result.onSuccess {
+                    Log.d(TAG, "✅ SignalR cancel SUCCESS for booking $bookingId")
+                    // The BookingCancelled event will be received → _bookingUpdates → handleCancelled()
+                }.onFailure { error ->
+                    Log.e(TAG, "❌ SignalR cancel FAILED: ${error.message}")
+                    Log.e(TAG, "❌ Fallback: cleaning up and navigating home")
+                    // Fallback: still clean up and navigate
+                    activeBookingManager.clearActiveBooking()
+                    realTimeRepository.disconnect()
+                    _navigationEvent.emit(
+                        RiderTrackingNavigationEvent.BookingCancelled(
+                            error.message ?: "Booking cancelled"
+                        )
+                    )
+                }
+            } else {
+                Log.e(TAG, "🚫 No valid bookingId ($bookingId), just cleaning up")
+                // No valid booking ID, just clean up
+                activeBookingManager.clearActiveBooking()
+                realTimeRepository.disconnect()
+                _navigationEvent.emit(
+                    RiderTrackingNavigationEvent.BookingCancelled("Booking cancelled")
+                )
             }
-
-            notificationHelper.cancelAllNotifications()
-            realTimeRepository.disconnect()
-            activeBookingManager.clearActiveBooking()
-            _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(reason))
         }
     }
 
@@ -429,6 +431,7 @@ class RiderTrackingViewModel @Inject constructor(
         Log.d(TAG, "  Driver: ${update.driverName ?: "null"} | ETA: ${update.etaMinutes ?: update.rider?.etaMinutes ?: "null"}min")
         Log.d(TAG, "  Lat: ${update.driverLatitude} | Lng: ${update.driverLongitude}")
         Log.d(TAG, "  OTP: ${update.otp} | EstArrival: ${update.estimatedArrival} | BookingDist: ${update.distanceKm}")
+        Log.d(TAG, "  CancelledBy: ${update.cancelledBy} | CancelReason: ${update.cancellationReason}")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
         _uiState.update {
@@ -611,9 +614,6 @@ class RiderTrackingViewModel @Inject constructor(
 
         update.deliveryOtp?.let { _deliveryOtp.value = it }
 
-        // Clear pickup OTP - no longer needed
-        // _bookingOtp remains for reference but showPickupOtp will return false
-
         // Reset distance tracking for drop phase
         initialDistanceMeters = null
 
@@ -713,32 +713,90 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
+    // ✅ FIX: This is now the SOLE cancel handler (bookingCancelled collector only logs)
     private suspend fun handleCancelled(update: BookingStatusUpdate) {
+        Log.d(TAG, "🚫🚫🚫 handleCancelled() called! cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
         stopWaitingTimer()
 
-        notificationHelper.showStickyStatusNotification(
-            bookingId = update.bookingId.toString(),
-            title = "❌ Booking Cancelled",
-            body = buildString {
-                when (update.cancelledBy?.lowercase()) {
-                    "driver" -> append("Driver cancelled the booking")
-                    "system" -> append("Booking was cancelled by system")
-                    "customer" -> append("You cancelled the booking")
-                    else -> append("Booking has been cancelled")
-                }
-                update.cancellationReason?.takeIf { it.isNotBlank() }?.let {
-                    append("\nReason: $it")
-                }
-            },
-            isFinal = true
-        )
+        val cancelledBy = update.cancelledBy
 
-        activeBookingManager.clearActiveBooking()
-        realTimeRepository.disconnect()
-        _toastMessage.emit(update.message ?: "Booking cancelled")
-        _navigationEvent.emit(
-            RiderTrackingNavigationEvent.BookingCancelled(update.message ?: "Booking cancelled")
-        )
+        if (cancelledBy?.lowercase() == "driver") {
+            // ✅ Driver cancelled — go back to searching for another driver
+            Log.d(TAG, "📋 Driver cancelled, re-entering search mode")
+
+            notificationHelper.showStickyStatusNotification(
+                bookingId = update.bookingId.toString(),
+                title = "Driver Cancelled",
+                body = buildString {
+                    append("Driver cancelled the booking")
+                    update.cancellationReason?.takeIf { it.isNotBlank() }?.let {
+                        append("\nReason: $it")
+                    }
+                    append("\nSearching for another driver...")
+                }
+            )
+
+            // Clear rider-specific state but keep booking alive
+            _assignedRider.value = null
+            _riderLocation.value = null
+            _bookingOtp.value = null
+            _deliveryOtp.value = null
+            _etaMinutes.value = null
+            _distanceKm.value = null
+            _driverToPickupRoute.value = emptyList()
+            initialDistanceMeters = null
+            lastNotifiedEta = null
+            hasServerEta = false
+
+            // Reset to searching state
+            _uiState.update {
+                it.copy(
+                    currentStatus = BookingStatusType.SEARCHING,
+                    statusMessage = "Driver cancelled. Searching for another driver..."
+                )
+            }
+
+            // Retry search via ActiveBookingManager
+            activeBookingManager.retrySearch()
+
+            _toastMessage.emit(update.message ?: "Driver cancelled, searching for another driver")
+
+            // Emit navigation event to go back to searching screen
+            _navigationEvent.emit(
+                RiderTrackingNavigationEvent.DriverCancelledRetrySearch(
+                    update.message ?: "Driver cancelled, searching for another driver"
+                )
+            )
+        } else {
+            // Customer or system cancelled — exit to home
+            Log.d(TAG, "📋 Customer/system cancelled, navigating home")
+
+            notificationHelper.showStickyStatusNotification(
+                bookingId = update.bookingId.toString(),
+                title = "❌ Booking Cancelled",
+                body = buildString {
+                    when (cancelledBy?.lowercase()) {
+                        "system" -> append("Booking was cancelled by system")
+                        "customer" -> append("You cancelled the booking")
+                        else -> append("Booking has been cancelled")
+                    }
+                    update.cancellationReason?.takeIf { it.isNotBlank() }?.let {
+                        append("\nReason: $it")
+                    }
+                },
+                isFinal = true
+            )
+
+            activeBookingManager.updateStatus(BookingStatus.CANCELLED)
+            activeBookingManager.clearActiveBooking()
+            realTimeRepository.disconnect()
+            _toastMessage.emit(update.message ?: "Booking cancelled")
+            _navigationEvent.emit(
+                RiderTrackingNavigationEvent.BookingCancelled(
+                    update.message ?: "Booking cancelled"
+                )
+            )
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1027,6 +1085,8 @@ sealed class RiderTrackingNavigationEvent {
     data class NoRiderAvailable(val message: String) : RiderTrackingNavigationEvent()
 
     data class BookingCancelled(val reason: String) : RiderTrackingNavigationEvent()
+
+    data class DriverCancelledRetrySearch(val message: String) : RiderTrackingNavigationEvent()
 
     object NavigateToHome : RiderTrackingNavigationEvent()
 }

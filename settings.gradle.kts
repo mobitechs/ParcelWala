@@ -7,6 +7,7 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
+        maven { url = uri("https://artifacts.razorpay.com/maven") }
         mavenCentral()
         gradlePluginPortal()
     }

@@ -176,7 +176,7 @@ class RealTimeRepository @Inject constructor(
         try {
             if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
             Log.d(TAG, "❌ CANCELLING BOOKING: $bookingId | Reason: $reason")
-            hubConnection?.invoke(Constants.SignalRMethods.CANCEL_BOOKING, bookingId, reason)?.blockingAwait()
+            hubConnection?.invoke(Constants.SignalRMethods.CANCEL_BOOKING_BY_CUSTOMER, bookingId, reason)?.blockingAwait()
             Log.d(TAG, "✅ Cancel request sent")
             Result.success(true)
         } catch (e: Exception) {

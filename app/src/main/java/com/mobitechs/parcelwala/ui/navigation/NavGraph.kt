@@ -1,4 +1,8 @@
 // ui/navigation/NavGraph.kt
+// ✅ FIX: All onCancelBooking callbacks now use riderTrackingViewModel.cancelBooking(reason)
+//    - SearchingRiderScreen (booking_flow) ✅
+//    - RiderFoundScreen (booking_flow) ✅ FIXED
+//    - SearchingRiderScreen (active_booking_flow) ✅ FIXED
 package com.mobitechs.parcelwala.ui.navigation
 
 import android.annotation.SuppressLint
@@ -111,7 +115,7 @@ fun NavGraph(
         // ============ AUTH FLOW ============
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToOtp = { phoneNumber, otp ->  // ✅ CHANGED: Added otp parameter
+                onNavigateToOtp = { phoneNumber, otp ->
                     val encodedOtp = otp?.let { Uri.encode(it) } ?: "null"
                     navController.navigate("otp/$phoneNumber?otp=$encodedOtp")
                 }
@@ -119,23 +123,23 @@ fun NavGraph(
         }
 
         composable(
-            route = "otp/{phoneNumber}?otp={otp}",  // ✅ CHANGED: Added optional otp query parameter
+            route = "otp/{phoneNumber}?otp={otp}",
             arguments = listOf(
                 navArgument("phoneNumber") { type = NavType.StringType },
-                navArgument("otp") {  // ✅ ADDED
+                navArgument("otp") {
                     type = NavType.StringType
                     defaultValue = "null"
                 }
             )
         ) { backStackEntry ->
             val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
-            val receivedOtp = backStackEntry.arguments?.getString("otp")?.let {  // ✅ ADDED
+            val receivedOtp = backStackEntry.arguments?.getString("otp")?.let {
                 if (it == "null") null else it
             }
 
             OtpScreen(
                 phoneNumber = phoneNumber,
-                receivedOtp = receivedOtp,  // ✅ ADDED
+                receivedOtp = receivedOtp,
                 onNavigateToHome = {
                     navController.navigate(Screen.Main.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
@@ -216,7 +220,7 @@ fun NavGraph(
                     onBookAgain = { orderToBook ->
                         orderForBookAgain = orderToBook
                         isBookAgainFlow = true
-                        navController.navigate("booking_flow")  // ✅ REMOVED popUpTo
+                        navController.navigate("booking_flow")
                     },
                     onCallDriver = { phoneNumber ->
                         val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -737,11 +741,9 @@ fun NavGraph(
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
-                        // ✅ Pass cancel callback that calls API
+                        // ✅ Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
-                            // First disconnect real-time, then call API
-                            riderTrackingViewModel.disconnect()
-                            bookingViewModel.cancelBooking(reason)
+                            riderTrackingViewModel.cancelBooking(reason)
                         },
                         bookingViewModel = bookingViewModel,
                         riderTrackingViewModel = riderTrackingViewModel
@@ -791,6 +793,12 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+                            is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
+                                // Navigate back to searching screen
+                                navController.navigate("searching_rider/${bookingId}") {
+                                    popUpTo("rider_found/{bookingId}") { inclusive = true }
+                                }
+                            }
                             else -> {}
                         }
                     }
@@ -822,9 +830,9 @@ fun NavGraph(
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         fare = uiState.finalFare,
+                        // ✅ FIX: Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
-                            riderTrackingViewModel.disconnect()
-                            bookingViewModel.cancelBooking(reason)
+                            riderTrackingViewModel.cancelBooking(reason)
                         },
                         onContactSupport = {
                             val intent = Intent(Intent.ACTION_DIAL).apply {
@@ -861,9 +869,9 @@ fun NavGraph(
                         onRiderFound = { },
                         onContactSupport = { },
                         onViewDetails = { },
+                        // ✅ FIX: Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
-                            riderTrackingViewModel.disconnect()
-                            viewModel.cancelBooking(reason)
+                            riderTrackingViewModel.cancelBooking(reason)
                         },
                         bookingViewModel = viewModel,
                         riderTrackingViewModel = riderTrackingViewModel

@@ -163,8 +163,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-
-
+    // Razorpay Payment Gateway
+    implementation("com.razorpay:checkout:1.6.41")
 
 }
 

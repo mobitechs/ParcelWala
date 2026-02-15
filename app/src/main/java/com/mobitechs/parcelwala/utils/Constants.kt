@@ -21,7 +21,9 @@ object Constants {
     object SignalRMethods {
         const val JOIN_BOOKING_CHANNEL = "JoinBookingChannel"       // invoke(bookingId: String)
         const val LEAVE_BOOKING_CHANNEL = "LeaveBookingChannel"     // invoke(bookingId: String)
-        const val CANCEL_BOOKING = "CancelBooking"                  // invoke(bookingId: Int, reason: String)
+
+        //        const val CANCEL_BOOKING = "CancelBooking"                  // invoke(bookingId: Int, reason: String)
+        const val CANCEL_BOOKING_BY_CUSTOMER = "CancelBookingByCustomer"
     }
 
     // ═══════════════════════════════════════════════════════════════════
