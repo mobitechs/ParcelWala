@@ -853,12 +853,60 @@ fun NavGraph(
             startDestination = "active_searching_rider",
             route = "active_booking_flow"
         ) {
+            // ═══════════════════════════════════════════════════════════════════
+            // SEARCHING / RESUMING SCREEN
+            // ═══════════════════════════════════════════════════════════════════
             composable("active_searching_rider") {
                 val activeBooking = activeBookingToResume
 
                 if (activeBooking != null) {
-                    val viewModel: BookingViewModel = hiltViewModel()
+                    val bookingViewModel: BookingViewModel = hiltViewModel()
                     val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel()
+
+                    // ✅ CRITICAL: Navigation event collectors (were missing before!)
+                    LaunchedEffect(Unit) {
+                        riderTrackingViewModel.navigationEvent.collect { event ->
+                            when (event) {
+                                is RiderTrackingNavigationEvent.RiderAssigned -> {
+                                    // ✅ Navigate to RiderFoundScreen when rider is assigned
+                                    navController.navigate("active_rider_found/${event.bookingId}") {
+                                        popUpTo("active_searching_rider") { inclusive = true }
+                                    }
+                                }
+                                is RiderTrackingNavigationEvent.NoRiderAvailable -> {
+                                    // Stay on searching screen — UI shows retry
+                                }
+                                is RiderTrackingNavigationEvent.BookingCancelled -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
+                                    // Stay on searching screen — auto retry
+                                }
+                                is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+
+                    // ✅ Also observe BookingViewModel (for cancel API completion)
+                    LaunchedEffect(Unit) {
+                        bookingViewModel.navigationEvent.collect { event ->
+                            when (event) {
+                                is BookingNavigationEvent.NavigateToHome -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
 
                     SearchingRiderScreen(
                         bookingId = activeBooking.bookingId,
@@ -866,15 +914,103 @@ fun NavGraph(
                         dropAddress = activeBooking.dropAddress,
                         selectedFareDetails = activeBooking.fareDetails,
                         fare = activeBooking.fare,
-                        onRiderFound = { },
-                        onContactSupport = { },
+                        onRiderFound = { /* Handled by navigation event */ },
+                        onContactSupport = {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
+                            context.startActivity(intent)
+                        },
                         onViewDetails = { },
-                        // ✅ FIX: Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
                             riderTrackingViewModel.cancelBooking(reason)
                         },
-                        bookingViewModel = viewModel,
+                        bookingViewModel = bookingViewModel,
                         riderTrackingViewModel = riderTrackingViewModel
+                    )
+                } else {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // ✅ NEW: RIDER FOUND SCREEN (was completely missing!)
+            // ═══════════════════════════════════════════════════════════════════
+            composable(
+                route = "active_rider_found/{bookingId}",
+                arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+                val activeBooking = activeBookingToResume
+
+                if (activeBooking != null) {
+                    // ✅ Use parent entry to share ViewModels within active_booking_flow
+                    val parentEntry = remember(navController) {
+                        navController.getBackStackEntry("active_booking_flow")
+                    }
+                    val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
+                    val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
+
+                    // ✅ Handle navigation events on RiderFoundScreen
+                    LaunchedEffect(Unit) {
+                        riderTrackingViewModel.navigationEvent.collect { event ->
+                            when (event) {
+                                is RiderTrackingNavigationEvent.BookingCancelled -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
+                                    // Go back to searching screen
+                                    navController.navigate("active_searching_rider") {
+                                        popUpTo("active_booking_flow") { inclusive = false }
+                                    }
+                                }
+                                is RiderTrackingNavigationEvent.Delivered -> {
+                                    // Stay on screen — rating dialog will show
+                                }
+                                is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                else -> {
+                                    // RiderArrived, ParcelPickedUp, RiderEnroute
+                                    // all handled within RiderFoundScreen UI itself
+                                }
+                            }
+                        }
+                    }
+
+                    // ✅ Observe booking cancel from API
+                    LaunchedEffect(Unit) {
+                        bookingViewModel.navigationEvent.collect { event ->
+                            when (event) {
+                                is BookingNavigationEvent.NavigateToHome -> {
+                                    navController.navigate(Screen.Main.route) {
+                                        popUpTo("active_booking_flow") { inclusive = true }
+                                    }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+
+                    RiderFoundScreen(
+                        bookingId = bookingId,
+                        pickupAddress = activeBooking.pickupAddress,
+                        dropAddress = activeBooking.dropAddress,
+                        fare = activeBooking.fare,
+                        onCancelBooking = { reason ->
+                            riderTrackingViewModel.cancelBooking(reason)
+                        },
+                        onContactSupport = {
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
+                            context.startActivity(intent)
+                        },
+                        viewModel = riderTrackingViewModel
                     )
                 } else {
                     LaunchedEffect(Unit) { navController.popBackStack() }

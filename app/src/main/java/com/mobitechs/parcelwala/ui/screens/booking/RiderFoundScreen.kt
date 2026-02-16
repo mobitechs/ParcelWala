@@ -363,11 +363,7 @@ private fun LiveTrackingMap(
     }
 
     val bikeMarkerIcon = remember {
-        try {
-            BitmapDescriptorFactory.fromResource(R.drawable.bike_marker)
-        } catch (e: Exception) {
-            BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
-        }
+        BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
     }
 
     val cameraPositionState = rememberCameraPositionState()
@@ -523,6 +519,25 @@ private fun SheetBody(
 
         // ── Bottom buttons (above nav bar) ──
         if (!isDelivered) {
+//            remove this block from here to
+            HorizontalDivider(color = Color.Red.copy(alpha = 0.3f))
+            Button(
+                onClick = {
+                    // Force a crash to simulate app kill
+                    throw RuntimeException("🔴 DEBUG: Forced crash to test booking persistence")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Icon(Icons.Default.BugReport, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("DEBUG: Force Crash", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+// till here
             HorizontalDivider(color = AppColors.Border.copy(alpha = 0.3f))
             Row(
                 modifier = Modifier

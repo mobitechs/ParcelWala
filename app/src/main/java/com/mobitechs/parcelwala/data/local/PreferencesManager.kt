@@ -1,7 +1,10 @@
+// data/local/PreferencesManager.kt
+// ✅ UPDATED: Added active booking persistence for crash recovery
 package com.mobitechs.parcelwala.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
 import com.mobitechs.parcelwala.data.model.request.SearchHistory
@@ -12,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val TAG = "PreferencesManager"
 
 @Singleton
 class PreferencesManager @Inject constructor(
@@ -23,6 +27,10 @@ class PreferencesManager @Inject constructor(
         Context.MODE_PRIVATE
     )
     private val gson = Gson()
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUTH TOKENS
+    // ═══════════════════════════════════════════════════════════════════════
 
     suspend fun saveAccessToken(token: String) {
         sharedPreferences.edit()
@@ -44,6 +52,10 @@ class PreferencesManager @Inject constructor(
         return sharedPreferences.getString(Constants.KEY_REFRESH_TOKEN, null)
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // USER DATA
+    // ═══════════════════════════════════════════════════════════════════════
+
     suspend fun saveUser(user: User) {
         val userJson = gson.toJson(user)
         sharedPreferences.edit()
@@ -60,6 +72,10 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // DEVICE TOKEN
+    // ═══════════════════════════════════════════════════════════════════════
+
     suspend fun saveDeviceToken(token: String) {
         sharedPreferences.edit()
             .putString(Constants.KEY_DEVICE_TOKEN, token)
@@ -70,6 +86,48 @@ class PreferencesManager @Inject constructor(
         return sharedPreferences.getString(Constants.KEY_DEVICE_TOKEN, null)
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ✅ NEW: ACTIVE BOOKING PERSISTENCE (Crash Recovery)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    companion object {
+        private const val KEY_ACTIVE_BOOKING = "active_booking_data"
+    }
+
+    /**
+     * Save the active booking as JSON string.
+     * Called every time booking state changes in ActiveBookingManager.
+     */
+    fun saveActiveBooking(bookingJson: String) {
+        sharedPreferences.edit()
+            .putString(KEY_ACTIVE_BOOKING, bookingJson)
+            .apply()
+        Log.d(TAG, "💾 Active booking saved to prefs")
+    }
+
+    /**
+     * Get the persisted active booking JSON.
+     * Returns null if no booking was saved or app is fresh.
+     */
+    fun getActiveBooking(): String? {
+        return sharedPreferences.getString(KEY_ACTIVE_BOOKING, null)
+    }
+
+    /**
+     * Clear the persisted active booking.
+     * Called when booking is completed, cancelled, or delivered.
+     */
+    fun clearActiveBooking() {
+        sharedPreferences.edit()
+            .remove(KEY_ACTIVE_BOOKING)
+            .apply()
+        Log.d(TAG, "🗑️ Active booking cleared from prefs")
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SESSION
+    // ═══════════════════════════════════════════════════════════════════════
+
     suspend fun clearAll() {
         sharedPreferences.edit().clear().apply()
     }
@@ -78,24 +136,19 @@ class PreferencesManager @Inject constructor(
         return getAccessToken() != null
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SEARCH HISTORY
+    // ═══════════════════════════════════════════════════════════════════════
 
     fun saveSearchHistory(history: SearchHistory) {
         val historyList = getSearchHistory().toMutableList()
-
-        // Remove duplicate if exists (same address)
         historyList.removeAll { it.address == history.address }
-
-        // Add new search at the beginning
         historyList.add(0, history)
 
-        // Keep only searches from last 3 days
         val threeDaysAgo = System.currentTimeMillis() - (3 * 24 * 60 * 60 * 1000L)
         val filteredList = historyList.filter { it.timestamp >= threeDaysAgo }
-
-        // Keep max 20 items
         val limitedList = filteredList.take(20)
 
-        // ✅ Save to preferences using Gson
         val json = gson.toJson(limitedList)
         sharedPreferences.edit().putString(SEARCH_HISTORY_KEY, json).apply()
     }
@@ -103,11 +156,8 @@ class PreferencesManager @Inject constructor(
     fun getSearchHistory(): List<SearchHistory> {
         val json = sharedPreferences.getString(SEARCH_HISTORY_KEY, null) ?: return emptyList()
         return try {
-            // ✅ Deserialize using Gson
             val type = object : TypeToken<List<SearchHistory>>() {}.type
             val historyList: List<SearchHistory> = gson.fromJson(json, type)
-
-            // Filter to last 3 days
             val threeDaysAgo = System.currentTimeMillis() - (3 * 24 * 60 * 60 * 1000L)
             historyList.filter { it.timestamp >= threeDaysAgo }
         } catch (e: Exception) {
