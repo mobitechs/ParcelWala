@@ -1,14 +1,19 @@
 // data/repository/OrdersRepository.kt
 package com.mobitechs.parcelwala.data.repository
 
+import android.util.Log
 import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.mock.MockOrdersData
+import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.data.repository.BookingRepository.Companion.TAG
 import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -53,30 +58,13 @@ class OrdersRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            // Return cached data if available and valid
-            if (!forceRefresh && isCacheValid() && cachedOrders != null) {
-                val filteredOrders = filterOrders(cachedOrders!!, status)
-                emit(NetworkResult.Success(filteredOrders))
-                return@flow
-            }
-
-            if (USE_MOCK_DATA) {
-                delay(800) // Simulate network delay
-                val mockData = MockOrdersData.getMockOrders()
-                cachedOrders = mockData
+            val response = apiService.getMyOrders(status = status)
+            if (response.success && response.data != null) {
+                cachedOrders = response.data
                 cacheTimestamp = System.currentTimeMillis()
-
-                val filteredOrders = filterOrders(mockData, status)
-                emit(NetworkResult.Success(filteredOrders))
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.getMyOrders(status = status)
-                if (response.success && response.data != null) {
-                    cachedOrders = response.data
-                    cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load orders"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to load orders"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -119,5 +107,38 @@ class OrdersRepository @Inject constructor(
     private fun filterOrders(orders: List<OrderResponse>, status: String?): List<OrderResponse> {
         if (status.isNullOrEmpty()) return orders
         return orders.filter { it.status == status }
+    }
+
+
+
+    suspend fun submitRating(
+        bookingId: String,
+        rating: Int,
+        feedback: String?
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Submitting rating for booking: $bookingId, Rating: $rating")
+
+            val response = apiService.submitRating(
+                bookingId = bookingId,
+                request = SubmitRatingRequest(
+                    rating = rating,
+                    feedback = feedback
+                )
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                Log.d(TAG, "Rating submitted: ${body.message}")
+                Result.success(body.success)
+            } else {
+                val error = response.errorBody()?.string() ?: "Failed to submit rating"
+                Log.e(TAG, "Submit rating failed: $error")
+                Result.failure(Exception(error))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Submit rating exception", e)
+            Result.failure(e)
+        }
     }
 }

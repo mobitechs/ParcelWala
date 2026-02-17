@@ -49,7 +49,7 @@ class BookingRepository @Inject constructor(
     }
 
     companion object {
-        private const val TAG = "BookingRepository"
+        const val TAG = "BookingRepository"
     }
 
     fun clearCache() {

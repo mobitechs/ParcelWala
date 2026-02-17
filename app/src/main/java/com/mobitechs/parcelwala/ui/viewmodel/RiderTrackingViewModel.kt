@@ -1,8 +1,3 @@
-// ui/viewmodel/RiderTrackingViewModel.kt
-// ✅ UPDATED: Full lifecycle tracking - Assigned → Arrived → PickedUp → InTransit → Delivered
-// ✅ UPDATED: Phase-aware map (driver→pickup pre-pickup, driver→drop post-pickup)
-// ✅ UPDATED: Waiting timer, rating integration, cancel logic per phase
-// ✅ FIX: bookingCancelled collector now only logs — handleCancelled() is sole cancel handler
 package com.mobitechs.parcelwala.ui.viewmodel
 
 import android.util.Log
@@ -89,7 +84,7 @@ class RiderTrackingViewModel @Inject constructor(
     private val _waitingState = MutableStateFlow(WaitingTimerState())
     val waitingState: StateFlow<WaitingTimerState> = _waitingState.asStateFlow()
 
-    // Rating State
+    // ✅ FIX #3: Rating State
     private val _ratingState = MutableStateFlow(RatingUiState())
     val ratingState: StateFlow<RatingUiState> = _ratingState.asStateFlow()
 
@@ -113,7 +108,6 @@ class RiderTrackingViewModel @Inject constructor(
     // COMPUTED PROPERTIES FOR UI
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** Whether we're in pre-pickup phase (driver heading to pickup) */
     val isPrePickupPhase: Boolean
         get() {
             val status = _uiState.value.currentStatus
@@ -122,7 +116,6 @@ class RiderTrackingViewModel @Inject constructor(
                     status == BookingStatusType.ARRIVED
         }
 
-    /** Whether parcel has been picked up (driver heading to drop) */
     val isPostPickupPhase: Boolean
         get() {
             val status = _uiState.value.currentStatus
@@ -131,15 +124,12 @@ class RiderTrackingViewModel @Inject constructor(
                     status == BookingStatusType.ARRIVED_DELIVERY
         }
 
-    /** Whether booking can be cancelled (only before pickup) */
     val canCancel: Boolean
         get() = isPrePickupPhase
 
-    /** Whether OTP should be shown (only before pickup, not after) */
     val showPickupOtp: Boolean
         get() = isPrePickupPhase && _bookingOtp.value != null
 
-    /** Whether trip is completed */
     val isDelivered: Boolean
         get() = _uiState.value.currentStatus == BookingStatusType.DELIVERED
 
@@ -164,14 +154,11 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
-        // ✅ FIX: bookingCancelled collector now ONLY logs.
-        // The repo also emits to _bookingUpdates with status="cancelled",
-        // which triggers handleCancelled() — the SOLE cancel handler that
-        // checks cancelledBy to decide: retry search (driver) or go home (customer/system).
+        // ✅ FIX: bookingCancelled collector ONLY logs.
+        // handleCancelled() via _bookingUpdates is the SOLE cancel handler.
         viewModelScope.launch {
             realTimeRepository.bookingCancelled.collect { notification ->
                 Log.d(TAG, "📥 BOOKING_CANCELLED event received: cancelledBy=${notification.cancelledBy} | reason=${notification.reason} | bookingId=${notification.bookingId}")
-                // ✅ Don't handle here — handleCancelled() via _bookingUpdates handles everything
             }
         }
 
@@ -262,7 +249,7 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // RATING
+    // ✅ FIX #3 & #4: RATING + REDIRECT TO HOME
     // ═══════════════════════════════════════════════════════════════════════
 
     fun submitRating(bookingId: String, rating: Int, feedback: String?) {
@@ -274,6 +261,7 @@ class RiderTrackingViewModel @Inject constructor(
                     _ratingState.update { it.copy(isSubmitting = false, isSubmitted = true) }
                     Log.d(TAG, "⭐ Rating submitted: $rating stars")
 
+                    // ✅ FIX #4: Auto-redirect to home after showing thank you
                     delay(2000)
                     _ratingState.value = RatingUiState()
                     activeBookingManager.clearActiveBooking()
@@ -306,6 +294,7 @@ class RiderTrackingViewModel @Inject constructor(
         _ratingState.value = RatingUiState()
     }
 
+    // ✅ FIX #4: Clear booking + navigate home on rating completed/skipped
     fun onRatingCompleted() {
         viewModelScope.launch {
             _ratingState.value = RatingUiState()
@@ -365,20 +354,13 @@ class RiderTrackingViewModel @Inject constructor(
         viewModelScope.launch {
             val bookingId = _uiState.value.currentBookingId?.toIntOrNull()
             Log.d(TAG, "🚫 cancelBooking() called - bookingId=$bookingId, reason=$reason")
-            Log.d(TAG, "🚫 Connection state: ${realTimeRepository.connectionState.value}")
 
             if (bookingId != null && bookingId > 0) {
-                // ✅ Cancel via SignalR so the hub notifies BOTH parties
-                Log.d(TAG, "🚫 Sending cancel via SignalR for booking $bookingId...")
                 val result = realTimeRepository.cancelBooking(bookingId, reason)
-
                 result.onSuccess {
                     Log.d(TAG, "✅ SignalR cancel SUCCESS for booking $bookingId")
-                    // The BookingCancelled event will be received → _bookingUpdates → handleCancelled()
                 }.onFailure { error ->
-                    Log.e(TAG, "❌ SignalR cancel FAILED: ${error.message}")
-                    Log.e(TAG, "❌ Fallback: cleaning up and navigating home")
-                    // Fallback: still clean up and navigate
+                    Log.e(TAG, "❌ SignalR cancel FAILED: ${error.message}, fallback cleanup")
                     activeBookingManager.clearActiveBooking()
                     realTimeRepository.disconnect()
                     _navigationEvent.emit(
@@ -388,8 +370,6 @@ class RiderTrackingViewModel @Inject constructor(
                     )
                 }
             } else {
-                Log.e(TAG, "🚫 No valid bookingId ($bookingId), just cleaning up")
-                // No valid booking ID, just clean up
                 activeBookingManager.clearActiveBooking()
                 realTimeRepository.disconnect()
                 _navigationEvent.emit(
@@ -430,8 +410,7 @@ class RiderTrackingViewModel @Inject constructor(
         Log.d(TAG, "📥 STATUS UPDATE: $status")
         Log.d(TAG, "  Driver: ${update.driverName ?: "null"} | ETA: ${update.etaMinutes ?: update.rider?.etaMinutes ?: "null"}min")
         Log.d(TAG, "  Lat: ${update.driverLatitude} | Lng: ${update.driverLongitude}")
-        Log.d(TAG, "  OTP: ${update.otp} | EstArrival: ${update.estimatedArrival} | BookingDist: ${update.distanceKm}")
-        Log.d(TAG, "  CancelledBy: ${update.cancelledBy} | CancelReason: ${update.cancellationReason}")
+        Log.d(TAG, "  OTP: ${update.otp} | CancelledBy: ${update.cancelledBy}")
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
         _uiState.update {
@@ -517,7 +496,6 @@ class RiderTrackingViewModel @Inject constructor(
 
         _bookingOtp.value = update.otp
 
-        // Calculate DRIVER → PICKUP distance
         val driverLat = update.driverLatitude ?: rider?.currentLatitude ?: 0.0
         val driverLng = update.driverLongitude ?: rider?.currentLongitude ?: 0.0
         val pickupLat = activeBookingManager.activeBooking.value?.pickupAddress?.latitude ?: 0.0
@@ -543,7 +521,7 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = serverEta
         }
 
-        // Pre-fetch pickup → drop route for later use
+        // Pre-fetch pickup → drop route
         val dropLat = activeBookingManager.activeBooking.value?.dropAddress?.latitude ?: 0.0
         val dropLng = activeBookingManager.activeBooking.value?.dropAddress?.longitude ?: 0.0
         if (pickupLat != 0.0 && pickupLng != 0.0 && dropLat != 0.0 && dropLng != 0.0) {
@@ -575,6 +553,7 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
+    // ✅ FIX #1: START WAITING TIMER when driver arrives at pickup
     private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
 
@@ -614,7 +593,6 @@ class RiderTrackingViewModel @Inject constructor(
 
         update.deliveryOtp?.let { _deliveryOtp.value = it }
 
-        // Reset distance tracking for drop phase
         initialDistanceMeters = null
 
         val pickupLat = activeBookingManager.activeBooking.value?.pickupAddress?.latitude ?: 0.0
@@ -628,7 +606,6 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = ((distMeters / 1000.0) / 25.0 * 60.0).toInt().coerceAtLeast(1)
             initialDistanceMeters = distMeters
 
-            // Fetch road route for pickup→drop
             fetchRoute(pickupLat, pickupLng, dropLat, dropLng, isDriverToPickup = false)
         } else {
             _etaMinutes.value = null
@@ -655,6 +632,7 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
+    // ✅ FIX #2: Delivery arrival notification + toast
     private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
 
@@ -670,6 +648,7 @@ class RiderTrackingViewModel @Inject constructor(
         _toastMessage.emit("Rider arrived at delivery location!")
     }
 
+    // ✅ FIX #3 & #4: Show rating dialog on delivery complete, then redirect home
     private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.DELIVERED)
         stopWaitingTimer()
@@ -695,7 +674,7 @@ class RiderTrackingViewModel @Inject constructor(
         realTimeRepository.disconnect()
         _toastMessage.emit("Delivery completed!")
 
-        // Show rating dialog
+        // ✅ Show rating dialog with fare details
         _ratingState.update {
             it.copy(
                 showRatingDialog = true,
@@ -713,15 +692,14 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    // ✅ FIX: This is now the SOLE cancel handler (bookingCancelled collector only logs)
+    // ✅ FIX: SOLE cancel handler — driver cancel retries, customer/system goes home
     private suspend fun handleCancelled(update: BookingStatusUpdate) {
-        Log.d(TAG, "🚫🚫🚫 handleCancelled() called! cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
+        Log.d(TAG, "🚫 handleCancelled() called! cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
         stopWaitingTimer()
 
         val cancelledBy = update.cancelledBy
 
         if (cancelledBy?.lowercase() == "driver") {
-            // ✅ Driver cancelled — go back to searching for another driver
             Log.d(TAG, "📋 Driver cancelled, re-entering search mode")
 
             notificationHelper.showStickyStatusNotification(
@@ -748,7 +726,6 @@ class RiderTrackingViewModel @Inject constructor(
             lastNotifiedEta = null
             hasServerEta = false
 
-            // Reset to searching state
             _uiState.update {
                 it.copy(
                     currentStatus = BookingStatusType.SEARCHING,
@@ -756,19 +733,15 @@ class RiderTrackingViewModel @Inject constructor(
                 )
             }
 
-            // Retry search via ActiveBookingManager
             activeBookingManager.retrySearch()
-
             _toastMessage.emit(update.message ?: "Driver cancelled, searching for another driver")
 
-            // Emit navigation event to go back to searching screen
             _navigationEvent.emit(
                 RiderTrackingNavigationEvent.DriverCancelledRetrySearch(
                     update.message ?: "Driver cancelled, searching for another driver"
                 )
             )
         } else {
-            // Customer or system cancelled — exit to home
             Log.d(TAG, "📋 Customer/system cancelled, navigating home")
 
             notificationHelper.showStickyStatusNotification(
@@ -808,7 +781,7 @@ class RiderTrackingViewModel @Inject constructor(
 
         val serverDistMeters = location.getRelevantDistanceMeters(isPrePickup)
 
-        Log.d(TAG, "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes} | Dist: ${serverDistMeters?.toInt()}m | toPickup: ${location.distanceToPickupKm} | toDrop: ${location.distanceToDropKm}")
+        Log.d(TAG, "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes} | Dist: ${serverDistMeters?.toInt()}m")
 
         _riderLocation.value = location
 
@@ -867,7 +840,7 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = calculatedEtaMin
         }
 
-        // Update route polyline with latest driver position (throttled)
+        // Update route polyline (throttled)
         if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
             if (targetLat != 0.0 && targetLng != 0.0) {
                 fetchRouteThrottled(location.latitude, location.longitude, targetLat, targetLng, isDriverToPickup = true)
@@ -878,7 +851,6 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
-        // Update rider info
         _assignedRider.update { rider ->
             rider?.copy(
                 currentLatitude = location.latitude,
@@ -926,7 +898,7 @@ class RiderTrackingViewModel @Inject constructor(
                     } else {
                         _pickupToDropRoute.value = routeInfo.polylinePoints
                     }
-                    Log.d(TAG, "🗺️ Route fetched: ${routeInfo.polylinePoints.size} points (${if (isDriverToPickup) "driver→pickup" else "pickup→drop"})")
+                    Log.d(TAG, "🗺️ Route fetched: ${routeInfo.polylinePoints.size} points")
 
                     if (!hasServerEta) {
                         _distanceKm.value = routeInfo.distanceMeters / 1000.0
@@ -978,7 +950,6 @@ class RiderTrackingViewModel @Inject constructor(
         }
     }
 
-    /** Get status display text for the bottom sheet header */
     fun getStatusDisplayText(): String {
         return when (_uiState.value.currentStatus) {
             BookingStatusType.RIDER_ASSIGNED, BookingStatusType.RIDER_ENROUTE -> "Driver is on the way"
@@ -1032,7 +1003,7 @@ data class WaitingTimerState(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RATING UI STATE
+// RATING UI STATE — ✅ Updated with driverPhoto and vehicleType fields
 // ═══════════════════════════════════════════════════════════════════════════
 
 data class RatingUiState(
@@ -1061,7 +1032,7 @@ data class RiderTrackingUiState(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NAVIGATION EVENTS
+// NAVIGATION EVENTS — ✅ Added DriverCancelledRetrySearch
 // ═══════════════════════════════════════════════════════════════════════════
 
 sealed class RiderTrackingNavigationEvent {
@@ -1086,7 +1057,8 @@ sealed class RiderTrackingNavigationEvent {
 
     data class BookingCancelled(val reason: String) : RiderTrackingNavigationEvent()
 
+    // ✅ NEW: When driver cancels, go back to searching screen
     data class DriverCancelledRetrySearch(val message: String) : RiderTrackingNavigationEvent()
 
     object NavigateToHome : RiderTrackingNavigationEvent()
-}
+} 

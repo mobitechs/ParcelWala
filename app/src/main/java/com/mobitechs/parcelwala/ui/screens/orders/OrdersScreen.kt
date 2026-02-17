@@ -23,10 +23,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -36,16 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.components.RatingDialog
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.OrdersViewModel
+import com.mobitechs.parcelwala.ui.viewmodel.RatingSubmitState
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 import kotlinx.coroutines.launch
 
-// ═══════════════════════════════════════════════════════════════
-// STATUS CONFIGURATION — matches ACTUAL backend values
-// Backend sends: searching, delivery_completed, cancelled,
-//                assigned, arriving, picked_up, in_progress, pending
-// ═══════════════════════════════════════════════════════════════
 
 private data class StatusConfig(
     val icon: ImageVector,
@@ -154,6 +147,9 @@ fun OrdersScreen(
     val hasActiveBooking by viewModel.hasActiveBooking.collectAsState()
     var isRefreshing by remember { mutableStateOf(false) }
 
+    val ratingSubmitState by viewModel.ratingSubmitState.collectAsState()
+
+
     // Rating dialog state
     var orderToRate by remember { mutableStateOf<OrderResponse?>(null) }
 
@@ -163,6 +159,20 @@ fun OrdersScreen(
 
     LaunchedEffect(uiState.isLoading) {
         if (!uiState.isLoading) isRefreshing = false
+    }
+
+    LaunchedEffect(ratingSubmitState) {
+        when (val state = ratingSubmitState) {
+            is RatingSubmitState.Success -> {
+                snackbarHostState.showSnackbar(state.message)
+                viewModel.clearRatingState()
+            }
+            is RatingSubmitState.Error -> {
+                snackbarHostState.showSnackbar(state.message)
+                viewModel.clearRatingState()
+            }
+            else -> {}
+        }
     }
 
     Scaffold(
@@ -245,22 +255,27 @@ fun OrdersScreen(
         }
     }
 
-    // ═══ RATING DIALOG ═══
+    // ═══ RATING DIALOG (uses shared RatingDialog from ui.components) ═══
     orderToRate?.let { order ->
+        val isSubmitting = ratingSubmitState is RatingSubmitState.Submitting
+
         RatingDialog(
-            order = order,
-            onDismiss = { orderToRate = null },
-            onSubmitRating = { rating, review ->
-                viewModel.submitRating(order.bookingId, rating, review)
+            bookingNumber = order.bookingNumber,
+            fare = order.fare.toInt(),
+            existingCustomerRating = if ((order.rating ?: 0) > 0) order.rating?.toDouble() else null,
+            existingCustomerFeedback = order.review,
+            driverRatingForCustomer = null,
+            driverFeedbackForCustomer = null,
+            onDismiss = { if (!isSubmitting) orderToRate = null },
+            onSubmit = { rating, feedback ->
+                viewModel.submitRating(order.bookingId, rating, feedback)
                 orderToRate = null
-            }
+            },
+            isSubmitting = isSubmitting
         )
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ACTIVE BOOKING BANNER
-// ═══════════════════════════════════════════════════════════════
 
 @Composable
 private fun ActiveBookingBanner() {
@@ -415,16 +430,7 @@ private fun OrderCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-//            .drawBehind {
-//                drawRoundRect(
-//                    color = statusConfig.color,
-//                    topLeft = Offset(0f, 0f),
-//                    size = Size(8.dp.toPx(), size.height),
-//                    cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx())
-//                )
-//            }
-        ,
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -745,148 +751,6 @@ private fun OrderCardFooter(
             }
         }
     }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// RATING DIALOG
-// ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun RatingDialog(
-    order: OrderResponse,
-    onDismiss: () -> Unit,
-    onSubmitRating: (Int, String) -> Unit
-) {
-    var selectedRating by remember { mutableIntStateOf(0) }
-    var reviewText by remember { mutableStateOf("") }
-
-    val ratingLabels = listOf("", "Poor", "Below Average", "Good", "Very Good", "Excellent")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        shape = RoundedCornerShape(24.dp),
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(AppColors.Primary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = getVehicleIcon(order.vehicleType),
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "Rate your delivery",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-
-                order.driverName?.let { name ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Driver: $name",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    repeat(5) { index ->
-                        val starIndex = index + 1
-                        IconButton(
-                            onClick = { selectedRating = starIndex },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (starIndex <= selectedRating)
-                                    Icons.Default.Star
-                                else
-                                    Icons.Default.StarBorder,
-                                contentDescription = "Star $starIndex",
-                                tint = if (starIndex <= selectedRating)
-                                    Color(0xFFFFC107)
-                                else
-                                    AppColors.Border,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (selectedRating > 0) {
-                    Text(
-                        text = ratingLabels[selectedRating],
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFFFC107)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = reviewText,
-                    onValueChange = { reviewText = it },
-                    label = { Text("Write a review (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        focusedLabelColor = AppColors.Primary,
-                        cursorColor = AppColors.Primary
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSubmitRating(selectedRating, reviewText) },
-                enabled = selectedRating > 0,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.Primary,
-                    disabledContainerColor = AppColors.Border
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Submit Rating",
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Skip", color = AppColors.TextSecondary)
-            }
-        }
-    )
 }
 
 // ═══════════════════════════════════════════════════════════════

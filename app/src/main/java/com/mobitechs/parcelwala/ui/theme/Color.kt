@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
  val OrangeLight = Color(0xFFFFE0B2)
 
  val Green500 = Color(0xFF4CAF50)
+
  val Red500 = Color(0xFFF44336)
 
  val Gray50 = Color(0xFFFAFAFA)
@@ -22,3 +23,7 @@ import androidx.compose.ui.graphics.Color
  val Gray700 = Color(0xFF616161)
  val Gray800 = Color(0xFF424242)
  val Gray900 = Color(0xFF212121)
+val TextPrimary = Color(0xFF1A1A2E)
+val TextSecondary = Color(0xFF6B7280)
+val TextMuted = Color(0xFF9CA3AF)
+val DividerColor = Color(0xFFE0E0E0)

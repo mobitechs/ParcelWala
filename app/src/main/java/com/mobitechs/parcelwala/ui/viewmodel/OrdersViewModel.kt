@@ -12,20 +12,15 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Orders ViewModel
- * Handles order list with client-side status filtering, rating, and active booking blocking.
- *
- * IMPORTANT: Backend status values are LOWERCASE with underscores:
- *   searching, delivery_completed, cancelled, assigned, arriving, picked_up, in_progress, pending
- *
- * Filter keys (used in filter chips):
- *   null        → All orders
- *   "searching" → status == "searching"
- *   "active"    → status in [assigned, arriving, picked_up, in_progress]
- *   "completed" → status in [delivery_completed, completed]
- *   "cancelled" → status == "cancelled"
- */
+
+sealed class RatingSubmitState {
+    object Idle : RatingSubmitState()
+    object Submitting : RatingSubmitState()
+    data class Success(val message: String) : RatingSubmitState()
+    data class Error(val message: String) : RatingSubmitState()
+}
+
+
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
     private val ordersRepository: OrdersRepository,
@@ -35,6 +30,10 @@ class OrdersViewModel @Inject constructor(
     // UI State
     private val _uiState = MutableStateFlow(OrdersUiState())
     val uiState: StateFlow<OrdersUiState> = _uiState.asStateFlow()
+
+    private val _ratingSubmitState = MutableStateFlow<RatingSubmitState>(RatingSubmitState.Idle)
+    val ratingSubmitState: StateFlow<RatingSubmitState> = _ratingSubmitState.asStateFlow()
+
 
     // Selected filter key (null = All)
     private val _selectedFilter = MutableStateFlow<String?>(null)
@@ -135,35 +134,58 @@ class OrdersViewModel @Inject constructor(
         loadOrders(forceRefresh = true)
     }
 
-    /**
-     * Submit rating for a completed order.
-     * Updates local state immediately for instant UI feedback.
-     * TODO: Wire to actual backend API when endpoint is ready.
-     */
     fun submitRating(bookingId: Int, rating: Int, review: String) {
         viewModelScope.launch {
-            val updatedOrders = allOrders.map { order ->
-                if (order.bookingId == bookingId) {
-                    order.copy(
-                        rating = rating,
-                        review = review.ifBlank { null }
-                    )
-                } else {
-                    order
-                }
-            }
-            allOrders = updatedOrders
-            _uiState.update {
-                it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
-            }
+            _ratingSubmitState.value = RatingSubmitState.Submitting
+            try {
+                val result = ordersRepository.submitRating(bookingId.toString(), rating, review)
 
-            // TODO: Call actual API
-            // try {
-            //     ordersRepository.submitRating(bookingId, rating, review)
-            // } catch (e: Exception) {
-            //     // Revert local state on failure
-            // }
+                result.onSuccess {
+                    // Update local cache so UI reflects immediately
+                    val updatedOrders = allOrders.map { order ->
+                        if (order.bookingId == bookingId) {
+                            order.copy(
+                                rating = rating,
+                                review = review.ifBlank { null }
+                            )
+                        } else {
+                            order
+                        }
+                    }
+                    allOrders = updatedOrders
+                    _uiState.update {
+                        it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
+                    }
+                    _ratingSubmitState.value = RatingSubmitState.Success("Rating submitted successfully!")
+                }.onFailure { e ->
+                    if (e.message?.contains("already rated", ignoreCase = true) == true) {
+                        // Already rated — still update local state to hide the Rate button
+                        val updatedOrders = allOrders.map { order ->
+                            if (order.bookingId == bookingId) {
+                                order.copy(rating = rating, review = review.ifBlank { null })
+                            } else order
+                        }
+                        allOrders = updatedOrders
+                        _uiState.update {
+                            it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
+                        }
+                        _ratingSubmitState.value = RatingSubmitState.Success("Rating already submitted")
+                    } else {
+                        _ratingSubmitState.value = RatingSubmitState.Error(
+                            e.message ?: "Failed to submit rating"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _ratingSubmitState.value = RatingSubmitState.Error(
+                    e.message ?: "Something went wrong"
+                )
+            }
         }
+    }
+
+    fun clearRatingState() {
+        _ratingSubmitState.value = RatingSubmitState.Idle
     }
 
     /**
