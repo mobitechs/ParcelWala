@@ -2,12 +2,15 @@
 package com.mobitechs.parcelwala.ui.screens.orders
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -17,12 +20,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -39,41 +45,98 @@ import com.mobitechs.parcelwala.ui.viewmodel.RatingSubmitState
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 import kotlinx.coroutines.launch
 
+// ═══════════════════════════════════════════════════════════════
+// DESIGN TOKENS — single source for spacing, radius, palette
+// ═══════════════════════════════════════════════════════════════
+
+private object Tokens {
+    // Spacing scale (4-pt grid)
+    val SpaceXXS = 2.dp
+    val SpaceXS = 4.dp
+    val SpaceSM = 8.dp
+    val SpaceMD = 12.dp
+    val SpaceLG = 16.dp
+    val SpaceXL = 20.dp
+    val SpaceXXL = 24.dp
+    val Space3XL = 32.dp
+    val Space4XL = 40.dp
+
+    // Corner radii
+    val RadiusSM = 8.dp
+    val RadiusMD = 12.dp
+    val RadiusLG = 16.dp
+    val RadiusXL = 20.dp
+    val RadiusFull = 100.dp
+
+    // Card
+    val CardElevation = 0.5.dp
+    val CardShape = RoundedCornerShape(RadiusLG)
+
+    // Semantic colours
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val SurfacePage = Color(0xFFF6F7F9)
+    val SurfaceSubtle = Color(0xFFF0F1F3)
+    val BorderLight = Color(0xFFE8EAED)
+    val BorderSubtle = Color(0xFFF0F1F3)
+
+    // Status palette
+    val StatusGreen = Color(0xFF16A34A)
+    val StatusGreenBg = Color(0xFFDCFCE7)
+    val StatusRed = Color(0xFFDC2626)
+    val StatusRedBg = Color(0xFFFEE2E2)
+    val StatusOrange = Color(0xFFEA580C)
+    val StatusOrangeBg = Color(0xFFFFF7ED)
+    val StatusBlue = Color(0xFF2563EB)
+    val StatusBlueBg = Color(0xFFDBEAFE)
+    val StatusTeal = Color(0xFF0D9488)
+    val StatusTealBg = Color(0xFFCCFBF1)
+    val StatusGray = Color(0xFF6B7280)
+    val StatusGrayBg = Color(0xFFF3F4F6)
+
+    val Amber = Color(0xFFF59E0B)
+    val AmberBg = Color(0xFFFFFBEB)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATUS HELPERS
+// ═══════════════════════════════════════════════════════════════
 
 private data class StatusConfig(
     val icon: ImageVector,
     val color: Color,
+    val bgColor: Color,
     val displayLabel: String
 )
 
 private fun getStatusConfig(status: String): StatusConfig {
     return when (status.lowercase()) {
         "delivery_completed", "completed" -> StatusConfig(
-            Icons.Default.CheckCircle, Color(0xFF2E7D32), "Delivered"
+            Icons.Rounded.CheckCircle, Tokens.StatusGreen, Tokens.StatusGreenBg, "Delivered"
         )
         "cancelled" -> StatusConfig(
-            Icons.Default.Cancel, Color(0xFFD32F2F), "Cancelled"
+            Icons.Rounded.Cancel, Tokens.StatusRed, Tokens.StatusRedBg, "Cancelled"
         )
         "searching" -> StatusConfig(
-            Icons.Default.Search, Color(0xFFFF9800), "Searching"
+            Icons.Rounded.Search, Tokens.StatusOrange, Tokens.StatusOrangeBg, "Searching"
         )
         "assigned" -> StatusConfig(
-            Icons.Default.PersonPin, Color(0xFF1976D2), "Assigned"
+            Icons.Rounded.PersonPin, Tokens.StatusBlue, Tokens.StatusBlueBg, "Assigned"
         )
         "arriving", "driver_arriving" -> StatusConfig(
-            Icons.Default.DirectionsCar, Color(0xFF1976D2), "Arriving"
+            Icons.Rounded.DirectionsCar, Tokens.StatusBlue, Tokens.StatusBlueBg, "Arriving"
         )
         "picked_up" -> StatusConfig(
-            Icons.Default.Inventory, Color(0xFF00897B), "Picked Up"
+            Icons.Rounded.Inventory, Tokens.StatusTeal, Tokens.StatusTealBg, "Picked Up"
         )
         "in_progress", "in progress" -> StatusConfig(
-            Icons.Default.LocalShipping, Color(0xFFFF6B35), "In Progress"
+            Icons.Rounded.LocalShipping, Tokens.StatusOrange, Tokens.StatusOrangeBg, "In Progress"
         )
         "pending" -> StatusConfig(
-            Icons.Default.Schedule, Color(0xFF757575), "Pending"
+            Icons.Rounded.Schedule, Tokens.StatusGray, Tokens.StatusGrayBg, "Pending"
         )
         else -> StatusConfig(
-            Icons.Default.Schedule, Color(0xFF757575), status.replaceFirstChar { it.uppercase() }
+            Icons.Rounded.Schedule, Tokens.StatusGray, Tokens.StatusGrayBg,
+            status.replaceFirstChar { it.uppercase() }
         )
     }
 }
@@ -124,11 +187,11 @@ private data class FilterChipData(
 )
 
 private val filterChips = listOf(
-    FilterChipData("All", null, Icons.Outlined.Receipt, Color(0xFF757575)),
-    FilterChipData("Searching", "searching", Icons.Default.Search, Color(0xFFFF9800)),
-    FilterChipData("In Progress", "active", Icons.Default.LocalShipping, Color(0xFFFF6B35)),
-    FilterChipData("Completed", "completed", Icons.Default.CheckCircle, Color(0xFF2E7D32)),
-    FilterChipData("Cancelled", "cancelled", Icons.Default.Cancel, Color(0xFFD32F2F))
+    FilterChipData("All", null, Icons.Rounded.Receipt, Tokens.StatusGray),
+    FilterChipData("Searching", "searching", Icons.Rounded.Search, Tokens.StatusOrange),
+    FilterChipData("In Progress", "active", Icons.Rounded.LocalShipping, Tokens.StatusOrange),
+    FilterChipData("Completed", "completed", Icons.Rounded.CheckCircle, Tokens.StatusGreen),
+    FilterChipData("Cancelled", "cancelled", Icons.Rounded.Cancel, Tokens.StatusRed)
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -146,14 +209,12 @@ fun OrdersScreen(
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val hasActiveBooking by viewModel.hasActiveBooking.collectAsState()
     var isRefreshing by remember { mutableStateOf(false) }
-
     val ratingSubmitState by viewModel.ratingSubmitState.collectAsState()
-
 
     // Rating dialog state
     var orderToRate by remember { mutableStateOf<OrderResponse?>(null) }
 
-    // Snackbar for blocking messages
+    // Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -177,47 +238,67 @@ fun OrdersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "My Orders",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
+            Surface(
+                color = Tokens.SurfaceWhite,
+                shadowElevation = 0.dp,
+                tonalElevation = 0.dp
+            ) {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = "My Orders",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = AppColors.TextPrimary
+                            )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent
+                        )
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
+
+                    // Filter chips integrated into the top bar area
+                    StatusFilterRow(
+                        selectedFilter = selectedFilter,
+                        onFilterSelected = { viewModel.onFilterSelected(it) }
+                    )
+
+                    // Subtle bottom edge
+                    HorizontalDivider(
+                        color = Tokens.BorderSubtle,
+                        thickness = 1.dp
+                    )
+                }
+            }
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = Color(0xFF323232),
+                    containerColor = Color(0xFF1F2937),
                     contentColor = Color.White,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(Tokens.RadiusMD),
+                    modifier = Modifier.padding(Tokens.SpaceLG)
                 )
             }
         },
-        containerColor = AppColors.Background
+        containerColor = Tokens.SurfacePage
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // ═══ FILTER CHIPS ROW ═══
-            StatusFilterRow(
-                selectedFilter = selectedFilter,
-                onFilterSelected = { viewModel.onFilterSelected(it) }
-            )
-
-            // ═══ ACTIVE BOOKING BANNER ═══
+            // Active booking banner
             if (hasActiveBooking) {
                 ActiveBookingBanner()
             }
 
-            // ═══ CONTENT ═══
+            // Content
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = {
@@ -240,7 +321,7 @@ fun OrdersScreen(
                             if (hasActiveBooking) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = "You have an active booking. Complete or cancel it first.",
+                                        message = "Complete or cancel your active booking first.",
                                         duration = SnackbarDuration.Short
                                     )
                                 }
@@ -255,7 +336,7 @@ fun OrdersScreen(
         }
     }
 
-    // ═══ RATING DIALOG (uses shared RatingDialog from ui.components) ═══
+    // Rating Dialog
     orderToRate?.let { order ->
         val isSubmitting = ratingSubmitState is RatingSubmitState.Submitting
 
@@ -276,29 +357,47 @@ fun OrdersScreen(
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ACTIVE BOOKING BANNER
+// ═══════════════════════════════════════════════════════════════
 
 @Composable
 private fun ActiveBookingBanner() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFFFF3E0))
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Tokens.AmberBg,
+        tonalElevation = 0.dp
     ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = Color(0xFFE65100),
-            modifier = Modifier.size(18.dp)
-        )
-        Text(
-            text = "You have an active booking. Book Again is disabled until it's completed or cancelled.",
-            style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFFE65100),
-            lineHeight = 16.sp
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Tokens.SpaceLG, vertical = Tokens.SpaceMD),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceMD)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Tokens.Amber.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = Tokens.Amber,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Text(
+                text = "You have an active booking. Book Again is disabled until it's completed or cancelled.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 18.sp
+                ),
+                color = Color(0xFF92400E)
+            )
+        }
     }
 }
 
@@ -314,12 +413,11 @@ private fun StatusFilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
-            .padding(vertical = 12.dp)
+            .padding(bottom = Tokens.SpaceMD)
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceSM)
     ) {
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Tokens.SpaceLG))
 
         filterChips.forEach { chip ->
             val isSelected = selectedFilter == chip.filterKey
@@ -330,40 +428,40 @@ private fun StatusFilterRow(
                 label = {
                     Text(
                         text = chip.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontSize = 13.sp
+                        )
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = chip.icon,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(Tokens.RadiusFull),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = chip.color.copy(alpha = 0.12f),
+                    selectedContainerColor = chip.color.copy(alpha = 0.1f),
                     selectedLabelColor = chip.color,
                     selectedLeadingIconColor = chip.color,
-                    containerColor = Color.Transparent,
-                    labelColor = AppColors.TextSecondary,
-                    iconColor = AppColors.TextHint
+                    containerColor = Tokens.SurfaceSubtle,
+                    labelColor = Tokens.StatusGray,
+                    iconColor = Tokens.StatusGray.copy(alpha = 0.6f)
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
-                    borderColor = AppColors.Border,
-                    selectedBorderColor = chip.color.copy(alpha = 0.4f)
-                )
+                    borderColor = Color.Transparent,
+                    selectedBorderColor = chip.color.copy(alpha = 0.25f)
+                ),
+                modifier = Modifier.height(36.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Tokens.SpaceLG))
     }
-
-    HorizontalDivider(color = AppColors.Border, thickness = 0.5.dp)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -379,8 +477,13 @@ private fun OrdersList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(
+            start = Tokens.SpaceLG,
+            end = Tokens.SpaceLG,
+            top = Tokens.SpaceLG,
+            bottom = 96.dp  // generous bottom padding for FAB / nav bar
+        ),
+        verticalArrangement = Arrangement.spacedBy(Tokens.SpaceMD)
     ) {
         itemsIndexed(
             items = orders,
@@ -391,10 +494,13 @@ private fun OrdersList(
 
             AnimatedVisibility(
                 visible = visible,
-                enter = fadeIn(tween(300, delayMillis = index * 50)) +
+                enter = fadeIn(tween(250, delayMillis = index * 40)) +
                         slideInVertically(
-                            tween(300, delayMillis = index * 50),
-                            initialOffsetY = { it / 4 }
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            initialOffsetY = { it / 5 }
                         )
             ) {
                 OrderCard(
@@ -405,7 +511,6 @@ private fun OrdersList(
                 )
             }
         }
-        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 
@@ -427,104 +532,169 @@ private fun OrderCard(
     val active = isActiveStatus(order.status)
     val showRating = needsRating(order)
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .shadow(
+                elevation = 2.dp,
+                shape = Tokens.CardShape,
+                ambientColor = Color.Black.copy(alpha = 0.04f),
+                spotColor = Color.Black.copy(alpha = 0.08f)
+            ),
+        shape = Tokens.CardShape,
+        color = Tokens.SurfaceWhite,
+        onClick = onClick
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
 
-            // ═══ STATUS BANNER ═══
-            StatusBanner(
-                statusConfig = statusConfig,
-                order = order,
-                searching = searching,
-                active = active,
-                completed = completed,
-                cancelled = cancelled
-            )
-
-            // ═══ HEADER: Vehicle + Fare ═══
+            // ── STATUS PILL + HEADER ROW ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+                    .padding(
+                        start = Tokens.SpaceLG,
+                        end = Tokens.SpaceLG,
+                        top = Tokens.SpaceLG,
+                        bottom = Tokens.SpaceXS
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(AppColors.Primary.copy(alpha = 0.08f)),
-                    contentAlignment = Alignment.Center
+                // Status pill
+                Surface(
+                    shape = RoundedCornerShape(Tokens.RadiusFull),
+                    color = statusConfig.bgColor,
+                    tonalElevation = 0.dp
                 ) {
-                    Text(
-                        text = getVehicleIcon(order.vehicleType),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = order.vehicleType,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    Text(
-                        text = DateTimeUtils.formatDateTime(order.createdAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary,
-                        fontSize = 11.sp
-                    )
-                }
-
-                Text(
-                    text = "₹${order.fare.toInt()}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-            }
-
-            // ═══ ROUTE: Pickup → Drop ═══
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                RoutePoint(
-                    color = AppColors.Pickup,
-                    label = order.pickupContactName ?: "Pickup",
-                    address = order.pickupAddress
-                )
-
-                Column(
-                    modifier = Modifier.padding(start = 7.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    repeat(3) {
-                        Box(
-                            modifier = Modifier
-                                .size(3.dp)
-                                .background(AppColors.Border, CircleShape)
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = Tokens.SpaceSM,
+                            vertical = Tokens.SpaceXS
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS)
+                    ) {
+                        Icon(
+                            imageVector = statusConfig.icon,
+                            contentDescription = null,
+                            tint = statusConfig.color,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = statusConfig.displayLabel,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.3.sp
+                            ),
+                            color = statusConfig.color
                         )
                     }
                 }
 
-                RoutePoint(
-                    color = AppColors.Drop,
-                    label = order.dropContactName ?: "Drop",
-                    address = order.dropAddress
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Right side contextual info
+                StatusTrailingContent(
+                    statusConfig = statusConfig,
+                    order = order,
+                    searching = searching,
+                    active = active,
+                    completed = completed,
+                    cancelled = cancelled
                 )
             }
 
-            // ═══ FOOTER ═══
+            // ── VEHICLE + DATE + FARE ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = Tokens.SpaceLG,
+                        vertical = Tokens.SpaceMD
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Vehicle icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(Tokens.RadiusMD))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    AppColors.Primary.copy(alpha = 0.06f),
+                                    AppColors.Primary.copy(alpha = 0.12f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = getVehicleIcon(order.vehicleType),
+                        fontSize = 22.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(Tokens.SpaceMD))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.vehicleType,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.1).sp
+                        ),
+                        color = AppColors.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(Tokens.SpaceXXS))
+                    Text(
+                        text = DateTimeUtils.formatDateTime(order.createdAt),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = AppColors.TextSecondary
+                    )
+                }
+
+                // Fare + Payment method
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "₹${order.fare.toInt()}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.3).sp
+                        ),
+                        color = AppColors.TextPrimary
+                    )
+                    order.paymentMethod?.let { method ->
+                        if (method.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(Tokens.SpaceXXS))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Payment,
+                                    contentDescription = null,
+                                    tint = Tokens.StatusGray.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = method,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = Tokens.StatusGray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── ROUTE: Pickup → Drop ──
+            RouteSection(order = order)
+
+            // ── FOOTER ──
             OrderCardFooter(
                 order = order,
                 completed = completed,
@@ -538,11 +708,11 @@ private fun OrderCard(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STATUS BANNER
+// STATUS TRAILING CONTENT (right side of status row)
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
-private fun StatusBanner(
+private fun StatusTrailingContent(
     statusConfig: StatusConfig,
     order: OrderResponse,
     searching: Boolean,
@@ -550,98 +720,199 @@ private fun StatusBanner(
     completed: Boolean,
     cancelled: Boolean
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(statusConfig.color.copy(alpha = 0.06f))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = statusConfig.icon,
-            contentDescription = null,
-            tint = statusConfig.color,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = statusConfig.displayLabel,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = statusConfig.color,
-            modifier = Modifier.weight(1f)
-        )
-
-        when {
-            searching -> {
-                Text(
-                    text = "Looking for rider...",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusConfig.color.copy(alpha = 0.7f),
-                    fontSize = 10.sp
-                )
-            }
-            active -> {
-                order.driverName?.let { name ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    when {
+        searching -> {
+            Text(
+                text = "Looking for rider…",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = statusConfig.color.copy(alpha = 0.7f)
+            )
+        }
+        active -> {
+            order.driverName?.let { name ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(statusConfig.color.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Person,
+                            imageVector = Icons.Rounded.Person,
                             contentDescription = null,
                             tint = statusConfig.color,
                             modifier = Modifier.size(12.dp)
                         )
+                    }
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp
+                        ),
+                        color = statusConfig.color
+                    )
+                }
+            }
+        }
+        completed -> {
+            val rating = order.rating ?: 0
+            if (rating > 0) {
+                Surface(
+                    shape = RoundedCornerShape(Tokens.RadiusFull),
+                    color = Tokens.AmberBg
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = Tokens.SpaceSM,
+                            vertical = Tokens.SpaceXS
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Star,
+                            contentDescription = null,
+                            tint = Tokens.Amber,
+                            modifier = Modifier.size(13.dp)
+                        )
                         Text(
-                            text = name,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = statusConfig.color,
-                            fontSize = 10.sp
+                            text = "$rating.0",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            ),
+                            color = Color(0xFF92400E)
                         )
                     }
                 }
-            }
-            completed -> {
-                val rating = order.rating ?: 0
-                if (rating > 0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(1.dp)
-                    ) {
-                        repeat(5) { index ->
-                            Icon(
-                                imageVector = if (index < rating) Icons.Default.Star else Icons.Default.StarBorder,
-                                contentDescription = null,
-                                tint = Color(0xFFFFC107),
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
-                    }
-                } else {
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(Tokens.RadiusFull),
+                    color = Tokens.AmberBg
+                ) {
                     Text(
                         text = "Unrated",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFFC107),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 10.sp
+                        modifier = Modifier.padding(
+                            horizontal = Tokens.SpaceSM,
+                            vertical = Tokens.SpaceXS
+                        ),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp
+                        ),
+                        color = Tokens.Amber
                     )
                 }
             }
-            cancelled -> {
-                order.cancellationReason?.let { reason ->
-                    Text(
-                        text = reason,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusConfig.color.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 10.sp,
-                        modifier = Modifier.widthIn(max = 140.dp)
-                    )
-                }
+        }
+        cancelled -> {
+            order.cancellationReason?.let { reason ->
+                Text(
+                    text = reason,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = statusConfig.color.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 140.dp)
+                )
             }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROUTE SECTION (Pickup → Drop)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun RouteSection(order: OrderResponse) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Tokens.SpaceLG)
+            .clip(RoundedCornerShape(Tokens.RadiusMD))
+            .background(Tokens.SurfacePage)
+            .padding(Tokens.SpaceMD)
+    ) {
+        RoutePoint(
+            color = AppColors.Pickup,
+            label = order.pickupContactName ?: "Pickup",
+            address = order.pickupAddress
+        )
+
+        // Connecting dots
+        Column(
+            modifier = Modifier.padding(start = 7.dp, top = 4.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .size(3.dp)
+                        .background(Tokens.BorderLight, CircleShape)
+                )
+            }
+        }
+
+        RoutePoint(
+            color = AppColors.Drop,
+            label = order.dropContactName ?: "Drop",
+            address = order.dropAddress
+        )
+    }
+}
+
+@Composable
+private fun RoutePoint(
+    color: Color,
+    label: String,
+    address: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceMD)
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(16.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp
+                ),
+                color = AppColors.TextPrimary
+            )
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(
+                text = address,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                ),
+                color = AppColors.TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -659,39 +930,51 @@ private fun OrderCardFooter(
     onBookAgain: () -> Unit,
     onRateOrder: () -> Unit
 ) {
+    Spacer(modifier = Modifier.height(Tokens.SpaceMD))
+
     HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        color = AppColors.Border,
-        thickness = 0.5.dp
+        modifier = Modifier.padding(horizontal = Tokens.SpaceLG),
+        color = Tokens.BorderSubtle,
+        thickness = 1.dp
     )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(
+                horizontal = Tokens.SpaceMD,
+                vertical = Tokens.SpaceSM
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Info chips
+        // Left: Info chips + Rating/Feedback
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceMD),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f, fill = false)
         ) {
+            // Distance chip (always show if available)
             if (order.distance != null && order.distance > 0) {
                 InfoChip(
                     icon = Icons.Outlined.Route,
                     text = String.format("%.1f km", order.distance)
                 )
             }
-            order.paymentMethod?.let { method ->
-                if (method.isNotBlank()) {
-                    InfoChip(
-                        icon = Icons.Outlined.Payment,
-                        text = method
-                    )
-                }
+
+            // Customer rating & feedback (always show for completed + rated)
+            val customerRating = order.rating ?: 0
+            if (completed && customerRating > 0) {
+                CustomerRatingChip(
+                    rating = customerRating,
+                    feedback = order.review
+                )
             }
-            if ((order.distance == null || order.distance <= 0) && order.paymentMethod.isNullOrBlank()) {
+
+            // Booking number fallback — only when no distance AND no rating shown
+            if ((order.distance == null || order.distance <= 0) &&
+                !(completed && customerRating > 0)
+            ) {
                 InfoChip(
                     icon = Icons.Outlined.Tag,
                     text = "#${order.bookingNumber}"
@@ -701,103 +984,70 @@ private fun OrderCardFooter(
 
         // Right: Action buttons
         Row(
-            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ⭐ RATE button (completed + unrated)
+            // ⭐ RATE button
             if (showRating) {
-                TextButton(
+                SmallActionButton(
                     onClick = onRateOrder,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFFFC107)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.StarRate,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "Rate",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
+                    icon = Icons.Rounded.StarRate,
+                    label = "Rate",
+                    containerColor = Tokens.AmberBg,
+                    contentColor = Color(0xFF92400E)
+                )
             }
 
-            // 🔄 BOOK AGAIN button (completed or cancelled)
+            // 🔄 BOOK AGAIN button
             if (completed || cancelled) {
-                TextButton(
+                SmallActionButton(
                     onClick = onBookAgain,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = AppColors.Primary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Replay,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "Book Again",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
+                    icon = Icons.Rounded.Replay,
+                    label = "Book Again",
+                    containerColor = AppColors.Primary.copy(alpha = 0.08f),
+                    contentColor = AppColors.Primary
+                )
             }
         }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SHARED COMPOSABLES
-// ═══════════════════════════════════════════════════════════════
-
 @Composable
-private fun RoutePoint(
-    color: Color,
+private fun SmallActionButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
     label: String,
-    address: String
+    containerColor: Color,
+    contentColor: Color
 ) {
-    Row(
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(Tokens.RadiusFull),
+        color = containerColor,
+        tonalElevation = 0.dp
     ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(16.dp)
-                .clip(CircleShape)
-                .background(color.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(
+                horizontal = Tokens.SpaceMD,
+                vertical = Tokens.SpaceSM
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(14.dp)
             )
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.TextPrimary,
-                fontSize = 12.sp
-            )
-            Text(
-                text = address,
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 16.sp
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.2.sp
+                ),
+                color = contentColor
             )
         }
     }
@@ -807,20 +1057,70 @@ private fun RoutePoint(
 private fun InfoChip(icon: ImageVector, text: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+        horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = AppColors.TextHint,
-            modifier = Modifier.size(13.dp)
+            tint = Tokens.StatusGray.copy(alpha = 0.5f),
+            modifier = Modifier.size(14.dp)
         )
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = AppColors.TextSecondary,
-            fontSize = 10.sp
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = Tokens.StatusGray
         )
+    }
+}
+
+@Composable
+private fun CustomerRatingChip(
+    rating: Int,
+    feedback: String?
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Tokens.SpaceXS)
+    ) {
+        // Star icons
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            repeat(5) { index ->
+                Icon(
+                    imageVector = if (index < rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                    contentDescription = null,
+                    tint = if (index < rating) Tokens.Amber else Tokens.StatusGray.copy(alpha = 0.25f),
+                    modifier = Modifier.size(13.dp)
+                )
+            }
+        }
+
+        // Feedback text (if provided)
+        if (!feedback.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .size(3.dp)
+                    .clip(CircleShape)
+                    .background(Tokens.StatusGray.copy(alpha = 0.3f))
+            )
+            Text(
+                text = "\"$feedback\"",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = 14.sp
+                ),
+                color = Tokens.StatusGray,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 120.dp)
+            )
+        }
     }
 }
 
@@ -830,19 +1130,24 @@ private fun InfoChip(icon: ImageVector, text: String) {
 
 @Composable
 private fun LoadingState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(Tokens.SpaceXL)
         ) {
             CircularProgressIndicator(
                 color = AppColors.Primary,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(36.dp),
                 strokeWidth = 3.dp
             )
             Text(
-                text = "Loading orders...",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Loading your orders…",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium
+                ),
                 color = AppColors.TextSecondary
             )
         }
@@ -851,47 +1156,71 @@ private fun LoadingState() {
 
 @Composable
 private fun ErrorState(error: String, onRetry: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(32.dp)
+            verticalArrangement = Arrangement.spacedBy(Tokens.SpaceLG),
+            modifier = Modifier.padding(Tokens.Space4XL)
         ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(AppColors.Drop.copy(alpha = 0.1f)),
+                    .background(Tokens.StatusRedBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.ErrorOutline,
+                    imageVector = Icons.Rounded.ErrorOutline,
                     contentDescription = "Error",
-                    tint = AppColors.Drop,
+                    tint = Tokens.StatusRed,
                     modifier = Modifier.size(36.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(Tokens.SpaceSM))
+
             Text(
                 text = "Something went wrong",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.2).sp
+                ),
                 color = AppColors.TextPrimary
             )
             Text(
                 text = error,
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
             )
+
+            Spacer(modifier = Modifier.height(Tokens.SpaceSM))
+
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+                shape = RoundedCornerShape(Tokens.RadiusMD),
+                contentPadding = PaddingValues(
+                    horizontal = Tokens.Space3XL,
+                    vertical = Tokens.SpaceMD
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
-                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Retry", fontWeight = FontWeight.Bold)
+                Icon(
+                    Icons.Rounded.Refresh,
+                    null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(Tokens.SpaceSM))
+                Text(
+                    "Try Again",
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.2.sp
+                )
             }
         }
     }
@@ -901,29 +1230,34 @@ private fun ErrorState(error: String, onRetry: () -> Unit) {
 private fun EmptyOrdersState(filter: String?) {
     val filterLabel = filterChips.find { it.filterKey == filter }
 
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
+            verticalArrangement = Arrangement.spacedBy(Tokens.SpaceMD),
+            modifier = Modifier.padding(Tokens.Space4XL)
         ) {
             Box(
                 modifier = Modifier
                     .size(88.dp)
                     .clip(CircleShape)
                     .background(
-                        (filterLabel?.color ?: AppColors.Primary).copy(alpha = 0.08f)
+                        (filterLabel?.color ?: AppColors.Primary).copy(alpha = 0.06f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = filterLabel?.icon ?: Icons.Outlined.Receipt,
                     contentDescription = null,
-                    tint = (filterLabel?.color ?: AppColors.Primary).copy(alpha = 0.6f),
-                    modifier = Modifier.size(44.dp)
+                    tint = (filterLabel?.color ?: AppColors.Primary).copy(alpha = 0.5f),
+                    modifier = Modifier.size(40.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+
+            Spacer(modifier = Modifier.height(Tokens.SpaceSM))
+
             Text(
                 text = when (filter) {
                     "completed" -> "No Completed Orders"
@@ -932,8 +1266,10 @@ private fun EmptyOrdersState(filter: String?) {
                     "active" -> "No Active Orders"
                     else -> "No Orders Yet"
                 },
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.3).sp
+                ),
                 color = AppColors.TextPrimary
             )
             Text(
@@ -944,7 +1280,7 @@ private fun EmptyOrdersState(filter: String?) {
                     "active" -> "No deliveries in progress right now"
                     else -> "Your orders will appear here once you book a delivery"
                 },
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
                 color = AppColors.TextSecondary,
                 textAlign = TextAlign.Center
             )
