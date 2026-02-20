@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -48,7 +50,7 @@ fun AddGSTINScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Add GST Details",
+                        text = stringResource(R.string.add_gst_details_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -57,7 +59,7 @@ fun AddGSTINScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -97,14 +99,14 @@ fun AddGSTINScreen(
                         )
                         Column {
                             Text(
-                                text = "Why add GSTIN?",
+                                text = stringResource(R.string.why_add_gstin),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = AppColors.TextPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Get detailed invoices with GSTIN for Input Tax Credit claims",
+                                text = stringResource(R.string.gstin_benefit_description),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppColors.TextSecondary
                             )
@@ -119,7 +121,7 @@ fun AddGSTINScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Enter GST Details",
+                        text = stringResource(R.string.enter_gst_details),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
@@ -136,19 +138,19 @@ fun AddGSTINScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("GSTIN") },
-                        placeholder = { Text("22AAAAA0000A1Z5") },
+                        label = { Text(stringResource(R.string.gstin_label)) },
+                        placeholder = { Text(stringResource(R.string.gstin_placeholder)) },
                         singleLine = true,
                         isError = showError && !gstinRegex.matches(gstin),
                         supportingText = {
                             if (showError && !gstinRegex.matches(gstin)) {
                                 Text(
-                                    text = "Please enter valid 15-digit GSTIN",
+                                    text = stringResource(R.string.gstin_invalid_error),
                                     color = MaterialTheme.colorScheme.error
                                 )
                             } else {
                                 Text(
-                                    text = "${gstin.length}/15 characters",
+                                    text = stringResource(R.string.gstin_char_count, gstin.length),
                                     color = AppColors.TextSecondary
                                 )
                             }
@@ -181,14 +183,14 @@ fun AddGSTINScreen(
                         value = companyName,
                         onValueChange = { companyName = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Company/Business Name") },
-                        placeholder = { Text("ABC Private Limited") },
+                        label = { Text(stringResource(R.string.company_name_label)) },
+                        placeholder = { Text(stringResource(R.string.company_name_placeholder)) },
                         singleLine = true,
                         isError = showError && companyName.isBlank(),
                         supportingText = {
                             if (showError && companyName.isBlank()) {
                                 Text(
-                                    text = "Company name is required",
+                                    text = stringResource(R.string.company_name_required),
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -222,7 +224,7 @@ fun AddGSTINScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Benefits",
+                        text = stringResource(R.string.benefits_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
@@ -230,31 +232,13 @@ fun AddGSTINScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    BenefitItem(
-                        icon = Icons.Default.CheckCircle,
-                        text = "Claim Input Tax Credit (ITC)"
-                    )
-
+                    BenefitItem(icon = Icons.Default.CheckCircle, text = stringResource(R.string.benefit_itc))
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    BenefitItem(
-                        icon = Icons.Default.CheckCircle,
-                        text = "Get detailed GST invoice"
-                    )
-
+                    BenefitItem(icon = Icons.Default.CheckCircle, text = stringResource(R.string.benefit_invoice))
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    BenefitItem(
-                        icon = Icons.Default.CheckCircle,
-                        text = "Maintain proper accounting records"
-                    )
-
+                    BenefitItem(icon = Icons.Default.CheckCircle, text = stringResource(R.string.benefit_accounting))
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    BenefitItem(
-                        icon = Icons.Default.CheckCircle,
-                        text = "Simplified tax filing"
-                    )
+                    BenefitItem(icon = Icons.Default.CheckCircle, text = stringResource(R.string.benefit_tax_filing))
                 }
 
                 Spacer(modifier = Modifier.height(100.dp))
@@ -266,7 +250,7 @@ fun AddGSTINScreen(
                 shadowElevation = 8.dp
             ) {
                 PrimaryButton(
-                    text = "Save GST Details",
+                    text = stringResource(R.string.save_gst_details),
                     onClick = {
                         if (gstinRegex.matches(gstin) && companyName.isNotBlank()) {
                             onSave(gstin)

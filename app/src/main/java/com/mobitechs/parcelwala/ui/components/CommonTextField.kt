@@ -8,31 +8,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.ui.theme.AppColors
 
-/**
- * Common text field component
- *
- * @param value Current text value
- * @param onValueChange Value change callback
- * @param label Label text
- * @param modifier Modifier for customization
- * @param placeholder Placeholder text
- * @param leadingIcon Optional leading icon
- * @param trailingIcon Optional trailing icon
- * @param isError Whether field has error
- * @param errorMessage Error message to display
- * @param enabled Whether field is enabled
- * @param readOnly Whether field is read-only
- * @param singleLine Whether field is single line
- * @param maxLines Maximum number of lines
- * @param keyboardOptions Keyboard options
- * @param keyboardActions Keyboard actions
- * @param visualTransformation Visual transformation (e.g., password)
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommonTextField(
@@ -80,12 +60,12 @@ fun CommonTextField(
         visualTransformation = visualTransformation,
         modifier = modifier.fillMaxWidth(),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFF2196F3),
-            unfocusedBorderColor = Color.LightGray,
-            focusedLabelColor = Color(0xFF2196F3),
-            cursorColor = Color(0xFF2196F3),
-            errorBorderColor = Color(0xFFFF5252),
-            errorLabelColor = Color(0xFFFF5252)
+            focusedBorderColor = AppColors.Blue,
+            unfocusedBorderColor = AppColors.DisabledBackground,
+            focusedLabelColor = AppColors.Blue,
+            cursorColor = AppColors.Blue,
+            errorBorderColor = AppColors.ErrorLight,
+            errorLabelColor = AppColors.ErrorLight
         ),
         shape = RoundedCornerShape(12.dp)
     )

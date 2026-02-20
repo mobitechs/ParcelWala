@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
@@ -54,12 +56,12 @@ fun SavedAddressesScreen(
             },
             title = {
                 Text(
-                    text = "Delete Address",
+                    text = stringResource(R.string.delete_address_title),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Text("Are you sure you want to delete this address?")
+                Text(stringResource(R.string.delete_address_message))
             },
             confirmButton = {
                 TextButton(
@@ -68,12 +70,12 @@ fun SavedAddressesScreen(
                         addressToDelete = null
                     }
                 ) {
-                    Text("Delete", color = AppColors.Drop)
+                    Text(stringResource(R.string.delete), color = AppColors.Drop)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { addressToDelete = null }) {
-                    Text("Cancel", color = AppColors.TextSecondary)
+                    Text(stringResource(R.string.cancel), color = AppColors.TextSecondary)
                 }
             },
             containerColor = Color.White
@@ -91,7 +93,7 @@ fun SavedAddressesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Saved Addresses",
+                        text = stringResource(R.string.saved_addresses),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -100,7 +102,7 @@ fun SavedAddressesScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -125,7 +127,7 @@ fun SavedAddressesScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Add",
+                            text = stringResource(R.string.add),
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -145,7 +147,7 @@ fun SavedAddressesScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    LoadingIndicator(message = "Loading addresses...")
+                    LoadingIndicator(message = stringResource(R.string.loading_addresses))
                 }
             }
             savedAddresses.isEmpty() -> {
@@ -157,9 +159,9 @@ fun SavedAddressesScreen(
                 ) {
                     EmptyState(
                         icon = Icons.Outlined.LocationOff,
-                        title = "No Saved Addresses",
-                        subtitle = "Add addresses for quick booking",
-                        actionText = "Add Address",
+                        title = stringResource(R.string.no_saved_addresses),
+                        subtitle = stringResource(R.string.add_addresses_subtitle),
+                        actionText = stringResource(R.string.add_address),
                         onAction = onAddAddress
                     )
                 }
@@ -261,7 +263,7 @@ private fun SavedAddressCard(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = address.address.ifEmpty { "No address details" },
+                    text = address.address.ifEmpty { stringResource(R.string.no_address_details) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary,
                     maxLines = 2
@@ -350,7 +352,7 @@ private fun SavedAddressCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Edit",
+                        text = stringResource(R.string.edit),
                         color = AppColors.Primary,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -375,7 +377,7 @@ private fun SavedAddressCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.delete),
                         color = AppColors.Drop,
                         fontWeight = FontWeight.SemiBold
                     )

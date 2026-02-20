@@ -14,12 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -70,7 +72,7 @@ fun AddGSTBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.close),
                         tint = AppColors.TextSecondary
                     )
                 }
@@ -104,7 +106,7 @@ fun AddGSTBottomSheet(
 
             // Title
             Text(
-                text = "Add GSTIN",
+                text = stringResource(R.string.add_gstin_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -114,7 +116,7 @@ fun AddGSTBottomSheet(
 
             // Description
             Text(
-                text = "Get invoices with GSTIN for your future orders\nand claim Input Tax Credit",
+                text = stringResource(R.string.add_gstin_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -132,14 +134,14 @@ fun AddGSTBottomSheet(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("GSTIN") },
-                placeholder = { Text("22AAAAA0000A1Z5") },
+                label = { Text(stringResource(R.string.gstin_label)) },
+                placeholder = { Text(stringResource(R.string.gstin_placeholder)) },
                 singleLine = true,
                 isError = showError && gstin.isNotEmpty() && !isValidGstin,
                 supportingText = {
                     if (showError && gstin.isNotEmpty() && !isValidGstin) {
                         Text(
-                            text = "Please enter valid 15-character GSTIN",
+                            text = stringResource(R.string.gstin_error),
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -160,7 +162,7 @@ fun AddGSTBottomSheet(
 
             // Confirm Button
             PrimaryButton(
-                text = "Confirm",
+                text = stringResource(R.string.confirm),
                 onClick = {
                     if (isValidGstin) {
                         onSave(gstin)
@@ -224,7 +226,7 @@ fun EditProfileBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.close),
                         tint = AppColors.TextSecondary
                     )
                 }
@@ -239,7 +241,7 @@ fun EditProfileBottomSheet(
         ) {
             // Title
             Text(
-                text = "Edit Profile",
+                text = stringResource(R.string.edit_profile_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -257,7 +259,7 @@ fun EditProfileBottomSheet(
                     value = firstName,
                     onValueChange = { firstName = it },
                     modifier = Modifier.weight(1f),
-                    label = { Text("First Name") },
+                    label = { Text(stringResource(R.string.first_name_label)) },
                     singleLine = true,
                     isError = showError && firstName.isBlank(),
                     keyboardOptions = KeyboardOptions(
@@ -280,7 +282,7 @@ fun EditProfileBottomSheet(
                     value = lastName,
                     onValueChange = { lastName = it },
                     modifier = Modifier.weight(1f),
-                    label = { Text("Last Name") },
+                    label = { Text(stringResource(R.string.last_name_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Words,
@@ -305,12 +307,12 @@ fun EditProfileBottomSheet(
                 value = currentUser?.phoneNumber ?: "",
                 onValueChange = { },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Mobile number") },
+                label = { Text(stringResource(R.string.mobile_number_disabled_label)) },
                 enabled = false,
                 singleLine = true,
                 supportingText = {
                     Text(
-                        text = "Cannot be changed.",
+                        text = stringResource(R.string.cannot_be_changed),
                         color = AppColors.TextHint
                     )
                 },
@@ -329,8 +331,8 @@ fun EditProfileBottomSheet(
                 value = email,
                 onValueChange = { email = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Email Address") },
-                placeholder = { Text("Enter your email") },
+                label = { Text(stringResource(R.string.email_address_label)) },
+                placeholder = { Text(stringResource(R.string.email_placeholder)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
@@ -351,7 +353,7 @@ fun EditProfileBottomSheet(
 
             // Confirm Button
             PrimaryButton(
-                text = "Confirm",
+                text = stringResource(R.string.confirm),
                 onClick = {
                     if (firstName.isNotBlank()) {
                         onSave(firstName, lastName, email)

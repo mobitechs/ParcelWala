@@ -10,13 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
@@ -38,6 +39,11 @@ fun CompleteProfileScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     val focusManager = LocalFocusManager.current
+
+    // Hoist error strings for use in non-composable lambdas
+    val errorEnterName = stringResource(R.string.error_enter_name)
+    val errorNameMinChars = stringResource(R.string.error_name_min_chars)
+    val errorValidEmail = stringResource(R.string.error_valid_email)
 
     // Handle success
     LaunchedEffect(uiState.profileCompleted) {
@@ -65,11 +71,11 @@ fun CompleteProfileScreen(
                     tint = AppColors.Drop
                 )
             },
-            title = { Text("Error", color = AppColors.TextPrimary) },
+            title = { Text(stringResource(R.string.label_error_title), color = AppColors.TextPrimary) },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text("OK", color = AppColors.Primary)
+                    Text(stringResource(R.string.label_ok), color = AppColors.Primary)
                 }
             },
             containerColor = AppColors.Surface
@@ -81,13 +87,13 @@ fun CompleteProfileScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Complete Profile",
+                        text = stringResource(R.string.title_complete_profile),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Surface
                 )
             )
         },
@@ -105,7 +111,7 @@ fun CompleteProfileScreen(
             // Icon
             IconButtonWithBackground(
                 icon = Icons.Default.Person,
-                contentDescription = "Profile",
+                contentDescription = stringResource(R.string.content_desc_profile),
                 onClick = { },
                 size = 80.dp,
                 backgroundColor = AppColors.Primary.copy(alpha = 0.1f),
@@ -116,7 +122,7 @@ fun CompleteProfileScreen(
 
             // Title
             Text(
-                text = "Let's Get Started",
+                text = stringResource(R.string.label_lets_get_started),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -125,7 +131,7 @@ fun CompleteProfileScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Complete your profile to continue",
+                text = stringResource(R.string.label_complete_profile_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary
             )
@@ -136,10 +142,10 @@ fun CompleteProfileScreen(
             NameInputField(
                 value = fullName,
                 onValueChange = { fullName = it },
-                label = "Full Name",
+                label = stringResource(R.string.label_full_name),
                 modifier = Modifier.fillMaxWidth(),
                 isError = fullName.isNotEmpty() && fullName.length < 3,
-                errorMessage = "Name must be at least 3 characters",
+                errorMessage = stringResource(R.string.error_name_min_length),
                 keyboardActions = KeyboardActions(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) }
                 )
@@ -151,8 +157,8 @@ fun CompleteProfileScreen(
             AppTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = "Email (Optional)",
-                placeholder = "Enter your email",
+                label = stringResource(R.string.label_email_optional),
+                placeholder = stringResource(R.string.hint_enter_email),
                 leadingIcon = Icons.Default.Email,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
@@ -163,7 +169,7 @@ fun CompleteProfileScreen(
                     onNext = { focusManager.moveFocus(FocusDirection.Down) }
                 ),
                 isError = email.isNotEmpty() && !isValidEmail(email),
-                errorMessage = "Please enter a valid email"
+                errorMessage = stringResource(R.string.error_invalid_email)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -176,8 +182,8 @@ fun CompleteProfileScreen(
                         referralCode = it.uppercase()
                     }
                 },
-                label = "Referral Code (Optional)",
-                placeholder = "Enter referral code",
+                label = stringResource(R.string.label_referral_code_optional),
+                placeholder = stringResource(R.string.hint_enter_referral_code),
                 leadingIcon = Icons.Default.CardGiftcard,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
@@ -193,19 +199,19 @@ fun CompleteProfileScreen(
 
             // Continue Button
             PrimaryButton(
-                text = "Continue",
+                text = stringResource(R.string.label_continue),
                 onClick = {
                     when {
                         fullName.isBlank() -> {
-                            errorMessage = "Please enter your name"
+                            errorMessage = errorEnterName
                             showError = true
                         }
                         fullName.length < 3 -> {
-                            errorMessage = "Name must be at least 3 characters"
+                            errorMessage = errorNameMinChars
                             showError = true
                         }
                         email.isNotBlank() && !isValidEmail(email) -> {
-                            errorMessage = "Please enter a valid email"
+                            errorMessage = errorValidEmail
                             showError = true
                         }
                         else -> {
@@ -230,7 +236,7 @@ fun CompleteProfileScreen(
                 onClick = { onNavigateToHome() }
             ) {
                 Text(
-                    text = "Skip for now",
+                    text = stringResource(R.string.label_skip_for_now),
                     color = AppColors.TextSecondary,
                     fontWeight = FontWeight.Medium
                 )
@@ -240,7 +246,7 @@ fun CompleteProfileScreen(
 
             // Info Text
             Text(
-                text = "You can update your profile anytime from settings",
+                text = stringResource(R.string.label_update_profile_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = AppColors.TextHint
             )

@@ -18,10 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
@@ -65,12 +67,12 @@ fun AccountScreen(
             },
             title = {
                 Text(
-                    text = "Logout",
+                    text = stringResource(R.string.logout_title),
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Text("Are you sure you want to logout?")
+                Text(stringResource(R.string.logout_message))
             },
             confirmButton = {
                 TextButton(
@@ -79,12 +81,12 @@ fun AccountScreen(
                         viewModel.logout { onLogout() }
                     }
                 ) {
-                    Text("Logout", color = AppColors.Drop)
+                    Text(stringResource(R.string.logout), color = AppColors.Drop)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel", color = AppColors.TextSecondary)
+                    Text(stringResource(R.string.cancel), color = AppColors.TextSecondary)
                 }
             },
             containerColor = Color.White
@@ -125,7 +127,7 @@ fun AccountScreen(
         ) {
             // ============ PROFILE HEADER ============
             ProfileHeaderCard(
-                userName = uiState.userName ?: "User",
+                userName = uiState.userName ?: stringResource(R.string.default_user_name),
                 email = uiState.email,
                 isEmailVerified = uiState.isEmailVerified,
                 onViewClick = { showEditProfileSheet = true },
@@ -144,7 +146,7 @@ fun AccountScreen(
                 // Saved Addresses Card
                 QuickActionCard(
                     icon = Icons.Default.Favorite,
-                    title = "Saved Addresses",
+                    title = stringResource(R.string.saved_addresses),
                     onClick = onNavigateToSavedAddresses,
                     modifier = Modifier.weight(1f)
                 )
@@ -152,7 +154,7 @@ fun AccountScreen(
                 // Help & Support Card
                 QuickActionCard(
                     icon = Icons.Default.HelpOutline,
-                    title = "Help & Support",
+                    title = stringResource(R.string.help_support),
                     onClick = onNavigateToHelpSupport,
                     modifier = Modifier.weight(1f)
                 )
@@ -176,8 +178,8 @@ fun AccountScreen(
                 // Referral
                 MenuItemRow(
                     icon = Icons.Outlined.CardGiftcard,
-                    title = "Refer & Earn",
-                    subtitle = "Share & get rewards",
+                    title = stringResource(R.string.refer_earn),
+                    subtitle = stringResource(R.string.refer_earn_subtitle),
                     onClick = onNavigateToReferral
                 )
 
@@ -186,8 +188,8 @@ fun AccountScreen(
                 // Terms & Conditions
                 MenuItemRow(
                     icon = Icons.Outlined.Description,
-                    title = "Terms & Conditions",
-                    subtitle = "Read our policies",
+                    title = stringResource(R.string.terms_conditions),
+                    subtitle = stringResource(R.string.terms_subtitle),
                     onClick = onNavigateToTerms
                 )
 
@@ -196,8 +198,8 @@ fun AccountScreen(
                 // Logout
                 MenuItemRow(
                     icon = Icons.Outlined.Logout,
-                    title = "Logout",
-                    subtitle = "Sign out from app",
+                    title = stringResource(R.string.logout),
+                    subtitle = stringResource(R.string.logout_subtitle),
                     onClick = { showLogoutDialog = true },
                     iconTint = AppColors.Drop,
                     textColor = AppColors.Drop
@@ -208,7 +210,7 @@ fun AccountScreen(
 
             // App Version
             Text(
-                text = "Version 1.0.0",
+                text = stringResource(R.string.version_format, stringResource(R.string.app_version)),
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.TextHint,
                 modifier = Modifier
@@ -249,7 +251,7 @@ private fun ProfileHeaderCard(
             ) {
                 TextButton(onClick = onViewClick) {
                     Text(
-                        text = "View",
+                        text = stringResource(R.string.view_label),
                         color = AppColors.Primary,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -273,7 +275,7 @@ private fun ProfileHeaderCard(
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
+                    contentDescription = stringResource(R.string.profile_content_description),
                     tint = AppColors.Primary,
                     modifier = Modifier.size(40.dp)
                 )
@@ -297,13 +299,13 @@ private fun ProfileHeaderCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = email ?: "Add email",
+                    text = email ?: stringResource(R.string.add_email),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )
                 if (email != null && !isEmailVerified) {
                     Text(
-                        text = "Verify",
+                        text = stringResource(R.string.verify),
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.Primary,
                         fontWeight = FontWeight.SemiBold
@@ -331,7 +333,7 @@ private fun ProfileHeaderCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Add GST Details",
+                    text = stringResource(R.string.add_gst_details),
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -416,7 +418,7 @@ private fun GSTDetailsCard(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = "GST Details",
+                    text = stringResource(R.string.gst_details),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = AppColors.TextPrimary
@@ -432,7 +434,7 @@ private fun GSTDetailsCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Add GSTIN",
+                    text = stringResource(R.string.add_gstin),
                     color = AppColors.Primary,
                     fontWeight = FontWeight.SemiBold
                 )

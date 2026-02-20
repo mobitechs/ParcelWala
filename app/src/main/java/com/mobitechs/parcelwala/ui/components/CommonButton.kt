@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
  * Common button component with loading state
@@ -36,9 +37,9 @@ fun CommonButton(
             .height(56.dp),
         enabled = enabled && !isLoading,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF2196F3),
+            containerColor = AppColors.Blue,
             contentColor = Color.White,
-            disabledContainerColor = Color.LightGray,
+            disabledContainerColor = AppColors.DisabledBackground,
             disabledContentColor = Color.White
         ),
         shape = RoundedCornerShape(12.dp)

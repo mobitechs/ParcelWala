@@ -13,11 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.*
 
 @Composable
@@ -27,10 +29,8 @@ fun RatingDialog(
     onDismiss: () -> Unit,
     onSubmit: (rating: Int, feedback: String) -> Unit,
     isSubmitting: Boolean = false,
-    // Customer's existing rating of driver (for updates from history)
     existingCustomerRating: Double? = null,
     existingCustomerFeedback: String? = null,
-    // Driver's rating of customer (info display only)
     driverRatingForCustomer: Double? = null,
     driverFeedbackForCustomer: String? = null
 ) {
@@ -49,7 +49,7 @@ fun RatingDialog(
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = AppColors.Surface)
         ) {
             Column(
                 modifier = Modifier
@@ -62,13 +62,13 @@ fun RatingDialog(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
                     modifier = Modifier.size(56.dp),
-                    tint = Orange500
+                    tint = AppColors.Primary
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Delivery Completed!",
+                    text = stringResource(R.string.label_delivery_completed),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -76,7 +76,7 @@ fun RatingDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Booking #$bookingNumber",
+                    text = stringResource(R.string.label_booking_number, bookingNumber),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted
                 )
@@ -87,7 +87,7 @@ fun RatingDialog(
                     text = "₹$fare",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Green500
+                    color = AppColors.Pickup
                 )
 
                 // ── Driver's rating of customer (info box) ──
@@ -96,8 +96,8 @@ fun RatingDialog(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Green500.copy(alpha = 0.1f),
-                        border = BorderStroke(1.dp, Green500.copy(alpha = 0.3f))
+                        color = AppColors.Pickup.copy(alpha = 0.1f),
+                        border = BorderStroke(1.dp, AppColors.Pickup.copy(alpha = 0.3f))
                     ) {
                         Column(
                             modifier = Modifier
@@ -106,7 +106,7 @@ fun RatingDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Driver rated you",
+                                text = stringResource(R.string.label_driver_rated_you),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = TextSecondary,
                                 fontSize = 12.sp
@@ -128,7 +128,7 @@ fun RatingDialog(
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
                                         tint = if (index < driverRatingForCustomer.toInt()) {
-                                            Color(0xFFFFC107)
+                                            AppColors.Amber
                                         } else {
                                             DividerColor
                                         }
@@ -165,7 +165,7 @@ fun RatingDialog(
 
                 // ── Customer rates driver ──
                 Text(
-                    text = if (isUpdate) "Update your rating" else "Rate the driver",
+                    text = if (isUpdate) stringResource(R.string.label_update_rating) else stringResource(R.string.label_rate_driver),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -192,7 +192,7 @@ fun RatingDialog(
                                     rating = index + 1
                                 },
                             tint = if (index < rating) {
-                                Orange500
+                                AppColors.Primary
                             } else {
                                 DividerColor
                             }
@@ -208,8 +208,8 @@ fun RatingDialog(
                     value = feedback,
                     onValueChange = { feedback = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Feedback (Optional)") },
-                    placeholder = { Text("Share your experience...") },
+                    label = { Text(stringResource(R.string.label_feedback_optional)) },
+                    placeholder = { Text(stringResource(R.string.label_feedback_placeholder)) },
                     maxLines = 3,
                     enabled = !isSubmitting,
                     shape = RoundedCornerShape(12.dp)
@@ -228,7 +228,7 @@ fun RatingDialog(
                         enabled = !isSubmitting,
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Skip")
+                        Text(stringResource(R.string.label_skip))
                     }
 
                     Button(
@@ -240,7 +240,7 @@ fun RatingDialog(
                         modifier = Modifier.weight(1f),
                         enabled = rating > 0 && !isSubmitting,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Orange500
+                            containerColor = AppColors.Primary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -251,7 +251,7 @@ fun RatingDialog(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text(if (isUpdate) "Update" else "Submit")
+                            Text(if (isUpdate) stringResource(R.string.label_update) else stringResource(R.string.label_submit))
                         }
                     }
                 }
@@ -259,7 +259,7 @@ fun RatingDialog(
                 if (rating == 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Please select a rating to submit",
+                        text = stringResource(R.string.label_select_rating_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         textAlign = TextAlign.Center

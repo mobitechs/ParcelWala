@@ -10,10 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
  * Loading dialog component
@@ -24,7 +26,7 @@ import androidx.compose.ui.window.DialogProperties
  */
 @Composable
 fun LoadingDialog(
-    message: String = "Loading...",
+    message: String = stringResource(R.string.label_loading),
     onDismiss: () -> Unit = {}
 ) {
     Dialog(
@@ -38,7 +40,7 @@ fun LoadingDialog(
             modifier = Modifier
                 .size(200.dp)
                 .background(
-                    color = Color.White,
+                    color = AppColors.Surface,
                     shape = RoundedCornerShape(16.dp)
                 ),
             contentAlignment = Alignment.Center
@@ -58,7 +60,7 @@ fun LoadingDialog(
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Black
+                    color = AppColors.TextPrimary
                 )
             }
         }

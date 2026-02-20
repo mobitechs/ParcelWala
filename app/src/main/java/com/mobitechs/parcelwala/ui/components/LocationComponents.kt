@@ -13,12 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
@@ -73,7 +75,7 @@ fun MapPreview(
                 .align(Alignment.TopEnd)
                 .padding(16.dp),
             shape = RoundedCornerShape(12.dp),
-            color = Color.White,
+            color = AppColors.Surface,
             shadowElevation = 4.dp
         ) {
             Row(
@@ -85,12 +87,12 @@ fun MapPreview(
             ) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
+                    contentDescription = stringResource(R.string.content_desc_edit),
                     tint = AppColors.Primary,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = "Edit",
+                    text = stringResource(R.string.label_edit),
                     style = MaterialTheme.typography.labelLarge,
                     color = AppColors.Primary,
                     fontWeight = FontWeight.SemiBold
@@ -123,7 +125,7 @@ fun LocationSummaryCard(
             // Address Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (locationType == "pickup") "Pickup Location" else "Drop Location",
+                    text = if (locationType == "pickup") stringResource(R.string.label_pickup_location) else stringResource(R.string.label_drop_location),
                     style = MaterialTheme.typography.labelMedium,
                     color = AppColors.TextSecondary,
                     fontSize = 11.sp,
@@ -289,7 +291,7 @@ fun JourneyConnector(
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = "Estimated: 15-20 mins",
+                text = stringResource(R.string.label_estimated_time),
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.TextSecondary
             )
@@ -305,7 +307,11 @@ fun SaveAsSelector(
     selected: String,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    options: List<String> = listOf("Home", "Shop", "Other")
+    options: List<String> = listOf(
+        stringResource(R.string.label_home),
+        stringResource(R.string.label_shop),
+        stringResource(R.string.label_other)
+    )
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -332,6 +338,9 @@ private fun SaveAsOption(
     onSelect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val homeLabel = stringResource(R.string.label_home)
+    val shopLabel = stringResource(R.string.label_shop)
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
@@ -348,8 +357,8 @@ private fun SaveAsOption(
         ) {
             Icon(
                 imageVector = when (type) {
-                    "Home" -> Icons.Default.Home
-                    "Shop" -> Icons.Default.ShoppingBag
+                    homeLabel -> Icons.Default.Home
+                    shopLabel -> Icons.Default.ShoppingBag
                     else -> Icons.Default.Place
                 },
                 contentDescription = type,

@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.ui.theme.Blue500
 
 /**
  * Button with loading state
@@ -23,7 +24,7 @@ fun LoadingButton(
     isLoading: Boolean = false,
     enabled: Boolean = true,
     isOutlined: Boolean = false,
-    containerColor: Color = Color(0xFF2196F3),
+    containerColor: Color = Blue500,
     contentColor: Color = Color.White
 ) {
     val buttonColors = if (isOutlined) {

@@ -17,11 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.CouponResponse
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.InfoCard
@@ -29,10 +31,6 @@ import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
-/**
- * Coupon Screen
- * Shows available coupons and allows manual code entry
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CouponScreen(
@@ -43,11 +41,9 @@ fun CouponScreen(
     var manualCouponCode by remember { mutableStateOf("") }
     var isApplying by remember { mutableStateOf(false) }
 
-    // Observe coupons from ViewModel
     val availableCoupons by viewModel.availableCoupons.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Load coupons if not already loaded
     LaunchedEffect(Unit) {
         if (availableCoupons.isEmpty()) {
             viewModel.loadAvailableCoupons()
@@ -59,7 +55,7 @@ fun CouponScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Apply Coupon",
+                        text = stringResource(R.string.title_apply_coupon),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -68,13 +64,13 @@ fun CouponScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.content_desc_back),
                             tint = AppColors.TextPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Surface
                 )
             )
         },
@@ -87,7 +83,7 @@ fun CouponScreen(
         ) {
             if (uiState.isLoading && availableCoupons.isEmpty() && !isApplying) {
                 LoadingIndicator(
-                    message = "Loading coupons...",
+                    message = stringResource(R.string.label_loading_coupons),
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(32.dp)
@@ -103,7 +99,7 @@ fun CouponScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Have a coupon code?",
+                            text = stringResource(R.string.label_have_coupon),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.TextPrimary
@@ -120,7 +116,7 @@ fun CouponScreen(
                                 value = manualCouponCode,
                                 onValueChange = { manualCouponCode = it.uppercase() },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("Enter code") },
+                                placeholder = { Text(stringResource(R.string.hint_enter_code)) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 keyboardOptions = KeyboardOptions(
@@ -162,7 +158,7 @@ fun CouponScreen(
                                     )
                                 } else {
                                     Text(
-                                        text = "Apply",
+                                        text = stringResource(R.string.label_apply),
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -174,15 +170,15 @@ fun CouponScreen(
                     if (availableCoupons.isEmpty()) {
                         EmptyState(
                             icon = Icons.Default.LocalOffer,
-                            title = "No Coupons Available",
-                            subtitle = "Check back later for exciting offers",
+                            title = stringResource(R.string.label_no_coupons),
+                            subtitle = stringResource(R.string.label_no_coupons_subtitle),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(32.dp)
                         )
                     } else {
                         Text(
-                            text = "Available Coupons",
+                            text = stringResource(R.string.label_available_coupons),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.TextPrimary,
@@ -212,7 +208,6 @@ fun CouponScreen(
                 }
             }
 
-            // Show success/error messages
             LaunchedEffect(uiState.error, uiState.appliedCoupon) {
                 if (isApplying) {
                     if (uiState.appliedCoupon != null) {
@@ -224,7 +219,6 @@ fun CouponScreen(
                 }
             }
 
-            // Show error snackbar
             uiState.error?.let { error ->
                 Snackbar(
                     modifier = Modifier
@@ -232,7 +226,7 @@ fun CouponScreen(
                         .padding(16.dp),
                     action = {
                         TextButton(onClick = { viewModel.clearError() }) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.label_dismiss))
                         }
                     }
                 ) {
@@ -243,9 +237,6 @@ fun CouponScreen(
     }
 }
 
-/**
- * Coupon Card
- */
 @Composable
 private fun CouponCard(
     coupon: CouponResponse,
@@ -255,7 +246,7 @@ private fun CouponCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = AppColors.Surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -264,7 +255,6 @@ private fun CouponCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Coupon Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -291,7 +281,7 @@ private fun CouponCard(
                 if (coupon.expiryDate != null) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFFFF9E6)
+                        color = AppColors.AmberLight
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -301,13 +291,13 @@ private fun CouponCard(
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
-                                tint = Color(0xFFFF9800),
+                                tint = AppColors.Warning,
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
                                 text = coupon.expiryDate,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFFF9800)
+                                color = AppColors.Warning
                             )
                         }
                     }
@@ -316,7 +306,6 @@ private fun CouponCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Coupon Code
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -342,7 +331,7 @@ private fun CouponCard(
 
                 TextButton(onClick = onApply) {
                     Text(
-                        text = "APPLY",
+                        text = stringResource(R.string.label_apply_uppercase),
                         color = AppColors.Primary,
                         fontWeight = FontWeight.Bold
                     )
@@ -351,7 +340,6 @@ private fun CouponCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Description
             Text(
                 text = coupon.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -360,7 +348,6 @@ private fun CouponCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Discount Info
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -396,7 +383,6 @@ private fun CouponCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Terms & Conditions
             Row(
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -417,9 +403,6 @@ private fun CouponCard(
     }
 }
 
-/**
- * Coupon Info Chip
- */
 @Composable
 private fun CouponInfoChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

@@ -1,8 +1,4 @@
 // ui/screens/booking/SearchingRiderScreen.kt
-// ✅ UPDATED: Bottom sheet matches DriverActiveBookingScreen pattern
-//    - Sheet starts EXPANDED
-//    - Transparent container with floating status chip + white rounded box
-//    - Custom drag handle inside the white box
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.animation.core.*
@@ -31,6 +27,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +42,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -56,10 +54,6 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import kotlinx.coroutines.delay
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SEARCHING RIDER SCREEN — Full-map + BottomSheetScaffold (Expanded by default)
-// ═══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +72,6 @@ fun SearchingRiderScreen(
 ) {
     var showCancelSheet by remember { mutableStateOf(false) }
 
-    // ── Observe ViewModels ──
     val routeInfo by bookingViewModel.routeInfo.collectAsState()
     val isRouteLoading by bookingViewModel.isRouteLoading.collectAsState()
     val activeBooking by bookingViewModel.activeBooking.collectAsState()
@@ -86,7 +79,6 @@ fun SearchingRiderScreen(
     val trackingUiState by riderTrackingViewModel.uiState.collectAsState()
     val currentStatus = trackingUiState.currentStatus
 
-    // ── Connect SignalR ──
     LaunchedEffect(bookingId) {
         riderTrackingViewModel.connectToBooking(
             bookingId = bookingId,
@@ -95,7 +87,6 @@ fun SearchingRiderScreen(
         )
     }
 
-    // ── Timer Logic ──
     val totalTimeMs = ActiveBookingManager.SEARCH_TIMEOUT_MS
     val fallbackStartTime = remember { System.currentTimeMillis() }
     val searchStartTime = activeBooking?.searchStartTime ?: fallbackStartTime
@@ -130,7 +121,6 @@ fun SearchingRiderScreen(
     val seconds = ((remainingTimeMs % 60000) / 1000).toInt()
     val timeText = String.format("%02d:%02d", minutes, seconds)
 
-    // ── Load Route ──
     LaunchedEffect(pickupAddress, dropAddress) {
         if (pickupAddress.latitude != 0.0 && dropAddress.latitude != 0.0) {
             bookingViewModel.calculateRoute(
@@ -142,7 +132,6 @@ fun SearchingRiderScreen(
         }
     }
 
-    // ── BottomSheetScaffold — EXPANDED, Transparent (matches DriverActiveBookingScreen) ──
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
             initialValue = SheetValue.Expanded
@@ -158,16 +147,14 @@ fun SearchingRiderScreen(
         sheetPeekHeight = 340.dp,
         sheetContent = {
             Column(Modifier.fillMaxWidth()) {
-                // 1. Floating status chip — above the white box
                 Box(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    // Route info chip (distance + duration) — right aligned
                     routeInfo?.let { route ->
                         Card(
                             modifier = Modifier.align(Alignment.CenterEnd),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
                             elevation = CardDefaults.cardElevation(6.dp)
                         ) {
                             Row(
@@ -182,7 +169,7 @@ fun SearchingRiderScreen(
                                     Icon(Icons.Default.Route, null, tint = AppColors.Primary, modifier = Modifier.size(14.dp))
                                     Text(route.distanceText, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                                 }
-                                Box(Modifier.width(1.dp).height(14.dp).background(Color(0xFFE5E7EB)))
+                                Box(Modifier.width(1.dp).height(14.dp).background(AppColors.DividerLight))
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -195,28 +182,25 @@ fun SearchingRiderScreen(
                     }
                 }
 
-                // 2. White box — the actual sheet visual
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .background(
-                            Color.White,
+                            AppColors.Surface,
                             RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
                         )
                 ) {
                     Column(Modifier.fillMaxWidth()) {
-                        // Drag handle
                         Box(
                             Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 Modifier.width(40.dp).height(4.dp)
-                                    .background(Color(0xFFE0E0E0), RoundedCornerShape(2.dp))
+                                    .background(AppColors.DragHandle, RoundedCornerShape(2.dp))
                             )
                         }
 
-                        // Sheet body
                         SearchingSheetBody(
                             bookingId = bookingId,
                             pickupAddress = pickupAddress,
@@ -245,7 +229,6 @@ fun SearchingRiderScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // ── Full-screen map ──
                 RouteMapView(
                     pickupAddress = pickupAddress,
                     dropAddress = dropAddress,
@@ -254,7 +237,6 @@ fun SearchingRiderScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // ── Floating status pill on map ──
                 SearchingStatusPill(
                     isSearching = isSearching,
                     isRiderAssigned = isRiderAssigned,
@@ -266,12 +248,11 @@ fun SearchingRiderScreen(
                         .padding(top = 12.dp)
                 )
 
-                // ── Route loading indicator ──
                 if (isRouteLoading) {
                     Surface(
                         modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 64.dp),
                         shape = RoundedCornerShape(20.dp),
-                        color = Color.White,
+                        color = AppColors.Surface,
                         shadowElevation = 4.dp
                     ) {
                         Row(
@@ -280,7 +261,7 @@ fun SearchingRiderScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CircularProgressIndicator(Modifier.size(16.dp), color = AppColors.Primary, strokeWidth = 2.dp)
-                            Text("Finding route…", style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
+                            Text(stringResource(R.string.label_finding_route), style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
                         }
                     }
                 }
@@ -288,7 +269,6 @@ fun SearchingRiderScreen(
         }
     )
 
-    // ── Cancel Sheet ──
     if (showCancelSheet) {
         CancellationReasonBottomSheet(
             onDismiss = { showCancelSheet = false },
@@ -313,10 +293,14 @@ private fun SearchingStatusPill(
     timeText: String,
     modifier: Modifier = Modifier
 ) {
+    val riderFoundLabel = stringResource(R.string.label_rider_found)
+    val noDriversLabel = stringResource(R.string.label_no_drivers_available)
+    val searchingLabel = stringResource(R.string.label_searching_drivers, timeText)
+
     val (label, containerColor, contentColor) = when {
-        isRiderAssigned -> Triple("Rider found! Connecting...", AppColors.Pickup, Color.White)
-        isTimedOut -> Triple("No drivers available", Color(0xFFFFF3E0), Color(0xFFE65100))
-        else -> Triple("Searching nearby drivers · $timeText", Color.White, AppColors.TextPrimary)
+        isRiderAssigned -> Triple(riderFoundLabel, AppColors.Pickup, Color.White)
+        isTimedOut -> Triple(noDriversLabel, AppColors.PrimaryLight, AppColors.OrangeDark)
+        else -> Triple(searchingLabel, AppColors.Surface, AppColors.TextPrimary)
     }
 
     Card(
@@ -381,19 +365,21 @@ private fun SearchingSheetBody(
     onContactSupport: () -> Unit,
     onCancelBooking: () -> Unit
 ) {
+    val pickupFallback = stringResource(R.string.label_pickup)
+    val dropFallback = stringResource(R.string.label_drop)
+    val vehicleFallback = stringResource(R.string.label_vehicle_fallback)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
     ) {
-        // ── Scrollable content ──
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            // ── Searching Animation Card ──
             SearchingAnimationCard(
                 isSearching = isSearching,
                 isRiderAssigned = isRiderAssigned,
@@ -407,15 +393,13 @@ private fun SearchingSheetBody(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Journey Details Card ──
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                colors = CardDefaults.cardColors(containerColor = AppColors.LightGray50),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    // Pickup
                     Row(
                         verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -426,7 +410,7 @@ private fun SearchingSheetBody(
                         }
                         Column(Modifier.weight(1f)) {
                             Text(
-                                pickupAddress.contactName ?: "Pickup",
+                                pickupAddress.contactName ?: pickupFallback,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -439,7 +423,6 @@ private fun SearchingSheetBody(
                             )
                         }
                     }
-                    // Drop
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -447,7 +430,7 @@ private fun SearchingSheetBody(
                         Box(Modifier.size(10.dp).background(AppColors.Drop, CircleShape))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                dropAddress.contactName ?: "Drop",
+                                dropAddress.contactName ?: dropFallback,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -465,16 +448,14 @@ private fun SearchingSheetBody(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Vehicle + Payment Row ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Vehicle card
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    colors = CardDefaults.cardColors(containerColor = AppColors.LightGray50),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
@@ -487,7 +468,7 @@ private fun SearchingSheetBody(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            selectedFareDetails.vehicleTypeName ?: "Vehicle",
+                            selectedFareDetails.vehicleTypeName ?: vehicleFallback,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -499,11 +480,10 @@ private fun SearchingSheetBody(
                     }
                 }
 
-                // Payment card
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    colors = CardDefaults.cardColors(containerColor = AppColors.LightGray50),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
@@ -522,7 +502,7 @@ private fun SearchingSheetBody(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(Icons.Default.Wallet, null, tint = AppColors.Pickup, modifier = Modifier.size(16.dp))
-                            Text("Cash", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                            Text(stringResource(R.string.label_cash), style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                         }
                     }
                 }
@@ -531,7 +511,6 @@ private fun SearchingSheetBody(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // ── Bottom buttons (fixed, above nav bar) ──
         HorizontalDivider(color = AppColors.Border.copy(alpha = 0.3f))
         Row(
             modifier = Modifier
@@ -548,7 +527,7 @@ private fun SearchingSheetBody(
             ) {
                 Icon(Icons.Default.Headset, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Support", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(stringResource(R.string.label_support), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
 
             OutlinedButton(
@@ -560,7 +539,7 @@ private fun SearchingSheetBody(
             ) {
                 Icon(Icons.Default.Close, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Cancel", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(stringResource(R.string.label_cancel), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
         }
     }
@@ -605,9 +584,9 @@ private fun SearchingAnimationCard(
     )
 
     val bgColor = when {
-        isRiderAssigned -> Color(0xFFE8F5E9)
-        isTimedOut -> Color(0xFFFFF3E0)
-        else -> Color(0xFFF9FAFB)
+        isRiderAssigned -> AppColors.GreenLight
+        isTimedOut -> AppColors.PrimaryLight
+        else -> AppColors.LightGray50
     }
 
     Card(
@@ -628,8 +607,8 @@ private fun SearchingAnimationCard(
                         }
                     }
                     isTimedOut -> {
-                        Box(Modifier.size(80.dp).background(Color(0xFFFF9800).copy(0.15f), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.SearchOff, null, tint = Color(0xFFE65100), modifier = Modifier.size(40.dp))
+                        Box(Modifier.size(80.dp).background(AppColors.Warning.copy(0.15f), CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.SearchOff, null, tint = AppColors.OrangeDark, modifier = Modifier.size(40.dp))
                         }
                     }
                     else -> {
@@ -646,15 +625,15 @@ private fun SearchingAnimationCard(
 
             Text(
                 text = when {
-                    isRiderAssigned -> "Rider Found! 🎉"
-                    isTimedOut -> "No riders available"
-                    else -> "Searching for drivers..."
+                    isRiderAssigned -> stringResource(R.string.label_rider_found_title)
+                    isTimedOut -> stringResource(R.string.label_no_riders_available)
+                    else -> stringResource(R.string.label_searching_for_drivers)
                 },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = when {
                     isRiderAssigned -> AppColors.Pickup
-                    isTimedOut -> Color(0xFFE65100)
+                    isTimedOut -> AppColors.OrangeDark
                     else -> AppColors.TextPrimary
                 }
             )
@@ -663,9 +642,9 @@ private fun SearchingAnimationCard(
 
             Text(
                 text = when {
-                    isRiderAssigned -> "Connecting to your driver..."
-                    isTimedOut -> "All drivers are busy right now"
-                    else -> "Checking nearby drivers · Attempt $searchAttempt"
+                    isRiderAssigned -> stringResource(R.string.label_connecting_driver)
+                    isTimedOut -> stringResource(R.string.label_all_drivers_busy)
+                    else -> stringResource(R.string.label_checking_drivers, searchAttempt)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.TextSecondary,
@@ -691,16 +670,16 @@ private fun SearchingAnimationCard(
                     ) {
                         Icon(Icons.Default.Refresh, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Try Again", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(stringResource(R.string.label_try_again), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text("Attempt $searchAttempt completed", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.label_attempt_completed, searchAttempt), style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
                 else -> {
                     val progress = ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs).coerceIn(0f, 1f)
                     val progressColor = when {
                         progress > 0.66f -> AppColors.Drop
-                        progress > 0.33f -> Color(0xFFFF9800)
+                        progress > 0.33f -> AppColors.Warning
                         else -> AppColors.Primary
                     }
 
@@ -709,7 +688,7 @@ private fun SearchingAnimationCard(
                             Icon(Icons.Default.Timer, null, tint = progressColor, modifier = Modifier.size(18.dp))
                             Text(timeText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = progressColor)
                         }
-                        Text("remaining", style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
+                        Text(stringResource(R.string.label_remaining), style = MaterialTheme.typography.labelSmall, color = AppColors.TextHint)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -739,6 +718,8 @@ private fun RouteMapView(
     isLoading: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val pickupLabel = stringResource(R.string.label_pickup)
+    val dropLabel = stringResource(R.string.label_drop)
     val pickupLatLng = LatLng(pickupAddress.latitude, pickupAddress.longitude)
     val dropLatLng = LatLng(dropAddress.latitude, dropAddress.longitude)
     val cameraPositionState = rememberCameraPositionState()
@@ -766,10 +747,10 @@ private fun RouteMapView(
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
         contentPadding = PaddingValues(bottom = 280.dp, top = 60.dp)
     ) {
-        Marker(state = MarkerState(position = pickupLatLng), title = "Pickup", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-        Marker(state = MarkerState(position = dropLatLng), title = "Drop", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+        Marker(state = MarkerState(position = pickupLatLng), title = pickupLabel, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        Marker(state = MarkerState(position = dropLatLng), title = dropLabel, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
         routeInfo?.let { route ->
-            Polyline(points = route.polylinePoints, color = Color(0xFF1565C0), width = 14f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap())
+            Polyline(points = route.polylinePoints, color = AppColors.RouteShadow, width = 14f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap())
             Polyline(points = route.polylinePoints, color = AppColors.Primary, width = 10f, jointType = JointType.ROUND, startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
         }
     }
@@ -792,18 +773,27 @@ private fun CancellationReasonBottomSheet(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
+    val reasonDriverDelayed = stringResource(R.string.label_reason_driver_delayed)
+    val reasonChangePlans = stringResource(R.string.label_reason_change_plans)
+    val reasonWrongAddress = stringResource(R.string.label_reason_wrong_address)
+    val reasonPriceHigh = stringResource(R.string.label_reason_price_high)
+    val reasonBookingMistake = stringResource(R.string.label_reason_booking_mistake)
+    val reasonOther = stringResource(R.string.label_reason_other)
+    val cancelledFallback = stringResource(R.string.label_cancelled)
+    val otherFallback = stringResource(R.string.label_other_reason)
+
     val reasons = listOf(
-        CancellationReason("driver_delayed", "Driver is taking too long", Icons.Default.Timer),
-        CancellationReason("change_plans", "Change of plans", Icons.Default.EventBusy),
-        CancellationReason("wrong_address", "Wrong pickup/drop location", Icons.Default.LocationOff),
-        CancellationReason("price_high", "Price is too high", Icons.Default.MoneyOff),
-        CancellationReason("booking_mistake", "Booked by mistake", Icons.Default.ErrorOutline),
-        CancellationReason("other", "Other reason", Icons.Default.MoreHoriz)
+        CancellationReason("driver_delayed", reasonDriverDelayed, Icons.Default.Timer),
+        CancellationReason("change_plans", reasonChangePlans, Icons.Default.EventBusy),
+        CancellationReason("wrong_address", reasonWrongAddress, Icons.Default.LocationOff),
+        CancellationReason("price_high", reasonPriceHigh, Icons.Default.MoneyOff),
+        CancellationReason("booking_mistake", reasonBookingMistake, Icons.Default.ErrorOutline),
+        CancellationReason("other", reasonOther, Icons.Default.MoreHoriz)
     )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = AppColors.Surface,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
             Box(Modifier.padding(vertical = 12.dp).width(40.dp).height(4.dp).background(AppColors.Border, RoundedCornerShape(2.dp)))
@@ -816,10 +806,10 @@ private fun CancellationReasonBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Cancel Trip?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Please select a reason", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
+                    Text(stringResource(R.string.title_cancel_trip), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.label_select_reason), style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
                 }
-                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close", tint = AppColors.TextSecondary) }
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.content_desc_close), tint = AppColors.TextSecondary) }
             }
 
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
@@ -830,7 +820,7 @@ private fun CancellationReasonBottomSheet(
                             if (reason.id != "other") { otherReason = ""; keyboardController?.hide(); focusManager.clearFocus() }
                         },
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
                         border = BorderStroke(if (selectedReason == reason.id) 2.dp else 1.dp, if (selectedReason == reason.id) AppColors.Primary else AppColors.Border)
                     ) {
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -845,8 +835,8 @@ private fun CancellationReasonBottomSheet(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = otherReason, onValueChange = { otherReason = it },
-                        modifier = Modifier.fillMaxWidth(), label = { Text("Please specify") },
-                        placeholder = { Text("Enter your reason...") }, minLines = 3, maxLines = 5,
+                        modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.label_please_specify)) },
+                        placeholder = { Text(stringResource(R.string.hint_enter_reason)) }, minLines = 3, maxLines = 5,
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
@@ -856,12 +846,12 @@ private fun CancellationReasonBottomSheet(
 
                 Spacer(Modifier.height(16.dp))
 
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = AppColors.AmberWarnBg)) {
                     Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Warning, null, tint = AppColors.Warning, modifier = Modifier.size(20.dp))
                         Column {
-                            Text("Cancellation Policy", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Frequent cancellations may result in temporary suspension.", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
+                            Text(stringResource(R.string.label_cancellation_policy), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.label_cancellation_warning), style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                         }
                     }
                 }
@@ -869,11 +859,11 @@ private fun CancellationReasonBottomSheet(
                 Spacer(Modifier.height(16.dp))
             }
 
-            Surface(color = Color.White, shadowElevation = 8.dp) {
+            Surface(color = AppColors.Surface, shadowElevation = 8.dp) {
                 Row(Modifier.fillMaxWidth().padding(20.dp).navigationBarsPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, AppColors.Primary), colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)) { Text("Keep Trip", fontWeight = FontWeight.Bold) }
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, AppColors.Primary), colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.Primary)) { Text(stringResource(R.string.label_keep_trip), fontWeight = FontWeight.Bold) }
                     Button(onClick = { if (selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank())) showConfirmDialog = true }, modifier = Modifier.weight(1f).height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop, disabledContainerColor = AppColors.Drop.copy(0.3f)), shape = RoundedCornerShape(14.dp), enabled = selectedReason != null && (selectedReason != "other" || otherReason.isNotBlank()) && !isLoading) {
-                        if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp) else Text("Cancel Trip", fontWeight = FontWeight.Bold)
+                        if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp) else Text(stringResource(R.string.label_cancel_trip), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -884,15 +874,15 @@ private fun CancellationReasonBottomSheet(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             icon = { Icon(Icons.Default.ErrorOutline, null, tint = AppColors.Drop, modifier = Modifier.size(32.dp)) },
-            title = { Text("Confirm Cancellation", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to cancel this trip?", color = AppColors.TextSecondary, textAlign = TextAlign.Center) },
+            title = { Text(stringResource(R.string.title_confirm_cancellation), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.label_confirm_cancel_message), color = AppColors.TextSecondary, textAlign = TextAlign.Center) },
             confirmButton = {
-                Button(onClick = { val reason = if (selectedReason == "other") otherReason.ifBlank { "Other" } else reasons.find { it.id == selectedReason }?.title ?: "Cancelled"; onConfirmCancel(reason); showConfirmDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop), enabled = !isLoading) {
-                    if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp) else Text("Yes, Cancel")
+                Button(onClick = { val reason = if (selectedReason == "other") otherReason.ifBlank { otherFallback } else reasons.find { it.id == selectedReason }?.title ?: cancelledFallback; onConfirmCancel(reason); showConfirmDialog = false }, colors = ButtonDefaults.buttonColors(containerColor = AppColors.Drop), enabled = !isLoading) {
+                    if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp) else Text(stringResource(R.string.label_yes_cancel))
                 }
             },
-            dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("No, Keep It", color = AppColors.Primary) } },
-            containerColor = Color.White
+            dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text(stringResource(R.string.label_no_keep_it), color = AppColors.Primary) } },
+            containerColor = AppColors.Surface
         )
     }
 }

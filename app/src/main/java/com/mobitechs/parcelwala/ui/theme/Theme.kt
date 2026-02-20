@@ -5,7 +5,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-
 private val LightColorScheme = lightColorScheme(
     primary = Orange500,
     onPrimary = Color.White,
@@ -53,6 +52,7 @@ object AppColors {
     val PrimaryLight = OrangeLight
     val Pickup = Green500
     val Drop = Red500
+    val Blue = Blue500
     val TextPrimary = Gray900
     val TextSecondary = Gray600
     val TextHint = Gray400
@@ -61,7 +61,25 @@ object AppColors {
     val Surface = Color.White
     val Divider = Gray200
 
-    val Success = Green500           // Used for "Live Tracking" indicator
-    val Warning = Color(0xFFFFA000)  // Amber/Orange for "Waiting for updates"
+    val Success = Green500
+    val Warning = Color(0xFFFFA000)
     val Error = Red500
+    val DisabledBackground = Color.LightGray
+
+    val ErrorLight = Red400
+
+    val Amber = Amber500
+    val Purple = Purple500
+    val DarkSurface = com.mobitechs.parcelwala.ui.theme.DarkSurface
+    val DarkSurfaceVariant = com.mobitechs.parcelwala.ui.theme.DarkSurfaceVariant
+    val DarkDivider = com.mobitechs.parcelwala.ui.theme.DarkDivider
+
+    val OrangeDark = com.mobitechs.parcelwala.ui.theme.OrangeDark
+    val AmberLight = com.mobitechs.parcelwala.ui.theme.AmberLight
+    val GreenLight = com.mobitechs.parcelwala.ui.theme.GreenLight
+    val LightGray50 = com.mobitechs.parcelwala.ui.theme.LightGray50
+    val AmberWarnBg = com.mobitechs.parcelwala.ui.theme.AmberWarnBg
+    val RouteShadow = com.mobitechs.parcelwala.ui.theme.RouteShadow
+    val DividerLight = com.mobitechs.parcelwala.ui.theme.DividerLight
+    val DragHandle = com.mobitechs.parcelwala.ui.theme.DragHandle
 }

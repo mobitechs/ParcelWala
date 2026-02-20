@@ -17,11 +17,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
@@ -29,7 +31,15 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 
 
 @Composable
-fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAddress:String?, dropContactName:String?,dropContactPhone:String?,dropAddress:String?) {
+fun AddressesCard(
+    pickupContactName: String?,
+    pickupContactPhone: String?,
+    pickupAddress: String?,
+    dropContactName: String?,
+    dropContactPhone: String?,
+    dropAddress: String?
+) {
+    val separatorDot = stringResource(R.string.separator_dot)
 
     Column(
         modifier = Modifier
@@ -87,13 +97,12 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
             // Pickup Address Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "PICKUP",
+                    text = stringResource(R.string.label_pickup),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Pickup,
                     letterSpacing = 1.sp
                 )
-
 
                 Spacer(modifier = Modifier.height(2.dp))
                 if (!pickupContactName.isNullOrEmpty() || !pickupContactPhone.isNullOrEmpty()) {
@@ -104,7 +113,7 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Sender",
+                            contentDescription = stringResource(R.string.content_desc_sender),
                             tint = AppColors.Pickup,
                             modifier = Modifier.size(16.dp)
                         )
@@ -114,7 +123,7 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
                                     append(pickupContactName)
                                 }
                                 if (!pickupContactPhone.isNullOrEmpty()) {
-                                    if (isNotEmpty()) append(" • ")
+                                    if (isNotEmpty()) append(separatorDot)
                                     append(pickupContactPhone)
                                 }
                             },
@@ -169,7 +178,7 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
             // Drop Address Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "DROP",
+                    text = stringResource(R.string.label_drop),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Drop,
@@ -185,7 +194,7 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Receiver",
+                            contentDescription = stringResource(R.string.content_desc_receiver),
                             tint = AppColors.Drop,
                             modifier = Modifier.size(16.dp)
                         )
@@ -195,7 +204,7 @@ fun AddressesCard(pickupContactName:String?,pickupContactPhone:String?,pickupAdd
                                     append(dropContactName)
                                 }
                                 if (!dropContactPhone.isNullOrEmpty()) {
-                                    if (isNotEmpty()) append(" • ")
+                                    if (isNotEmpty()) append(separatorDot)
                                     append(dropContactPhone)
                                 }
                             },

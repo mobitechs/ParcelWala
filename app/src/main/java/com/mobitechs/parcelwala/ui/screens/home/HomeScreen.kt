@@ -83,12 +83,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
@@ -97,6 +99,9 @@ import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.theme.WarningAmber
+import com.mobitechs.parcelwala.ui.theme.WarningAmberBg
+import com.mobitechs.parcelwala.ui.theme.WarningAmberDark
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -125,6 +130,9 @@ fun HomeScreen(
     // ✅ Determine if new booking should be blocked
     val hasActiveBooking = activeBooking != null
 
+    val activeBookingSnackbar = stringResource(R.string.active_booking_snackbar)
+    val completeCurrentSnackbar = stringResource(R.string.complete_current_booking_snackbar)
+
     Scaffold(
         containerColor = AppColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -133,13 +141,13 @@ fun HomeScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Parcel Wala",
+                            text = stringResource(R.string.app_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.TextPrimary
                         )
                         Text(
-                            text = "Your delivery partner",
+                            text = stringResource(R.string.app_subtitle),
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.TextSecondary
                         )
@@ -149,14 +157,14 @@ fun HomeScreen(
                     IconButton(onClick = { /* TODO: Notifications */ }) {
                         Icon(
                             imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
+                            contentDescription = stringResource(R.string.notifications),
                             tint = AppColors.Primary
                         )
                     }
                     IconButton(onClick = { /* TODO: Profile */ }) {
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "Profile",
+                            contentDescription = stringResource(R.string.profile_content_description),
                             tint = AppColors.Primary
                         )
                     }
@@ -174,7 +182,7 @@ fun HomeScreen(
         ) {
             if (uiState.isLoading) {
                 LoadingIndicator(
-                    message = "Loading vehicles...",
+                    message = stringResource(R.string.loading_vehicles),
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
@@ -207,7 +215,7 @@ fun HomeScreen(
                             if (hasActiveBooking) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = "You already have an active booking. Complete or cancel it to book a new ride.",
+                                        message = activeBookingSnackbar,
                                         duration = SnackbarDuration.Short
                                     )
                                 }
@@ -222,7 +230,7 @@ fun HomeScreen(
 
                     // Section Header
                     Text(
-                        text = "Select Vehicle Type",
+                        text = stringResource(R.string.select_vehicle_type),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = if (hasActiveBooking) AppColors.TextHint else AppColors.TextPrimary,
@@ -248,7 +256,7 @@ fun HomeScreen(
                                 if (hasActiveBooking) {
                                     scope.launch {
                                         snackbarHostState.showSnackbar(
-                                            message = "Complete your current booking first.",
+                                            message = completeCurrentSnackbar,
                                             duration = SnackbarDuration.Short
                                         )
                                     }
@@ -261,9 +269,9 @@ fun HomeScreen(
                     } else {
                         EmptyState(
                             icon = Icons.Default.DirectionsCar,
-                            title = "No vehicles available",
-                            subtitle = "Please try again later",
-                            actionText = "Retry",
+                            title = stringResource(R.string.no_vehicles_available),
+                            subtitle = stringResource(R.string.try_again_later),
+                            actionText = stringResource(R.string.retry),
                             onAction = { viewModel.refresh() },
                             modifier = Modifier.padding(32.dp)
                         )
@@ -294,11 +302,11 @@ fun HomeScreen(
                             tint = AppColors.Drop
                         )
                     },
-                    title = { Text("Error") },
+                    title = { Text(stringResource(R.string.error_dialog_title)) },
                     text = { Text(error) },
                     confirmButton = {
                         TextButton(onClick = { viewModel.clearError() }) {
-                            Text("OK", color = AppColors.Primary)
+                            Text(stringResource(R.string.ok), color = AppColors.Primary)
                         }
                     },
                     containerColor = Color.White
@@ -323,7 +331,7 @@ private fun ActiveBookingBlockingBanner(
             .clickable(onClick = onViewBooking),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFF3E0)
+            containerColor = WarningAmberBg
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -337,20 +345,20 @@ private fun ActiveBookingBlockingBanner(
             Icon(
                 imageVector = Icons.Default.Block,
                 contentDescription = null,
-                tint = Color(0xFFFF9800),
+                tint = WarningAmber,
                 modifier = Modifier.size(20.dp)
             )
             Text(
-                text = "You have an active booking. Tap to view.",
+                text = stringResource(R.string.active_booking_banner_text),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFFE65100),
+                color = WarningAmberDark,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color(0xFFFF9800),
+                tint = WarningAmber,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -415,7 +423,7 @@ private fun ActiveBookingCard(
 
     // Card colors based on state
     val headerGradient = if (isTimedOut && isSearching) {
-        listOf(Color(0xFFFF9800), Color(0xFFF57C00))
+        listOf(WarningAmber, WarningAmber.copy(alpha = 0.85f))
     } else {
         listOf(AppColors.Primary, AppColors.Primary.copy(alpha = 0.9f))
     }
@@ -428,7 +436,7 @@ private fun ActiveBookingCard(
                 elevation = 6.dp,
                 shape = RoundedCornerShape(20.dp),
                 spotColor = if (isTimedOut && isSearching)
-                    Color(0xFFFF9800).copy(alpha = 0.25f)
+                    WarningAmber.copy(alpha = 0.25f)
                 else
                     AppColors.Primary.copy(alpha = 0.25f)
             )
@@ -482,7 +490,7 @@ private fun ActiveBookingCard(
                                         else -> Icons.Default.LocalShipping
                                     },
                                     contentDescription = null,
-                                    tint = if (isTimedOut) Color(0xFFFF9800) else AppColors.Primary,
+                                    tint = if (isTimedOut) WarningAmber else AppColors.Primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -496,7 +504,7 @@ private fun ActiveBookingCard(
                                 Icon(
                                     imageVector = Icons.Default.SearchOff,
                                     contentDescription = null,
-                                    tint = Color(0xFFFF9800),
+                                    tint = WarningAmber,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -521,13 +529,13 @@ private fun ActiveBookingCard(
                             }
                             Text(
                                 text = when {
-                                    isTimedOut && isSearching -> "No riders available"
-                                    activeBooking.status == BookingStatus.SEARCHING -> "Finding your rider..."
-                                    activeBooking.status == BookingStatus.RIDER_ASSIGNED -> "Rider assigned!"
-                                    activeBooking.status == BookingStatus.RIDER_EN_ROUTE -> "Rider on the way"
-                                    activeBooking.status == BookingStatus.PICKED_UP -> "Goods picked up"
-                                    activeBooking.status == BookingStatus.IN_TRANSIT -> "On the way to drop"
-                                    else -> "Booking in progress"
+                                    isTimedOut && isSearching -> stringResource(R.string.no_riders_available)
+                                    activeBooking.status == BookingStatus.SEARCHING -> stringResource(R.string.finding_rider)
+                                    activeBooking.status == BookingStatus.RIDER_ASSIGNED -> stringResource(R.string.rider_assigned)
+                                    activeBooking.status == BookingStatus.RIDER_EN_ROUTE -> stringResource(R.string.rider_on_the_way)
+                                    activeBooking.status == BookingStatus.PICKED_UP -> stringResource(R.string.goods_picked_up)
+                                    activeBooking.status == BookingStatus.IN_TRANSIT -> stringResource(R.string.on_the_way_to_drop)
+                                    else -> stringResource(R.string.booking_in_progress)
                                 },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
@@ -537,9 +545,9 @@ private fun ActiveBookingCard(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isSearching) {
-                                "Trip #${activeBooking.bookingId} • Attempt ${activeBooking.searchAttempts}"
+                                stringResource(R.string.trip_format, activeBooking.bookingId, activeBooking.searchAttempts)
                             } else {
-                                "Trip #${activeBooking.bookingId}"
+                                stringResource(R.string.trip_id_format, activeBooking.bookingId)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.8f)
@@ -556,7 +564,7 @@ private fun ActiveBookingCard(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isTimedOut) "Timed out" else "remaining",
+                                text = if (isTimedOut) stringResource(R.string.timed_out) else stringResource(R.string.remaining),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 9.sp
@@ -571,7 +579,7 @@ private fun ActiveBookingCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "View Details",
+                                contentDescription = stringResource(R.string.view_details),
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -599,7 +607,7 @@ private fun ActiveBookingCard(
                                 .clip(RoundedCornerShape(3.dp)),
                             color = when {
                                 elapsedProgress > 0.66f -> AppColors.Drop
-                                elapsedProgress > 0.33f -> Color(0xFFFF9800)
+                                elapsedProgress > 0.33f -> WarningAmber
                                 else -> AppColors.Primary
                             },
                             trackColor = AppColors.Border,
@@ -621,7 +629,7 @@ private fun ActiveBookingCard(
                                 fontSize = 10.sp
                             )
                             Text(
-                                text = "3:00",
+                                text = stringResource(R.string.time_format_total),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppColors.TextHint,
                                 fontSize = 10.sp
@@ -643,7 +651,7 @@ private fun ActiveBookingCard(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Retry Search", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(text = stringResource(R.string.retry_search), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
@@ -697,7 +705,7 @@ private fun ActiveBookingCard(
                     }
                     Column {
                         Text(
-                            text = activeBooking.fareDetails.vehicleTypeName ?: "Vehicle",
+                            text = activeBooking.fareDetails.vehicleTypeName ?: stringResource(R.string.vehicle_fallback),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = AppColors.TextPrimary
@@ -713,7 +721,7 @@ private fun ActiveBookingCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "₹${activeBooking.fare}",
+                        text = stringResource(R.string.fare_format, activeBooking.fare),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.Primary
@@ -729,7 +737,7 @@ private fun ActiveBookingCard(
                             modifier = Modifier.size(12.dp)
                         )
                         Text(
-                            text = "Cash",
+                            text = stringResource(R.string.cash),
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.TextSecondary,
                             fontSize = 10.sp
@@ -751,7 +759,7 @@ private fun ActiveBookingCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Tap to view details",
+                        text = stringResource(R.string.tap_to_view_details),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
                         color = AppColors.Primary,
@@ -807,7 +815,7 @@ private fun PickupLocationCard(
             ) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Pickup",
+                    contentDescription = stringResource(R.string.pickup_content_description),
                     tint = if (isDisabled) AppColors.TextHint else AppColors.Pickup,
                     modifier = Modifier.size(28.dp)
                 )
@@ -817,7 +825,7 @@ private fun PickupLocationCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Pick up from",
+                    text = stringResource(R.string.pick_up_from),
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isDisabled) AppColors.TextHint else AppColors.TextSecondary
                 )
@@ -835,7 +843,7 @@ private fun PickupLocationCard(
 
             Icon(
                 imageVector = if (isDisabled) Icons.Default.Block else Icons.Default.Edit,
-                contentDescription = "Change",
+                contentDescription = stringResource(R.string.change),
                 tint = if (isDisabled) AppColors.TextHint else AppColors.Primary,
                 modifier = Modifier.size(24.dp)
             )
@@ -955,7 +963,7 @@ private fun VehicleCard(
                     color = if (isDisabled) AppColors.TextHint else AppColors.Primary
                 )
                 Text(
-                    text = " onwards",
+                    text = stringResource(R.string.onwards),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isDisabled) AppColors.TextHint else AppColors.TextSecondary
                 )
@@ -980,14 +988,14 @@ private fun AnnouncementsSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Announcements",
+                text = stringResource(R.string.announcements),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
             )
             TextButton(onClick = { /* TODO */ }) {
                 Text(
-                    text = "View all",
+                    text = stringResource(R.string.view_all),
                     color = AppColors.Primary,
                     fontWeight = FontWeight.Bold
                 )
@@ -1012,7 +1020,7 @@ private fun AnnouncementsSection() {
                     modifier = Modifier
                         .size(48.dp)
                         .background(
-                            color = Color(0xFFFFF3E0),
+                            color = WarningAmberBg,
                             shape = RoundedCornerShape(12.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -1020,7 +1028,7 @@ private fun AnnouncementsSection() {
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = null,
-                        tint = Color(0xFFFF9800),
+                        tint = WarningAmber,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -1029,13 +1037,13 @@ private fun AnnouncementsSection() {
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "New Service!",
+                        text = stringResource(R.string.new_service),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.Primary
                     )
                     Text(
-                        text = "Introducing Loading-Unloading Service",
+                        text = stringResource(R.string.new_service_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.TextPrimary
                     )
@@ -1043,7 +1051,7 @@ private fun AnnouncementsSection() {
 
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "View",
+                    contentDescription = stringResource(R.string.view_label),
                     tint = AppColors.TextHint
                 )
             }
@@ -1063,14 +1071,14 @@ private fun MarketingText() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Delivery hai?",
+            text = stringResource(R.string.marketing_line1),
             style = MaterialTheme.typography.displaySmall,
             color = AppColors.Primary.copy(alpha = 0.15f),
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Ho Jayega!",
+            text = stringResource(R.string.marketing_line2),
             style = MaterialTheme.typography.displaySmall,
             color = AppColors.Primary.copy(alpha = 0.15f),
             fontWeight = FontWeight.ExtraBold,

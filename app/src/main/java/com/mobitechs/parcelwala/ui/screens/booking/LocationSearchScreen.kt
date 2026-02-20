@@ -1,4 +1,4 @@
-// ui/screens/booking/LocationSearchScreen.kt - Updated with Search History Section
+// ui/screens/booking/LocationSearchScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
@@ -15,11 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.model.LatLng
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.request.SearchHistory
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
@@ -60,7 +61,7 @@ fun LocationSearchScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (locationType == "pickup") "Pickup Location" else "Drop Location",
+                        text = if (locationType == "pickup") stringResource(R.string.label_pickup_location) else stringResource(R.string.label_drop_location),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -69,13 +70,13 @@ fun LocationSearchScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.content_desc_back),
                             tint = AppColors.TextPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Surface
                 )
             )
         },
@@ -91,9 +92,9 @@ fun LocationSearchScreen(
                 value = uiState.searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 placeholder = when (locationType) {
-                    "pickup" -> "Search pickup location..."
-                    "drop" -> "Search drop location..."
-                    else -> "Search location..."
+                    "pickup" -> stringResource(R.string.label_search_pickup)
+                    "drop" -> stringResource(R.string.label_search_drop)
+                    else -> stringResource(R.string.label_search_location)
                 },
                 modifier = Modifier
                     .padding(16.dp)
@@ -105,7 +106,7 @@ fun LocationSearchScreen(
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.isLoading) {
                     LoadingIndicator(
-                        message = "Searching...",
+                        message = stringResource(R.string.label_searching),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(32.dp)
@@ -121,7 +122,6 @@ fun LocationSearchScreen(
                     )
                 } else {
                     LazyColumn {
-                        // ✅ Search History Section (Last 3 Days)
                         if (uiState.searchHistory.isNotEmpty()) {
                             item {
                                 SearchHistorySection(
@@ -167,7 +167,7 @@ fun LocationSearchScreen(
 
             // Bottom Actions
             Surface(
-                color = Color.White,
+                color = AppColors.Surface,
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -177,7 +177,7 @@ fun LocationSearchScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     SecondaryButton(
-                        text = "Current",
+                        text = stringResource(R.string.label_current),
                         onClick = {
                             if (permissionGranted.value) {
                                 viewModel.getCurrentLocation()
@@ -191,7 +191,7 @@ fun LocationSearchScreen(
                     )
 
                     SecondaryButton(
-                        text = "On Map",
+                        text = stringResource(R.string.label_on_map),
                         onClick = {
                             val currentLocation = uiState.selectedAddress?.let {
                                 LatLng(it.latitude ?: 19.0760, it.longitude ?: 72.8777)
@@ -216,9 +216,6 @@ fun LocationSearchScreen(
     }
 }
 
-/**
- * ✅ Search History Section - Shows searches from last 3 days
- */
 @Composable
 private fun SearchHistorySection(
     searchHistory: List<SearchHistory>,
@@ -236,12 +233,12 @@ private fun SearchHistorySection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             SectionHeader(
-                text = "Recent Searches",
+                text = stringResource(R.string.label_recent_searches),
                 modifier = Modifier.padding(vertical = 8.dp)
             )
             TextButton(onClick = onClearHistory) {
                 Text(
-                    text = "Clear",
+                    text = stringResource(R.string.label_clear),
                     style = MaterialTheme.typography.labelMedium,
                     color = AppColors.Drop
                 )
@@ -257,9 +254,6 @@ private fun SearchHistorySection(
     }
 }
 
-/**
- * ✅ Search History Item
- */
 @Composable
 private fun SearchHistoryItem(
     history: SearchHistory,
@@ -274,7 +268,7 @@ private fun SearchHistoryItem(
     ) {
         Icon(
             imageVector = Icons.Default.History,
-            contentDescription = "History",
+            contentDescription = stringResource(R.string.content_desc_history),
             modifier = Modifier.size(24.dp),
             tint = AppColors.Primary
         )
@@ -306,7 +300,7 @@ private fun SearchHistoryItem(
 
         Icon(
             imageVector = Icons.Default.NorthWest,
-            contentDescription = "Use",
+            contentDescription = stringResource(R.string.content_desc_use),
             tint = AppColors.TextHint,
             modifier = Modifier.size(20.dp)
         )
@@ -315,9 +309,6 @@ private fun SearchHistoryItem(
     HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
 }
 
-/**
- * ✅ Format timestamp to relative time
- */
 private fun formatTimestamp(timestamp: Long): String {
     return DateTimeUtils.formatRelativeTime(timestamp)
 }
@@ -374,7 +365,7 @@ private fun PredictionItem(
 
         Icon(
             imageVector = Icons.Default.ArrowForward,
-            contentDescription = "Select",
+            contentDescription = stringResource(R.string.content_desc_select),
             tint = AppColors.TextHint,
             modifier = Modifier.size(20.dp)
         )
@@ -394,7 +385,7 @@ private fun SavedAddressesSection(
             .padding(horizontal = 16.dp)
     ) {
         SectionHeader(
-            text = "Saved Addresses",
+            text = stringResource(R.string.label_saved_addresses),
             modifier = Modifier.padding(vertical = 8.dp)
         )
 
@@ -418,7 +409,7 @@ private fun RecentPickupsSection(
             .padding(horizontal = 16.dp)
     ) {
         SectionHeader(
-            text = "Recent Pickups",
+            text = stringResource(R.string.label_recent_pickups),
             modifier = Modifier.padding(vertical = 8.dp)
         )
 
@@ -445,7 +436,7 @@ private fun AddressItem(
     ) {
         Icon(
             imageVector = Icons.Default.AccessTime,
-            contentDescription = "Recent",
+            contentDescription = stringResource(R.string.content_desc_recent),
             modifier = Modifier.size(24.dp),
             tint = AppColors.TextSecondary
         )
@@ -477,7 +468,7 @@ private fun AddressItem(
         IconButton(onClick = { /* TODO: Save address */ }) {
             Icon(
                 imageVector = Icons.Default.FavoriteBorder,
-                contentDescription = "Save",
+                contentDescription = stringResource(R.string.content_desc_save),
                 tint = AppColors.Primary
             )
         }

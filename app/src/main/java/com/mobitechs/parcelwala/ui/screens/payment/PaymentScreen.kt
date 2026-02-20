@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.MainActivity
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
 import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
 import com.mobitechs.parcelwala.data.model.request.TransactionResponse
@@ -52,6 +54,11 @@ fun PaymentsScreen(
     var topupAmount by remember { mutableStateOf("") }
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Hoist snackbar strings for non-composable scope
+    val snackbarPaymentSuccess = stringResource(R.string.snackbar_payment_success, "%s")
+    val snackbarPaymentFailed = stringResource(R.string.snackbar_payment_failed, "%s")
+    val snackbarWalletTopupSuccess = stringResource(R.string.snackbar_wallet_topup_success, 0, 0)
 
     // Handle payment events
     LaunchedEffect(Unit) {
@@ -93,13 +100,13 @@ fun PaymentsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Payments",
+                        stringResource(R.string.title_payments),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Surface)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -128,7 +135,7 @@ fun PaymentsScreen(
             // Transaction History Header
             item {
                 Text(
-                    "Recent Transactions",
+                    stringResource(R.string.label_recent_transactions),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
@@ -160,7 +167,7 @@ fun PaymentsScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "No transactions yet",
+                                stringResource(R.string.label_no_transactions),
                                 color = AppColors.TextSecondary
                             )
                         }
@@ -178,7 +185,7 @@ fun PaymentsScreen(
     if (showTopupSheet) {
         ModalBottomSheet(
             onDismissRequest = { showTopupSheet = false },
-            containerColor = Color.White
+            containerColor = AppColors.Surface
         ) {
             WalletTopupSheet(
                 amount = topupAmount,
@@ -187,13 +194,9 @@ fun PaymentsScreen(
                 onTopup = {
                     val amount = topupAmount.toDoubleOrNull()
                     if (amount != null && amount >= 10) {
-                        // ⚠️ TEST MODE - Direct checkout without backend
                         (context as? MainActivity)?.let { act ->
                             paymentViewModel.testWalletTopup(act, amount)
                         }
-
-                        // ✅ PRODUCTION - Uncomment when backend is ready
-                        // paymentViewModel.initiateWalletTopup(amount)
                     }
                 },
                 onDismiss = { showTopupSheet = false }
@@ -209,7 +212,7 @@ fun PaymentsScreen(
         ) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = AppColors.Surface)
             ) {
                 Column(
                     modifier = Modifier.padding(32.dp),
@@ -217,7 +220,7 @@ fun PaymentsScreen(
                 ) {
                     CircularProgressIndicator(color = AppColors.Primary)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Processing payment...", color = AppColors.TextPrimary)
+                    Text(stringResource(R.string.label_processing_payment), color = AppColors.TextPrimary)
                 }
             }
         }
@@ -248,7 +251,7 @@ private fun WalletCard(
             ) {
                 Column {
                     Text(
-                        "Wallet Balance",
+                        stringResource(R.string.label_wallet_balance),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -281,7 +284,7 @@ private fun WalletCard(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Money", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.label_add_money), fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -296,11 +299,11 @@ private fun PaymentMethodsSection() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Payment Methods",
+                stringResource(R.string.label_payment_methods),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -309,30 +312,30 @@ private fun PaymentMethodsSection() {
 
             PaymentMethodRow(
                 icon = Icons.Default.PhoneAndroid,
-                title = "UPI",
-                subtitle = "Pay via any UPI app",
-                iconColor = Color(0xFF4CAF50)
+                title = stringResource(R.string.label_upi),
+                subtitle = stringResource(R.string.label_upi_subtitle),
+                iconColor = AppColors.Pickup
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PaymentMethodRow(
                 icon = Icons.Default.CreditCard,
-                title = "Cards",
-                subtitle = "Credit & Debit cards",
-                iconColor = Color(0xFF2196F3)
+                title = stringResource(R.string.label_cards),
+                subtitle = stringResource(R.string.label_cards_subtitle),
+                iconColor = AppColors.Blue
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PaymentMethodRow(
                 icon = Icons.Default.AccountBalance,
-                title = "Net Banking",
-                subtitle = "All major banks",
-                iconColor = Color(0xFFFF9800)
+                title = stringResource(R.string.label_net_banking),
+                subtitle = stringResource(R.string.label_net_banking_subtitle),
+                iconColor = AppColors.Warning
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PaymentMethodRow(
                 icon = Icons.Default.MonetizationOn,
-                title = "Cash",
-                subtitle = "Pay on delivery",
-                iconColor = Color(0xFF9C27B0)
+                title = stringResource(R.string.label_cash),
+                subtitle = stringResource(R.string.label_cash_subtitle),
+                iconColor = AppColors.Purple
             )
         }
     }
@@ -380,25 +383,29 @@ private fun PaymentMethodRow(
 private fun TransactionItem(transaction: TransactionResponse) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
+    val bookingLabel = stringResource(R.string.label_booking_number_prefix, transaction.bookingNumber ?: "")
+    val refundLabel = stringResource(R.string.label_refund)
+    val walletTopupLabel = stringResource(R.string.label_wallet_topup)
+
     val (icon, iconColor, amountColor) = when (transaction.transactionType.lowercase()) {
         "booking" -> Triple(Icons.Default.LocalShipping, AppColors.Primary, AppColors.TextPrimary)
-        "refund" -> Triple(Icons.Default.Replay, Color(0xFF4CAF50), Color(0xFF4CAF50))
-        "wallet_topup" -> Triple(Icons.Default.Add, Color(0xFF4CAF50), Color(0xFF4CAF50))
+        "refund" -> Triple(Icons.Default.Replay, AppColors.Pickup, AppColors.Pickup)
+        "wallet_topup" -> Triple(Icons.Default.Add, AppColors.Pickup, AppColors.Pickup)
         else -> Triple(Icons.Default.Receipt, AppColors.TextSecondary, AppColors.TextPrimary)
     }
 
     val statusColor = when (transaction.status.lowercase()) {
-        "success" -> Color(0xFF4CAF50)
-        "failed" -> Color(0xFFF44336)
-        "pending" -> Color(0xFFFF9800)
-        "refunded" -> Color(0xFF2196F3)
+        "success" -> AppColors.Pickup
+        "failed" -> AppColors.Error
+        "pending" -> AppColors.Warning
+        "refunded" -> AppColors.Blue
         else -> AppColors.TextSecondary
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -418,9 +425,9 @@ private fun TransactionItem(transaction: TransactionResponse) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when (transaction.transactionType.lowercase()) {
-                        "booking" -> "Booking #${transaction.bookingNumber ?: ""}"
-                        "refund" -> "Refund"
-                        "wallet_topup" -> "Wallet Topup"
+                        "booking" -> bookingLabel
+                        "refund" -> refundLabel
+                        "wallet_topup" -> walletTopupLabel
                         else -> transaction.transactionType
                     },
                     fontWeight = FontWeight.Medium,
@@ -434,7 +441,7 @@ private fun TransactionItem(transaction: TransactionResponse) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        transaction.paymentMethod?.uppercase() ?: "N/A",
+                        transaction.paymentMethod?.uppercase() ?: stringResource(R.string.label_na),
                         fontSize = 11.sp,
                         color = AppColors.TextSecondary
                     )
@@ -484,7 +491,7 @@ private fun WalletTopupSheet(
             .padding(bottom = 32.dp)
     ) {
         Text(
-            "Add Money to Wallet",
+            stringResource(R.string.label_add_money_to_wallet),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -499,8 +506,8 @@ private fun WalletTopupSheet(
                     onAmountChange(newValue)
                 }
             },
-            label = { Text("Enter Amount") },
-            prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            label = { Text(stringResource(R.string.label_enter_amount)) },
+            prefix = { Text(stringResource(R.string.label_currency_prefix), fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -554,7 +561,7 @@ private fun WalletTopupSheet(
                 )
             } else {
                 Text(
-                    "Add ₹${amount.ifEmpty { "0" }}",
+                    stringResource(R.string.label_add_amount, amount.ifEmpty { "0" }),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -564,8 +571,8 @@ private fun WalletTopupSheet(
         if (amountValue in 0.01..9.99) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Minimum amount: ₹10",
-                color = Color(0xFFF44336),
+                stringResource(R.string.label_minimum_amount),
+                color = AppColors.Error,
                 fontSize = 12.sp
             )
         }

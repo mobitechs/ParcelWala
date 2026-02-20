@@ -66,14 +66,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.ui.components.AddressesCard
@@ -83,15 +84,6 @@ import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
-/**
- * Booking Confirmation Screen
- * Shows pickup/drop locations and vehicle selection with CALCULATED FARES
- *
- * Flow (Like Ola/Uber):
- * 1. User enters pickup & drop → API calculates fares for all vehicle types
- * 2. Shows list of vehicles with their actual calculated fares
- * 3. User selects a vehicle → proceeds to review screen
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingConfirmationScreen(
@@ -111,12 +103,10 @@ fun BookingConfirmationScreen(
     var showLocationDetails by remember { mutableStateOf(false) }
     var hasInitializedPreSelection by remember { mutableStateOf(false) }
 
-    // Observe from ViewModel
     val vehicleFares by viewModel.vehicleFares.collectAsState()
     val isFareLoading by viewModel.isFareLoading.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Calculate fares when addresses are available
     LaunchedEffect(pickupAddress, dropAddress) {
         if (pickupAddress != null && dropAddress != null &&
             pickupAddress.latitude != 0.0 && dropAddress.latitude != 0.0
@@ -126,7 +116,6 @@ fun BookingConfirmationScreen(
         }
     }
 
-    // Auto-select for Book Again flow
     LaunchedEffect(vehicleFares, preSelectedVehicleId) {
         if (!hasInitializedPreSelection && vehicleFares.isNotEmpty() && preSelectedVehicleId != null) {
             vehicleFares.find { it.vehicleTypeId == preSelectedVehicleId }?.let {
@@ -139,9 +128,9 @@ fun BookingConfirmationScreen(
     if (pickupAddress == null || dropAddress == null) {
         EmptyState(
             icon = Icons.Default.ErrorOutline,
-            title = "Missing Locations",
-            subtitle = "Please select pickup and drop locations",
-            actionText = "Go Back",
+            title = stringResource(R.string.label_missing_locations),
+            subtitle = stringResource(R.string.label_select_pickup_drop),
+            actionText = stringResource(R.string.label_go_back),
             onAction = onBack,
             modifier = Modifier
                 .fillMaxSize()
@@ -156,13 +145,13 @@ fun BookingConfirmationScreen(
                 title = {
                     Column {
                         Text(
-                            "Select Vehicle",
+                            stringResource(R.string.title_select_vehicle),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         if (isPrefilledFromOrder) {
                             Text(
-                                "Booking from previous order",
+                                stringResource(R.string.label_booking_from_previous),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppColors.Primary
                             )
@@ -171,10 +160,10 @@ fun BookingConfirmationScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = AppColors.TextPrimary)
+                        Icon(Icons.Default.ArrowBack, stringResource(R.string.content_desc_back), tint = AppColors.TextPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Surface)
             )
         },
         containerColor = AppColors.Background
@@ -190,7 +179,6 @@ fun BookingConfirmationScreen(
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Book Again Banner
                     if (isPrefilledFromOrder) {
                         BookAgainBanner(
                             modifier = Modifier
@@ -199,7 +187,6 @@ fun BookingConfirmationScreen(
                         )
                     }
 
-                    // Compact Journey Summary
                     CompactJourneySummary(
                         pickupAddress = pickupAddress,
                         dropAddress = dropAddress,
@@ -215,7 +202,6 @@ fun BookingConfirmationScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Section Header
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -225,27 +211,26 @@ fun BookingConfirmationScreen(
                     ) {
                         Column {
                             Text(
-                                "Choose Your Ride",
+                                stringResource(R.string.label_choose_your_ride),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = AppColors.TextPrimary
                             )
                             Text(
-                                if (preSelectedVehicleId != null) "Pre-selected from your previous order" else "Select the right vehicle for your delivery",
+                                if (preSelectedVehicleId != null) stringResource(R.string.label_pre_selected_hint) else stringResource(R.string.label_select_vehicle_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppColors.TextSecondary
                             )
                         }
                         if (!isFareLoading) {
                             IconButton(onClick = { viewModel.calculateFaresForAllVehicles() }) {
-                                Icon(Icons.Default.Refresh, "Refresh", tint = AppColors.Primary)
+                                Icon(Icons.Default.Refresh, stringResource(R.string.content_desc_refresh), tint = AppColors.Primary)
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Loading State
                     AnimatedVisibility(
                         visible = isFareLoading,
                         enter = fadeIn(),
@@ -258,7 +243,6 @@ fun BookingConfirmationScreen(
                         )
                     }
 
-                    // Vehicle Fares List
                     AnimatedVisibility(
                         visible = !isFareLoading && vehicleFares.isNotEmpty(),
                         enter = fadeIn(),
@@ -282,7 +266,6 @@ fun BookingConfirmationScreen(
                         }
                     }
 
-                    // Empty State
                     AnimatedVisibility(
                         visible = !isFareLoading && vehicleFares.isEmpty() && uiState.hasFaresLoaded,
                         enter = fadeIn(),
@@ -290,9 +273,9 @@ fun BookingConfirmationScreen(
                     ) {
                         EmptyState(
                             icon = Icons.Default.DirectionsCar,
-                            title = "No Vehicles Available",
-                            subtitle = "Please try again or choose different locations",
-                            actionText = "Retry",
+                            title = stringResource(R.string.label_no_vehicles),
+                            subtitle = stringResource(R.string.label_no_vehicles_subtitle),
+                            actionText = stringResource(R.string.label_retry),
                             onAction = { viewModel.calculateFaresForAllVehicles() },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -302,7 +285,6 @@ fun BookingConfirmationScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Info Card
                     InfoCard(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -319,7 +301,7 @@ fun BookingConfirmationScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                "Fare includes 25 mins of free loading/unloading time",
+                                stringResource(R.string.label_fare_info),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = AppColors.TextSecondary
                             )
@@ -329,7 +311,6 @@ fun BookingConfirmationScreen(
                     Spacer(modifier = Modifier.height(100.dp))
                 }
 
-                // Bottom Action Bar
                 BottomFareActionBar(
                     selectedFareDetails = selectedFareDetails,
                     onProceed = { selectedFareDetails?.let { onVehicleSelected(it) } },
@@ -337,24 +318,22 @@ fun BookingConfirmationScreen(
                 )
             }
 
-            // Error Snackbar
             uiState.error?.let { error ->
                 Snackbar(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(16.dp)
                         .padding(bottom = 80.dp),
-                    action = { TextButton(onClick = { viewModel.clearError() }) { Text("Dismiss") } }
+                    action = { TextButton(onClick = { viewModel.clearError() }) { Text(stringResource(R.string.label_dismiss)) } }
                 ) { Text(error) }
             }
         }
     }
 
-    // Location Details Bottom Sheet
     if (showLocationDetails) {
         ModalBottomSheet(
             onDismissRequest = { showLocationDetails = false },
-            containerColor = Color.White
+            containerColor = AppColors.Surface
         ) {
             LocationDetailsBottomSheet(
                 pickupAddress = pickupAddress,
@@ -377,12 +356,13 @@ private fun CompactJourneySummary(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-
-        AddressesCard(pickupAddress.contactName,pickupAddress.contactPhone,pickupAddress.address, dropAddress.contactName,dropAddress.contactPhone,dropAddress.address)
-
+        AddressesCard(
+            pickupAddress.contactName, pickupAddress.contactPhone, pickupAddress.address,
+            dropAddress.contactName, dropAddress.contactPhone, dropAddress.address
+        )
     }
 }
 
@@ -398,7 +378,7 @@ private fun VehicleFareCard(
             .alpha(alpha)
             .clickable(onClick = onSelect),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
         border = when {
             isSelected -> BorderStroke(2.dp, AppColors.Primary)
             isPreSelected -> BorderStroke(2.dp, AppColors.Primary.copy(alpha = 0.4f))
@@ -412,7 +392,6 @@ private fun VehicleFareCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Vehicle Icon
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -427,7 +406,6 @@ private fun VehicleFareCard(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Vehicle Info
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -445,7 +423,7 @@ private fun VehicleFareCard(
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
-                                "Previous",
+                                stringResource(R.string.label_previous),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppColors.Primary,
                                 fontWeight = FontWeight.Medium,
@@ -454,7 +432,7 @@ private fun VehicleFareCard(
                         }
                     }
                     if (fareDetails.hasSurgePricing()) {
-                        Surface(color = Color(0xFFFFE0B2), shape = RoundedCornerShape(4.dp)) {
+                        Surface(color = AppColors.PrimaryLight, shape = RoundedCornerShape(4.dp)) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -462,14 +440,14 @@ private fun VehicleFareCard(
                             ) {
                                 Icon(
                                     Icons.Default.TrendingUp,
-                                    "Surge",
-                                    tint = Color(0xFFE65100),
+                                    stringResource(R.string.label_surge),
+                                    tint = AppColors.OrangeDark,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Text(
                                     "${fareDetails.getSurgePercentage()}%",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFFE65100),
+                                    color = AppColors.OrangeDark,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -501,7 +479,6 @@ private fun VehicleFareCard(
                 }
             }
 
-            // Fare
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     fareDetails.getDisplayFare(),
@@ -518,7 +495,7 @@ private fun VehicleFareCard(
                 }
                 if (fareDetails.tollCharges > 0) {
                     Text(
-                        "incl. toll",
+                        stringResource(R.string.label_incl_toll),
                         style = MaterialTheme.typography.labelSmall,
                         color = AppColors.TextHint
                     )
@@ -548,13 +525,13 @@ private fun FareLoadingIndicator(modifier: Modifier = Modifier) {
         CircularProgressIndicator(color = AppColors.Primary, modifier = Modifier.size(48.dp))
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Calculating fares...",
+            stringResource(R.string.label_calculating_fares),
             style = MaterialTheme.typography.bodyLarge,
             color = AppColors.TextSecondary
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            "Finding the best prices for you",
+            stringResource(R.string.label_finding_best_prices),
             style = MaterialTheme.typography.bodySmall,
             color = AppColors.TextHint
         )
@@ -567,7 +544,7 @@ private fun BottomFareActionBar(
     onProceed: () -> Unit,
     isLoading: Boolean
 ) {
-    Surface(color = Color.White, shadowElevation = 12.dp) {
+    Surface(color = AppColors.Surface, shadowElevation = 12.dp) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -601,20 +578,17 @@ private fun BottomFareActionBar(
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        "₹${fare.discount.toInt()} off",
+                                        stringResource(R.string.label_discount_off, fare.discount.toInt()),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = AppColors.Pickup,
-                                        modifier = Modifier.padding(
-                                            horizontal = 6.dp,
-                                            vertical = 2.dp
-                                        )
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
                         }
                     }
                     PrimaryButton(
-                        text = "Proceed",
+                        text = stringResource(R.string.label_proceed),
                         onClick = onProceed,
                         icon = Icons.Default.ArrowForward,
                         modifier = Modifier.width(150.dp),
@@ -623,7 +597,7 @@ private fun BottomFareActionBar(
                 }
             } ?: run {
                 Text(
-                    if (isLoading) "Calculating fares..." else "Select a vehicle to proceed",
+                    if (isLoading) stringResource(R.string.label_calculating_fares) else stringResource(R.string.label_select_vehicle_to_proceed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextHint,
                     modifier = Modifier.fillMaxWidth()
@@ -649,19 +623,19 @@ private fun BookAgainBanner(modifier: Modifier = Modifier) {
         ) {
             Icon(
                 Icons.Default.Refresh,
-                "Book Again",
+                stringResource(R.string.content_desc_book_again),
                 tint = AppColors.Primary,
                 modifier = Modifier.size(24.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Booking Again",
+                    stringResource(R.string.label_booking_again),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Primary
                 )
                 Text(
-                    "Details pre-filled from your previous order",
+                    stringResource(R.string.label_details_prefilled),
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary
                 )
@@ -689,7 +663,7 @@ private fun LocationDetailsBottomSheet(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Trip Details",
+                stringResource(R.string.label_trip_details),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -697,17 +671,17 @@ private fun LocationDetailsBottomSheet(
             IconButton(onClick = onDismiss) {
                 Icon(
                     Icons.Default.Close,
-                    "Close",
+                    stringResource(R.string.content_desc_close),
                     tint = AppColors.TextSecondary
                 )
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
-        LocationDetailItem(pickupAddress, "Pickup", AppColors.Pickup)
+        LocationDetailItem(pickupAddress, stringResource(R.string.label_pickup), AppColors.Pickup)
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(color = AppColors.Divider)
         Spacer(modifier = Modifier.height(16.dp))
-        LocationDetailItem(dropAddress, "Drop", AppColors.Drop)
+        LocationDetailItem(dropAddress, stringResource(R.string.label_drop), AppColors.Drop)
         Spacer(modifier = Modifier.height(24.dp))
         if (distanceKm != null || estimatedMins != null) {
             InfoCard {
@@ -719,17 +693,17 @@ private fun LocationDetailsBottomSheet(
                         InfoStatItem(
                             Icons.Default.Route,
                             String.format("%.1f km", it),
-                            "Distance"
+                            stringResource(R.string.label_distance)
                         )
                     }
                     estimatedMins?.let {
                         InfoStatItem(
                             Icons.Default.Timer,
                             "$it mins",
-                            "Est. Time"
+                            stringResource(R.string.label_est_time)
                         )
                     }
-                    InfoStatItem(Icons.Default.Speed, "Fastest", "Route")
+                    InfoStatItem(Icons.Default.Speed, stringResource(R.string.label_fastest), stringResource(R.string.label_route))
                 }
             }
         }
@@ -742,7 +716,7 @@ private fun LocationDetailItem(address: SavedAddress, type: String, color: Color
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                if (type == "Pickup") Icons.Default.TripOrigin else Icons.Default.LocationOn,
+                if (type == stringResource(R.string.label_pickup)) Icons.Default.TripOrigin else Icons.Default.LocationOn,
                 null,
                 tint = color,
                 modifier = Modifier.size(20.dp)

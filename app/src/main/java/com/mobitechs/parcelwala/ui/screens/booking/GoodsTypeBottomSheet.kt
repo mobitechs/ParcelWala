@@ -13,18 +13,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
-/**
- * Goods Type Bottom Sheet - FULL HEIGHT WITH FIXED STYLING
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoodsTypeBottomSheet(
@@ -34,11 +32,9 @@ fun GoodsTypeBottomSheet(
 ) {
     var selectedGoodsType by remember { mutableStateOf<GoodsTypeResponse?>(null) }
 
-    // Observe goods types from ViewModel
     val goodsTypes by viewModel.goodsTypes.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Load goods types if not already loaded
     LaunchedEffect(Unit) {
         if (goodsTypes.isEmpty()) {
             viewModel.loadGoodsTypes()
@@ -47,9 +43,9 @@ fun GoodsTypeBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = AppColors.Surface,
         sheetState = rememberModalBottomSheetState(
-            skipPartiallyExpanded = true // FULL HEIGHT
+            skipPartiallyExpanded = true
         ),
         dragHandle = {
             Box(
@@ -66,7 +62,7 @@ fun GoodsTypeBottomSheet(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxHeight(0.92f) // FULL HEIGHT
+                .fillMaxHeight(0.92f)
                 .fillMaxWidth()
         ) {
             // Header
@@ -79,13 +75,13 @@ fun GoodsTypeBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Select Goods Type",
+                        text = stringResource(R.string.title_select_goods_type),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
                     )
                     Text(
-                        text = "Choose the type of goods you're shipping",
+                        text = stringResource(R.string.label_choose_goods_hint),
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.TextSecondary
                     )
@@ -94,7 +90,7 @@ fun GoodsTypeBottomSheet(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.content_desc_close),
                         tint = AppColors.TextSecondary
                     )
                 }
@@ -103,7 +99,6 @@ fun GoodsTypeBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (uiState.isLoading && goodsTypes.isEmpty()) {
-                // Loading state
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -113,7 +108,6 @@ fun GoodsTypeBottomSheet(
                     CircularProgressIndicator(color = AppColors.Primary)
                 }
             } else {
-                // Goods Type List - Scrollable
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -133,13 +127,13 @@ fun GoodsTypeBottomSheet(
                 }
             }
 
-            // Bottom Action Button - FIXED AT BOTTOM
+            // Bottom Action Button
             Surface(
-                color = Color.White,
+                color = AppColors.Surface,
                 shadowElevation = 8.dp
             ) {
                 PrimaryButton(
-                    text = "Confirm Selection",
+                    text = stringResource(R.string.label_confirm_selection),
                     onClick = {
                         selectedGoodsType?.let { onConfirm(it) }
                     },
@@ -154,9 +148,6 @@ fun GoodsTypeBottomSheet(
     }
 }
 
-/**
- * Goods Type Card Item - FIXED: WHITE BACKGROUND WITH BORDER ONLY
- */
 @Composable
 private fun GoodsTypeCard(
     goodsType: GoodsTypeResponse,
@@ -169,7 +160,7 @@ private fun GoodsTypeCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White // ALWAYS WHITE BACKGROUND
+            containerColor = AppColors.Surface
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
@@ -185,7 +176,6 @@ private fun GoodsTypeCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -206,7 +196,6 @@ private fun GoodsTypeCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = goodsType.name,
@@ -218,7 +207,6 @@ private fun GoodsTypeCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Default Values
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -239,7 +227,6 @@ private fun GoodsTypeCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Selection Indicator
             RadioButton(
                 selected = isSelected,
                 onClick = onClick,
@@ -252,9 +239,6 @@ private fun GoodsTypeCard(
     }
 }
 
-/**
- * Info Chip for Goods Details
- */
 @Composable
 private fun InfoChip(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

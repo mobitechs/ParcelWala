@@ -12,10 +12,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.maps.model.LatLng
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.ui.components.*
@@ -54,7 +56,7 @@ fun AddressSearchScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Add Address",
+                        text = stringResource(R.string.add_address),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -63,7 +65,7 @@ fun AddressSearchScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -84,7 +86,7 @@ fun AddressSearchScreen(
             SearchField(
                 value = uiState.searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
-                placeholder = "Search for area, street name...",
+                placeholder = stringResource(R.string.search_area_placeholder),
                 modifier = Modifier.padding(16.dp),
                 onClear = { viewModel.updateSearchQuery("") }
             )
@@ -119,7 +121,7 @@ fun AddressSearchScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Select on map",
+                        text = stringResource(R.string.select_on_map),
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = AppColors.Primary
@@ -134,7 +136,7 @@ fun AddressSearchScreen(
                 when {
                     uiState.isLoading || uiState.isLoadingPredictions -> {
                         LoadingIndicator(
-                            message = "Searching...",
+                            message = stringResource(R.string.searching),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(32.dp)

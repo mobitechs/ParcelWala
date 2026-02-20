@@ -13,16 +13,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
@@ -42,18 +43,21 @@ fun OtpScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var otp by remember { mutableStateOf(List(4) { "" }) }  // ✅ Changed 6 → 4
+    var otp by remember { mutableStateOf(List(4) { "" }) }
     var resendTimer by remember { mutableStateOf(60) }
     var canResend by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    val focusRequesters = remember { List(4) { FocusRequester() } }  // ✅ Changed 6 → 4
+    val focusRequesters = remember { List(4) { FocusRequester() } }
+
+    // Hoist error string for use in non-composable lambda
+    val errorCompleteOtp = stringResource(R.string.error_complete_4_digit_otp)
 
     // Auto-verify when complete
     LaunchedEffect(otp) {
         val otpString = otp.joinToString("")
-        if (otpString.length == 4) {  // ✅ Changed 6 → 4
+        if (otpString.length == 4) {
             viewModel.verifyOtp(otpString, phoneNumber)
         }
     }
@@ -108,11 +112,11 @@ fun OtpScreen(
                     tint = AppColors.Drop
                 )
             },
-            title = { Text("Error", color = AppColors.TextPrimary) },
+            title = { Text(stringResource(R.string.label_error_title), color = AppColors.TextPrimary) },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text("OK", color = AppColors.Primary)
+                    Text(stringResource(R.string.label_ok), color = AppColors.Primary)
                 }
             },
             containerColor = AppColors.Surface
@@ -124,7 +128,7 @@ fun OtpScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Verify OTP",
+                        text = stringResource(R.string.title_verify_otp),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -133,13 +137,13 @@ fun OtpScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.content_desc_back),
                             tint = AppColors.TextPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Surface
                 )
             )
         },
@@ -157,7 +161,7 @@ fun OtpScreen(
             // Icon
             IconButtonWithBackground(
                 icon = androidx.compose.material.icons.Icons.Default.Message,
-                contentDescription = "OTP",
+                contentDescription = stringResource(R.string.content_desc_otp),
                 onClick = { },
                 size = 80.dp,
                 backgroundColor = AppColors.Primary.copy(alpha = 0.1f),
@@ -168,7 +172,7 @@ fun OtpScreen(
 
             // Title
             Text(
-                text = "Verify OTP",
+                text = stringResource(R.string.title_verify_otp),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -178,19 +182,19 @@ fun OtpScreen(
 
             // Subtitle
             Text(
-                text = "Enter the 4-digit code sent to",  // ✅ Changed 6 → 4
+                text = stringResource(R.string.label_enter_4_digit_code),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary
             )
 
             Text(
-                text = "+91 $phoneNumber",
+                text = stringResource(R.string.label_phone_with_code, phoneNumber),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.Primary
             )
 
-            // ✅ Display OTP for testing
+            // Display OTP for testing
             if (!receivedOtp.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Surface(
@@ -204,7 +208,7 @@ fun OtpScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "🧪 Test OTP",
+                            text = stringResource(R.string.label_test_otp),
                             style = MaterialTheme.typography.labelMedium,
                             color = AppColors.Primary.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Medium
@@ -232,7 +236,7 @@ fun OtpScreen(
                     newOtp[index] = value
                     otp = newOtp
 
-                    if (value.isNotEmpty() && index < 3) {  // ✅ Changed 5 → 3
+                    if (value.isNotEmpty() && index < 3) {
                         focusRequesters[index + 1].requestFocus()
                     }
                 },
@@ -247,18 +251,18 @@ fun OtpScreen(
 
             // Verify Button
             PrimaryButton(
-                text = "Verify OTP",
+                text = stringResource(R.string.title_verify_otp),
                 onClick = {
                     val otpString = otp.joinToString("")
-                    if (otpString.length == 4) {  // ✅ Changed 6 → 4
+                    if (otpString.length == 4) {
                         viewModel.verifyOtp(otpString, phoneNumber)
                     } else {
-                        errorMessage = "Please enter complete 4-digit OTP"  // ✅ Changed 6 → 4
+                        errorMessage = errorCompleteOtp
                         showError = true
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && otp.joinToString("").length == 4,  // ✅ Changed 6 → 4
+                enabled = !uiState.isLoading && otp.joinToString("").length == 4,
                 isLoading = uiState.isLoading,
                 icon = Icons.Default.Check
             )
@@ -271,7 +275,7 @@ fun OtpScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Didn't receive code? ",
+                    text = stringResource(R.string.label_didnt_receive_code),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )
@@ -281,13 +285,13 @@ fun OtpScreen(
                         viewModel.sendOtp(phoneNumber)
                         resendTimer = 60
                         canResend = false
-                        otp = List(4) { "" }  // ✅ Changed 6 → 4
+                        otp = List(4) { "" }
                         focusRequesters[0].requestFocus()
                     },
                     enabled = canResend
                 ) {
                     Text(
-                        text = if (canResend) "Resend OTP" else "Resend in ${resendTimer}s",
+                        text = if (canResend) stringResource(R.string.label_resend_otp) else stringResource(R.string.label_resend_in, resendTimer),
                         color = if (canResend) AppColors.Primary else AppColors.TextHint,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -320,8 +324,8 @@ private fun OtpInputField(
                     }
                 },
                 modifier = Modifier
-                    .width(60.dp)   // ✅ Slightly wider since fewer boxes
-                    .height(64.dp)  // ✅ Slightly taller for better touch target
+                    .width(60.dp)
+                    .height(64.dp)
                     .focusRequester(focusRequesters[index])
                     .onKeyEvent { keyEvent ->
                         if (keyEvent.key == Key.Backspace) {

@@ -10,9 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -121,7 +123,7 @@ fun AppTextField(
         // Character Counter
         if (maxLength != null) {
             Text(
-                text = "${value.length}/$maxLength",
+                text = stringResource(R.string.character_counter_format, value.length, maxLength),
                 style = MaterialTheme.typography.labelSmall,
                 color = AppColors.TextHint,
                 modifier = Modifier
@@ -140,7 +142,7 @@ fun AppTextField(
 fun PhoneNumberField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Mobile Number",
+    label: String = stringResource(R.string.mobile_number_label),
     modifier: Modifier = Modifier,
     isError: Boolean = false,
     errorMessage: String = "",
@@ -149,8 +151,8 @@ fun PhoneNumberField(
     AppTextField(
         value = value,
         onValueChange = onValueChange,
-        label = "$label *",
-        placeholder = "10 digit mobile number",
+        label = stringResource(R.string.label_required_format, label),
+        placeholder = stringResource(R.string.phone_placeholder),
         leadingIcon = androidx.compose.material.icons.Icons.Default.Phone,
         modifier = modifier,
         keyboardOptions = KeyboardOptions(
@@ -171,7 +173,7 @@ fun PhoneNumberField(
 fun NameInputField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Full Name",
+    label: String = stringResource(R.string.full_name_label),
     modifier: Modifier = Modifier,
     isError: Boolean = false,
     errorMessage: String = "",
@@ -180,8 +182,8 @@ fun NameInputField(
     AppTextField(
         value = value,
         onValueChange = onValueChange,
-        label = "$label *",
-        placeholder = "Enter full name",
+        label = stringResource(R.string.label_required_format, label),
+        placeholder = stringResource(R.string.name_placeholder),
         leadingIcon = androidx.compose.material.icons.Icons.Default.Person,
         modifier = modifier,
         keyboardOptions = KeyboardOptions(
@@ -201,7 +203,7 @@ fun NameInputField(
 fun AddressInputField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "House/Flat/Shop No., Floor",
+    label: String = stringResource(R.string.address_label),
     modifier: Modifier = Modifier,
     isRequired: Boolean = false,
     keyboardActions: KeyboardActions = KeyboardActions.Default
@@ -209,8 +211,9 @@ fun AddressInputField(
     AppTextField(
         value = value,
         onValueChange = onValueChange,
-        label = if (isRequired) "$label *" else "$label (Optional)",
-        placeholder = "e.g., Flat 101, 2nd Floor",
+        label = if (isRequired) stringResource(R.string.label_required_format, label)
+        else stringResource(R.string.label_optional_format, label),
+        placeholder = stringResource(R.string.address_placeholder),
         leadingIcon = androidx.compose.material.icons.Icons.Default.Home,
         modifier = modifier,
         keyboardOptions = KeyboardOptions(

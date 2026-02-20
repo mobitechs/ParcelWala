@@ -10,19 +10,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.theme.Blue500
+import com.mobitechs.parcelwala.ui.theme.Red500
 
-/**
- * Error view component
- * Shows error message with retry button
- *
- * @param message Error message to display
- * @param onRetry Callback when retry button is clicked
- * @param modifier Modifier for customization
- * @param icon Optional custom icon
- */
 @Composable
 fun ErrorView(
     message: String,
@@ -41,15 +36,15 @@ fun ErrorView(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = "Error",
+                contentDescription = stringResource(R.string.error_content_description),
                 modifier = Modifier.size(64.dp),
-                tint = Color(0xFFFF5252) // Red
+                tint = Red500
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Oops!",
+                text = stringResource(R.string.error_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -69,10 +64,10 @@ fun ErrorView(
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2196F3)
+                    containerColor = Blue500
                 )
             ) {
-                Text("Retry")
+                Text(stringResource(R.string.retry))
             }
         }
     }

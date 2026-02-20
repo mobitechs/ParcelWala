@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -185,37 +187,13 @@ fun SectionHeader(
 }
 
 /**
- * Info Card - Generic white card
- */
-//@Composable
-//fun InfoCard(
-//    modifier: Modifier = Modifier,
-//    elevation: Dp = 2.dp,
-//    content: @Composable ColumnScope.() -> Unit
-//) {
-//    Card(
-//        modifier = modifier,
-//        shape = RoundedCornerShape(16.dp),
-//        colors = CardDefaults.cardColors(containerColor = Color.White),
-//        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
-//    ) {
-//        Column(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(20.dp),
-//            content = content
-//        )
-//    }
-//}
-
-/**
  * Info Card - Generic white card with customizable background
  */
 @Composable
 fun InfoCard(
     modifier: Modifier = Modifier,
     elevation: Dp = 2.dp,
-    backgroundColor: Color = Color.White,
+    backgroundColor: Color = AppColors.Surface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -385,7 +363,7 @@ fun EmptyState(
  */
 @Composable
 fun LoadingIndicator(
-    message: String = "Loading...",
+    message: String = stringResource(R.string.label_loading),
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -442,7 +420,7 @@ fun ErrorMessageCard(
             onRetry?.let {
                 TextButton(onClick = it) {
                     Text(
-                        text = "Retry",
+                        text = stringResource(R.string.label_retry),
                         color = AppColors.Primary,
                         fontWeight = FontWeight.SemiBold
                     )

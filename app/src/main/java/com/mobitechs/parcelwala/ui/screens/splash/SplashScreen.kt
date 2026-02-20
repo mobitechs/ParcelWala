@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,7 +46,7 @@ fun SplashScreen(
             // Logo
             Image(
                 painter = painterResource(id = R.drawable.logo),
-                contentDescription = "App Logo",
+                contentDescription = stringResource(R.string.content_desc_app_logo),
                 modifier = Modifier.size(150.dp)
             )
 
@@ -53,7 +54,7 @@ fun SplashScreen(
 
             // App Name
             Text(
-                text = "Parcel Wala",
+                text = stringResource(R.string.label_app_name_display),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -63,7 +64,7 @@ fun SplashScreen(
 
             // Tagline
             Text(
-                text = "Delivery Made Easy",
+                text = stringResource(R.string.label_tagline),
                 fontSize = 16.sp,
                 color = Color.White.copy(alpha = 0.8f)
             )

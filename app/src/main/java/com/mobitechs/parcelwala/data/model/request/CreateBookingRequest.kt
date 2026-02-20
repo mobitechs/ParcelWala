@@ -293,7 +293,6 @@ data class CalculateFareRequest(
     @SerializedName("distance_km")
     val distanceKm: Double? = null,
 
-    // Optional: Road ETA from Google Directions API
     // If provided, backend uses this instead of calculating its own duration
     @SerializedName("estimated_duration_minutes")
     val estimatedDurationMinutes: Int? = null

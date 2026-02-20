@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -21,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mobitechs.parcelwala.MainActivity
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
@@ -36,34 +38,34 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
  */
 sealed class BottomNavItem(
     val route: String,
-    val title: String,
+    val titleResId: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
     data object Home : BottomNavItem(
         route = "home",
-        title = "Home",
+        titleResId = R.string.home_tab,
         selectedIcon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home
     )
 
     data object Orders : BottomNavItem(
         route = "orders",
-        title = "Orders",
+        titleResId = R.string.orders_tab,
         selectedIcon = Icons.Filled.Receipt,
         unselectedIcon = Icons.Outlined.Receipt
     )
 
     data object Payments : BottomNavItem(
         route = "payments",
-        title = "Payments",
+        titleResId = R.string.payments_tab,
         selectedIcon = Icons.Filled.Payment,
         unselectedIcon = Icons.Outlined.Payment
     )
 
     data object Account : BottomNavItem(
         route = "account",
-        title = "Account",
+        titleResId = R.string.account_tab,
         selectedIcon = Icons.Filled.Person,
         unselectedIcon = Icons.Outlined.Person
     )
@@ -181,17 +183,18 @@ private fun BottomNavigationBar(
     ) {
         items.forEach { item ->
             val isSelected = currentRoute == item.route
+            val title = stringResource(item.titleResId)
 
             NavigationBarItem(
                 icon = {
                     Icon(
                         imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.title
+                        contentDescription = title
                     )
                 },
                 label = {
                     Text(
-                        text = item.title,
+                        text = title,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 },

@@ -23,32 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.realtime.RealTimeConnectionState
 import com.mobitechs.parcelwala.ui.theme.AppColors
-
-/**
- * ════════════════════════════════════════════════════════════════════════════
- * SIGNALR DEBUG PANEL
- * ════════════════════════════════════════════════════════════════════════════
- *
- * Visual debugging panel for SignalR connection
- * Shows connection state, logs, and real-time events
- *
- * Usage:
- * ```kotlin
- * SignalRDebugPanel(
- *     connectionState = connectionState,
- *     bookingId = bookingId,
- *     isVisible = BuildConfig.DEBUG  // Only show in debug builds
- * )
- * ```
- *
- * ════════════════════════════════════════════════════════════════════════════
- */
 
 data class DebugLogEntry(
     val timestamp: Long = System.currentTimeMillis(),
@@ -57,11 +39,11 @@ data class DebugLogEntry(
 )
 
 enum class LogLevel(val color: Color, val icon: String) {
-    INFO(Color(0xFF2196F3), "ℹ️"),
-    SUCCESS(Color(0xFF4CAF50), "✅"),
-    WARNING(Color(0xFFFF9800), "⚠️"),
-    ERROR(Color(0xFFF44336), "❌"),
-    EVENT(Color(0xFF9C27B0), "📥")
+    INFO(AppColors.Blue, "ℹ️"),
+    SUCCESS(AppColors.Pickup, "✅"),
+    WARNING(AppColors.Warning, "⚠️"),
+    ERROR(AppColors.Error, "❌"),
+    EVENT(AppColors.Purple, "📥")
 }
 
 @Composable
@@ -71,23 +53,20 @@ fun SignalRDebugPanel(
     isVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Debug logs
     var debugLogs by remember { mutableStateOf(listOf<DebugLogEntry>()) }
     var isExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    // Add log entry helper
     val addLog = remember {
         { level: LogLevel, message: String ->
             debugLogs = (debugLogs + DebugLogEntry(
                 timestamp = System.currentTimeMillis(),
                 level = level,
                 message = message
-            )).takeLast(50)  // Keep last 50 logs
+            )).takeLast(50)
         }
     }
 
-    // Log state changes
     LaunchedEffect(connectionState) {
         when (connectionState) {
             is RealTimeConnectionState.Disconnected -> {
@@ -111,7 +90,6 @@ fun SignalRDebugPanel(
         }
     }
 
-    // Auto-scroll to bottom when new log added
     LaunchedEffect(debugLogs.size) {
         if (debugLogs.isNotEmpty()) {
             listState.animateScrollToItem(debugLogs.size - 1)
@@ -121,13 +99,13 @@ fun SignalRDebugPanel(
     if (!isVisible) return
 
     Column(modifier = modifier) {
-        // Header - Always visible
+        // Header
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { isExpanded = !isExpanded },
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1E1E1E)
+                containerColor = AppColors.DarkSurface
             ),
             shape = if (isExpanded) {
                 RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
@@ -142,21 +120,19 @@ fun SignalRDebugPanel(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Connection Status
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Status Indicator
                     Box(
                         modifier = Modifier
                             .size(12.dp)
                             .background(
                                 color = when (connectionState) {
-                                    is RealTimeConnectionState.Connected -> Color(0xFF4CAF50)
+                                    is RealTimeConnectionState.Connected -> AppColors.Pickup
                                     is RealTimeConnectionState.Connecting,
-                                    is RealTimeConnectionState.Reconnecting -> Color(0xFFFF9800)
-                                    is RealTimeConnectionState.Error -> Color(0xFFF44336)
+                                    is RealTimeConnectionState.Reconnecting -> AppColors.Warning
+                                    is RealTimeConnectionState.Error -> AppColors.Error
                                     else -> Color.Gray
                                 },
                                 shape = CircleShape
@@ -165,18 +141,18 @@ fun SignalRDebugPanel(
 
                     Column {
                         Text(
-                            text = "SignalR Debug",
+                            text = stringResource(R.string.label_signalr_debug),
                             style = MaterialTheme.typography.labelLarge,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = when (connectionState) {
-                                is RealTimeConnectionState.Disconnected -> "Disconnected"
-                                is RealTimeConnectionState.Connecting -> "Connecting..."
-                                is RealTimeConnectionState.Connected -> "Connected"
-                                is RealTimeConnectionState.Reconnecting -> "Reconnecting..."
-                                is RealTimeConnectionState.Error -> "Error"
+                                is RealTimeConnectionState.Disconnected -> stringResource(R.string.label_disconnected)
+                                is RealTimeConnectionState.Connecting -> stringResource(R.string.label_connecting)
+                                is RealTimeConnectionState.Connected -> stringResource(R.string.label_connected)
+                                is RealTimeConnectionState.Reconnecting -> stringResource(R.string.label_reconnecting)
+                                is RealTimeConnectionState.Error -> stringResource(R.string.label_error)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.7f)
@@ -184,10 +160,9 @@ fun SignalRDebugPanel(
                     }
                 }
 
-                // Expand/Collapse Icon
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    contentDescription = if (isExpanded) stringResource(R.string.content_desc_collapse) else stringResource(R.string.content_desc_expand),
                     tint = Color.White
                 )
             }
@@ -204,7 +179,7 @@ fun SignalRDebugPanel(
                     .fillMaxWidth()
                     .height(300.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1E1E1E)
+                    containerColor = AppColors.DarkSurface
                 ),
                 shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
             ) {
@@ -213,22 +188,22 @@ fun SignalRDebugPanel(
                 ) {
                     // Info Section
                     Surface(
-                        color = Color(0xFF2C2C2C),
+                        color = AppColors.DarkSurfaceVariant,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            InfoRow("Booking ID", bookingId ?: "N/A")
-                            InfoRow("State", connectionState::class.simpleName ?: "Unknown")
+                            InfoRow("Booking ID", bookingId ?: stringResource(R.string.label_na))
+                            InfoRow("State", connectionState::class.simpleName ?: stringResource(R.string.label_unknown))
                             if (connectionState is RealTimeConnectionState.Error) {
-                                InfoRow("Error", connectionState.message, Color(0xFFF44336))
+                                InfoRow("Error", connectionState.message, AppColors.Error)
                             }
                         }
                     }
 
-                    Divider(color = Color(0xFF3C3C3C), thickness = 1.dp)
+                    Divider(color = AppColors.DarkDivider, thickness = 1.dp)
 
                     // Logs Section
                     Row(
@@ -239,7 +214,7 @@ fun SignalRDebugPanel(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Logs (${debugLogs.size})",
+                            text = stringResource(R.string.label_logs_count, debugLogs.size),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -248,20 +223,19 @@ fun SignalRDebugPanel(
                         TextButton(
                             onClick = { debugLogs = emptyList() },
                             colors = ButtonDefaults.textButtonColors(
-                                contentColor = Color(0xFFFF9800)
+                                contentColor = AppColors.Warning
                             )
                         ) {
                             Icon(
                                 Icons.Default.DeleteSweep,
-                                contentDescription = "Clear",
+                                contentDescription = stringResource(R.string.content_desc_clear),
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Clear", fontSize = 12.sp)
+                            Text(stringResource(R.string.label_clear), fontSize = 12.sp)
                         }
                     }
 
-                    // Logs List
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
@@ -313,7 +287,7 @@ private fun LogEntry(log: DebugLogEntry) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color(0xFF2C2C2C))
+            .background(AppColors.DarkSurfaceVariant)
             .border(
                 width = 1.dp,
                 color = log.level.color.copy(alpha = 0.3f),
@@ -323,13 +297,11 @@ private fun LogEntry(log: DebugLogEntry) {
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Icon
         Text(
             text = log.level.icon,
             fontSize = 14.sp
         )
 
-        // Content
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -368,14 +340,8 @@ private fun formatTimestamp(timestamp: Long): String {
 }
 
 /**
- * ════════════════════════════════════════════════════════════════════════════
- * COMPACT STATUS INDICATOR
- * ════════════════════════════════════════════════════════════════════════════
- *
- * Smaller version for TopAppBar
- * ════════════════════════════════════════════════════════════════════════════
+ * Compact Status Indicator for TopAppBar
  */
-
 @Composable
 fun SignalRStatusIndicator(
     connectionState: RealTimeConnectionState,
@@ -394,7 +360,7 @@ fun SignalRStatusIndicator(
                         .background(Color.Gray, CircleShape)
                 )
                 Text(
-                    "Disconnected",
+                    stringResource(R.string.label_disconnected),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )
@@ -403,48 +369,48 @@ fun SignalRStatusIndicator(
                 CircularProgressIndicator(
                     Modifier.size(8.dp),
                     strokeWidth = 1.dp,
-                    color = Color(0xFFFF9800)
+                    color = AppColors.Warning
                 )
                 Text(
-                    "Connecting...",
+                    stringResource(R.string.label_connecting),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFFF9800)
+                    color = AppColors.Warning
                 )
             }
             is RealTimeConnectionState.Connected -> {
                 Box(
                     Modifier
                         .size(8.dp)
-                        .background(Color(0xFF4CAF50), CircleShape)
+                        .background(AppColors.Pickup, CircleShape)
                 )
                 Text(
-                    "Connected ✓",
+                    stringResource(R.string.label_connected_check),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF4CAF50)
+                    color = AppColors.Pickup
                 )
             }
             is RealTimeConnectionState.Reconnecting -> {
                 CircularProgressIndicator(
                     Modifier.size(8.dp),
                     strokeWidth = 1.dp,
-                    color = Color(0xFFFF9800)
+                    color = AppColors.Warning
                 )
                 Text(
-                    "Reconnecting...",
+                    stringResource(R.string.label_reconnecting),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFFF9800)
+                    color = AppColors.Warning
                 )
             }
             is RealTimeConnectionState.Error -> {
                 Box(
                     Modifier
                         .size(8.dp)
-                        .background(Color(0xFFF44336), CircleShape)
+                        .background(AppColors.Error, CircleShape)
                 )
                 Text(
-                    "Error",
+                    stringResource(R.string.label_error),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFF44336)
+                    color = AppColors.Error
                 )
             }
         }

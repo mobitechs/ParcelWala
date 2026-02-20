@@ -13,12 +13,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.theme.WarningAmber
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
@@ -30,11 +33,9 @@ fun RestrictedItemsBottomSheet(
     onDismiss: () -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
-    // Observe restricted items from ViewModel
     val restrictedItems by viewModel.restrictedItems.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Load restricted items if not already loaded
     LaunchedEffect(Unit) {
         if (restrictedItems.isEmpty()) {
             viewModel.loadRestrictedItems()
@@ -44,25 +45,20 @@ fun RestrictedItemsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color.White,
-        sheetState = rememberModalBottomSheetState(
-            skipPartiallyExpanded = true // FULL HEIGHT
-        ),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {
             Box(
                 modifier = Modifier
                     .padding(vertical = 12.dp)
                     .width(40.dp)
                     .height(4.dp)
-                    .background(
-                        color = AppColors.Border,
-                        shape = RoundedCornerShape(2.dp)
-                    )
+                    .background(color = AppColors.Border, shape = RoundedCornerShape(2.dp))
             )
         }
     ) {
         Column(
             modifier = Modifier
-                .fillMaxHeight(0.92f) // FULL HEIGHT
+                .fillMaxHeight(0.92f)
                 .fillMaxWidth()
         ) {
             // Header
@@ -75,22 +71,21 @@ fun RestrictedItemsBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Restricted Items",
+                        text = stringResource(R.string.restricted_items_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
                     )
                     Text(
-                        text = "These items cannot be shipped",
+                        text = stringResource(R.string.restricted_items_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.TextSecondary
                     )
                 }
-
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.close),
                         tint = AppColors.TextSecondary
                     )
                 }
@@ -111,18 +106,18 @@ fun RestrictedItemsBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = null,
-                        tint = Color(0xFFFF9800),
+                        tint = WarningAmber,
                         modifier = Modifier.size(28.dp)
                     )
                     Column {
                         Text(
-                            text = "Important Notice",
+                            text = stringResource(R.string.important_notice),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.TextPrimary
                         )
                         Text(
-                            text = "Shipping restricted items may result in booking cancellation and legal action",
+                            text = stringResource(R.string.restricted_items_warning),
                             style = MaterialTheme.typography.bodySmall,
                             color = AppColors.TextSecondary
                         )
@@ -133,7 +128,6 @@ fun RestrictedItemsBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (uiState.isLoading && restrictedItems.isEmpty()) {
-                // Loading state
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -143,7 +137,6 @@ fun RestrictedItemsBottomSheet(
                     CircularProgressIndicator(color = AppColors.Primary)
                 }
             } else {
-                // Restricted Items List
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -153,36 +146,24 @@ fun RestrictedItemsBottomSheet(
                     items(restrictedItems) { item ->
                         RestrictedItemCard(item)
                     }
-
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
 
-            // Bottom Button - FIXED AT BOTTOM
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
+            // Bottom Button
+            Surface(color = Color.White, shadowElevation = 8.dp) {
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Primary
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "I Understand",
+                        text = stringResource(R.string.i_understand),
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
@@ -192,71 +173,35 @@ fun RestrictedItemsBottomSheet(
     }
 }
 
-/**
- * Restricted Item Card
- */
 @Composable
-private fun RestrictedItemCard(
-    item: RestrictedItemResponse
-) {
+private fun RestrictedItemCard(item: RestrictedItemResponse) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFF9F0)
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = Color(0xFFFFE0B2)
-        )
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9F0)),
+        border = androidx.compose.foundation.BorderStroke(width = 1.dp, color = Color(0xFFFFE0B2))
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Warning Icon
             Icon(
                 imageVector = Icons.Default.Block,
                 contentDescription = null,
                 tint = Color(0xFFFF6F00),
                 modifier = Modifier.size(24.dp)
             )
-
             Spacer(modifier = Modifier.width(12.dp))
-
-            // Item Details
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-
+                Text(text = item.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
                 if (item.description != null) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = item.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
+                    Text(text = item.description, style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
                 }
-
                 if (item.category != null) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = getCategoryColor(item.category).copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            text = item.category,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = getCategoryColor(item.category),
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                    Surface(shape = RoundedCornerShape(4.dp), color = getCategoryColor(item.category).copy(alpha = 0.2f)) {
+                        Text(text = item.category, style = MaterialTheme.typography.labelSmall, color = getCategoryColor(item.category), fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                 }
             }
@@ -264,9 +209,6 @@ private fun RestrictedItemCard(
     }
 }
 
-/**
- * Get color based on category
- */
 private fun getCategoryColor(category: String): Color {
     return when (category.lowercase()) {
         "illegal" -> Color(0xFFD32F2F)

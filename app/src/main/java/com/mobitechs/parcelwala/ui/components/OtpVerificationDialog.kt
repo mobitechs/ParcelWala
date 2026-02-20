@@ -16,28 +16,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
- * ════════════════════════════════════════════════════════════════════════════
  * OTP VERIFICATION DIALOG
- * ════════════════════════════════════════════════════════════════════════════
- * Shows OTP when driver arrives at pickup/delivery location
- * Used for verifying the correct person received/delivered the parcel
- * ════════════════════════════════════════════════════════════════════════════
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpVerificationDialog(
     otp: String,
-    title: String = "Pickup OTP",
-    message: String = "Share this OTP with the driver to confirm pickup",
+    title: String = stringResource(R.string.label_pickup_otp),
+    message: String = stringResource(R.string.otp_share_message),
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -46,7 +43,7 @@ fun OtpVerificationDialog(
                 .fillMaxWidth()
                 .wrapContentHeight(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -107,7 +104,7 @@ fun OtpVerificationDialog(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "Got It",
+                        text = stringResource(R.string.label_got_it),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
@@ -119,7 +116,6 @@ fun OtpVerificationDialog(
 
 /**
  * OTP Display Component
- * Shows the 4-digit OTP in individual boxes
  */
 @Composable
 private fun OtpDisplay(otp: String) {
@@ -147,17 +143,13 @@ private fun OtpDisplay(otp: String) {
 }
 
 /**
- * ════════════════════════════════════════════════════════════════════════════
  * OTP INPUT DIALOG (For Driver App)
- * ════════════════════════════════════════════════════════════════════════════
- * Driver enters OTP to verify pickup/delivery
- * ════════════════════════════════════════════════════════════════════════════
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpInputDialog(
-    title: String = "Enter Pickup OTP",
-    message: String = "Ask the customer for the OTP",
+    title: String = stringResource(R.string.label_enter_pickup_otp),
+    message: String = stringResource(R.string.otp_ask_customer_message),
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
     isLoading: Boolean = false
@@ -171,7 +163,7 @@ fun OtpInputDialog(
                 .fillMaxWidth()
                 .wrapContentHeight(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -242,7 +234,7 @@ fun OtpInputDialog(
                         shape = RoundedCornerShape(12.dp),
                         enabled = !isLoading
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.label_cancel))
                     }
 
                     Button(
@@ -268,7 +260,7 @@ fun OtpInputDialog(
                             )
                         } else {
                             Text(
-                                text = "Verify",
+                                text = stringResource(R.string.label_verify),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -281,7 +273,6 @@ fun OtpInputDialog(
 
 /**
  * OTP Input Component
- * 4-digit OTP input with individual boxes
  */
 @Composable
 private fun OtpInput(
@@ -310,7 +301,7 @@ private fun OtpInput(
                         .size(60.dp)
                         .background(
                             if (isFilled) AppColors.Primary.copy(alpha = 0.1f)
-                            else Color.White,
+                            else AppColors.Surface,
                             RoundedCornerShape(12.dp)
                         )
                         .border(
@@ -355,7 +346,7 @@ private fun OtpInput(
         if (isError) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Please enter a 4-digit OTP",
+                text = stringResource(R.string.otp_error_message),
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.Drop
             )

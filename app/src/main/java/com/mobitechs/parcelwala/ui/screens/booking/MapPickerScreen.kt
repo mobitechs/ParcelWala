@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -29,11 +31,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/**
- * Map Picker Screen
- * Allows user to select location by moving map
- * Creates SavedAddress with proper latitude/longitude
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapPickerScreen(
@@ -44,26 +41,29 @@ fun MapPickerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Camera position state
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(initialLocation, 16f)
     }
 
-    // Current selected location (center of map)
+    val moveMapHint = stringResource(R.string.label_move_map_hint)
+    val selectedLocationLabel = stringResource(R.string.label_selected_location)
+    val unknownLocationText = stringResource(R.string.label_unknown_location)
+    val unableGetAddressText = stringResource(R.string.label_unable_get_address)
+
     var selectedLocation by remember { mutableStateOf(initialLocation) }
-    var currentAddress by remember { mutableStateOf("Move map to select location") }
+    var currentAddress by remember { mutableStateOf(moveMapHint) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Update selected location when camera moves
     LaunchedEffect(cameraPositionState.isMoving) {
         if (!cameraPositionState.isMoving) {
             selectedLocation = cameraPositionState.position.target
-            // Reverse geocode to get address
             isLoading = true
             scope.launch {
                 val address = getAddressFromLatLng(
                     context = context,
-                    latLng = selectedLocation
+                    latLng = selectedLocation,
+                    unknownText = unknownLocationText,
+                    errorText = unableGetAddressText
                 )
                 currentAddress = address
                 isLoading = false
@@ -71,10 +71,13 @@ fun MapPickerScreen(
         }
     }
 
-    // Initial geocoding
     LaunchedEffect(Unit) {
         isLoading = true
-        val address = getAddressFromLatLng(context, initialLocation)
+        val address = getAddressFromLatLng(
+            context, initialLocation,
+            unknownText = unknownLocationText,
+            errorText = unableGetAddressText
+        )
         currentAddress = address
         isLoading = false
     }
@@ -84,7 +87,7 @@ fun MapPickerScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Select Location",
+                        text = stringResource(R.string.title_select_location),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -93,13 +96,13 @@ fun MapPickerScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.content_desc_back),
                             tint = AppColors.TextPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Surface
                 )
             )
         }
@@ -109,7 +112,6 @@ fun MapPickerScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Google Map
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
@@ -119,29 +121,27 @@ fun MapPickerScreen(
                 )
             )
 
-            // Center Pin Marker (fixed at center)
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Pin",
+                    contentDescription = stringResource(R.string.content_desc_pin),
                     tint = AppColors.Primary,
                     modifier = Modifier
                         .size(48.dp)
-                        .offset(y = (-24).dp)  // Offset to place pin tip at center
+                        .offset(y = (-24).dp)
                 )
             }
 
-            // Bottom Card with address and confirm button
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -149,7 +149,6 @@ fun MapPickerScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    // Location indicator
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -173,13 +172,13 @@ fun MapPickerScreen(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Selected Location",
+                                text = selectedLocationLabel,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = AppColors.TextSecondary
                             )
                             if (isLoading) {
                                 Text(
-                                    text = "Getting address...",
+                                    text = stringResource(R.string.label_getting_address),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = AppColors.TextHint
                                 )
@@ -196,7 +195,6 @@ fun MapPickerScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Coordinates display - IMPORTANT for verification
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
@@ -212,7 +210,7 @@ fun MapPickerScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Latitude",
+                                    text = stringResource(R.string.label_latitude),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AppColors.TextHint
                                 )
@@ -225,7 +223,7 @@ fun MapPickerScreen(
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = "Longitude",
+                                    text = stringResource(R.string.label_longitude),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AppColors.TextHint
                                 )
@@ -241,15 +239,13 @@ fun MapPickerScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Confirm Button
                     PrimaryButton(
-                        text = "Confirm Location",
+                        text = stringResource(R.string.label_confirm_location),
                         onClick = {
-                            // ✅ Create SavedAddress with PROPER latitude and longitude
                             val savedAddress = SavedAddress(
                                 addressId = "map_${System.currentTimeMillis()}",
                                 addressType = "Other",
-                                label = "Selected Location",
+                                label = selectedLocationLabel,
                                 address = currentAddress,
                                 landmark = null,
                                 latitude = selectedLocation.latitude,
@@ -263,13 +259,12 @@ fun MapPickerScreen(
                             onLocationSelected(savedAddress)
                         },
                         icon = Icons.Default.Check,
-                        enabled = !isLoading && currentAddress.isNotEmpty() && currentAddress != "Move map to select location",
+                        enabled = !isLoading && currentAddress.isNotEmpty() && currentAddress != moveMapHint,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
 
-            // My Location Button
             FloatingActionButton(
                 onClick = {
                     // TODO: Get current location and move camera
@@ -277,11 +272,11 @@ fun MapPickerScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp),
-                containerColor = Color.White
+                containerColor = AppColors.Surface
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
-                    contentDescription = "My Location",
+                    contentDescription = stringResource(R.string.content_desc_my_location),
                     tint = AppColors.Primary
                 )
             }
@@ -289,12 +284,11 @@ fun MapPickerScreen(
     }
 }
 
-/**
- * Get address string from LatLng using Geocoder
- */
 private suspend fun getAddressFromLatLng(
     context: android.content.Context,
-    latLng: LatLng
+    latLng: LatLng,
+    unknownText: String = "Unknown location",
+    errorText: String = "Unable to get address"
 ): String {
     return withContext(Dispatchers.IO) {
         try {
@@ -311,10 +305,10 @@ private suspend fun getAddressFromLatLng(
                     address.getAddressLine(0)?.let { append(it) }
                 }
             } else {
-                "Unknown location"
+                unknownText
             }
         } catch (e: Exception) {
-            "Unable to get address"
+            errorText
         }
     }
 }

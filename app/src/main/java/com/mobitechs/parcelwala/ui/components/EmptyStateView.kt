@@ -10,11 +10,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
  * Empty state view component
@@ -43,9 +45,9 @@ fun EmptyStateView(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = "Empty",
+                contentDescription = stringResource(R.string.content_desc_empty),
                 modifier = Modifier.size(80.dp),
-                tint = Color.LightGray
+                tint = AppColors.DisabledBackground
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -55,7 +57,7 @@ fun EmptyStateView(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                color = Color.Black
+                color = AppColors.TextPrimary
             )
 
             description?.let {
@@ -64,7 +66,7 @@ fun EmptyStateView(
                     text = it,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    color = Color.Gray
+                    color = AppColors.TextSecondary
                 )
             }
         }

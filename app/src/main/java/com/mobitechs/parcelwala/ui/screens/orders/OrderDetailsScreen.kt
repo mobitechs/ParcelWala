@@ -16,11 +16,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.theme.StarYellow
+import com.mobitechs.parcelwala.ui.theme.WarningAmber
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 
 /**
@@ -43,7 +47,7 @@ fun OrderDetailsScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Order Details",
+                            text = stringResource(R.string.order_details),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -58,7 +62,7 @@ fun OrderDetailsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -67,7 +71,7 @@ fun OrderDetailsScreen(
                     IconButton(onClick = onCallSupport) {
                         Icon(
                             imageVector = Icons.Default.Support,
-                            contentDescription = "Support",
+                            contentDescription = stringResource(R.string.support),
                             tint = AppColors.Primary
                         )
                     }
@@ -125,9 +129,9 @@ fun OrderDetailsScreen(
                     AddressesCard(
                         order.pickupContactName,
                         order.pickupContactPhone,
-                        order.pickupAddress,
                         order.dropContactName,
                         order.dropContactPhone,
+                        order.pickupAddress,
                         order.dropAddress
                     )
                 }
@@ -192,7 +196,7 @@ fun OrderDetailsScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Book Again", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.book_again), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -224,7 +228,7 @@ private fun getStatusColor(status: String): Color {
         "Completed" -> AppColors.Pickup
         "Cancelled" -> AppColors.Drop
         "In Progress" -> AppColors.Primary
-        "Searching" -> Color(0xFFFF9800)
+        "Searching" -> WarningAmber
         "Assigned" -> AppColors.Primary
         "Arriving" -> AppColors.Primary
         "Picked Up" -> AppColors.Pickup
@@ -287,7 +291,7 @@ private fun OrderStatusHeader(order: OrderResponse) {
                     color = color
                 )
                 Text(
-                    text = DateTimeUtils.formatDateTime(order.createdAt), // ✅ Updated
+                    text = DateTimeUtils.formatDateTime(order.createdAt),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )
@@ -350,7 +354,7 @@ private fun VehicleTripCard(order: OrderResponse) {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "₹${order.fare}",
+                        text = stringResource(R.string.fare_format, order.fare),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.Primary
@@ -368,13 +372,13 @@ private fun VehicleTripCard(order: OrderResponse) {
             ) {
                 TripStatItem(
                     icon = Icons.Default.Route,
-                    label = "Distance",
-                    value = order.distance?.let { "${it} km" } ?: "N/A"
+                    label = stringResource(R.string.distance_label),
+                    value = order.distance?.let { stringResource(R.string.distance_format, it) } ?: stringResource(R.string.na)
                 )
                 TripStatItem(
                     icon = Icons.Default.Timer,
-                    label = "Duration",
-                    value = order.estimatedTime ?: "N/A"
+                    label = stringResource(R.string.duration_label),
+                    value = order.estimatedTime ?: stringResource(R.string.na)
                 )
             }
         }
@@ -435,12 +439,12 @@ private fun OtpCard(otp: String) {
         ) {
             Column {
                 Text(
-                    text = "Delivery OTP",
+                    text = stringResource(R.string.delivery_otp),
                     style = MaterialTheme.typography.labelMedium,
                     color = AppColors.TextSecondary
                 )
                 Text(
-                    text = "Share with driver to confirm",
+                    text = stringResource(R.string.share_otp_with_driver),
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary
                 )
@@ -491,7 +495,7 @@ private fun DriverInfoCard(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Driver Details",
+                text = stringResource(R.string.driver_details),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -513,7 +517,7 @@ private fun DriverInfoCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
-                        contentDescription = "Driver",
+                        contentDescription = stringResource(R.string.driver_fallback),
                         tint = AppColors.TextSecondary,
                         modifier = Modifier.size(32.dp)
                     )
@@ -521,7 +525,7 @@ private fun DriverInfoCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = order.driverName ?: "Driver",
+                        text = order.driverName ?: stringResource(R.string.driver_fallback),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
@@ -540,8 +544,8 @@ private fun DriverInfoCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Star,
-                                contentDescription = "Rating",
-                                tint = Color(0xFFFFC107),
+                                contentDescription = stringResource(R.string.rating_label),
+                                tint = StarYellow,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
@@ -563,7 +567,7 @@ private fun DriverInfoCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Call,
-                            contentDescription = "Call Driver",
+                            contentDescription = stringResource(R.string.call_driver),
                             tint = Color.White
                         )
                     }
@@ -593,7 +597,7 @@ private fun GoodsInfoCard(order: OrderResponse) {
                 .padding(16.dp)
         ) {
             Text(
-                text = "Goods Information",
+                text = stringResource(R.string.goods_information),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -606,16 +610,16 @@ private fun GoodsInfoCard(order: OrderResponse) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 order.goodsType?.let {
-                    InfoItem(label = "Type", value = it)
+                    InfoItem(label = stringResource(R.string.type_label), value = it)
                 }
                 order.goodsWeight?.let {
-                    InfoItem(label = "Weight", value = "${it} kg")
+                    InfoItem(label = stringResource(R.string.weight_label), value = stringResource(R.string.weight_format, it))
                 }
                 order.goodsPackages?.let {
-                    InfoItem(label = "Packages", value = "$it")
+                    InfoItem(label = stringResource(R.string.packages_label), value = "$it")
                 }
                 order.goodsValue?.let {
-                    InfoItem(label = "Value", value = "₹$it")
+                    InfoItem(label = stringResource(R.string.value_label), value = stringResource(R.string.value_format, it))
                 }
             }
 
@@ -624,7 +628,7 @@ private fun GoodsInfoCard(order: OrderResponse) {
                 HorizontalDivider(color = AppColors.Divider)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Instructions",
+                    text = stringResource(R.string.instructions_label),
                     style = MaterialTheme.typography.labelMedium,
                     color = AppColors.TextSecondary
                 )
@@ -682,7 +686,7 @@ private fun PaymentDetailsCard(order: OrderResponse) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Payment Details",
+                    text = stringResource(R.string.payment_details),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
@@ -710,7 +714,7 @@ private fun PaymentDetailsCard(order: OrderResponse) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Payment Method",
+                    text = stringResource(R.string.payment_method),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )
@@ -731,7 +735,7 @@ private fun PaymentDetailsCard(order: OrderResponse) {
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = order.paymentMethod ?: "N/A",
+                        text = order.paymentMethod ?: stringResource(R.string.na),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = AppColors.TextPrimary
@@ -744,15 +748,15 @@ private fun PaymentDetailsCard(order: OrderResponse) {
             Spacer(modifier = Modifier.height(12.dp))
 
             order.baseFare?.let { baseFare ->
-                FareRow(label = "Base Fare", amount = "₹$baseFare")
-            } ?: FareRow(label = "Trip Fare", amount = "₹${order.fare}")
+                FareRow(label = stringResource(R.string.base_fare), amount = stringResource(R.string.fare_format, baseFare))
+            } ?: FareRow(label = stringResource(R.string.trip_fare), amount = stringResource(R.string.fare_format, order.fare))
 
             order.discountAmount?.let { discount ->
                 if (discount > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     FareRow(
-                        label = "Discount",
-                        amount = "-₹$discount",
+                        label = stringResource(R.string.discount_label),
+                        amount = stringResource(R.string.discount_format, discount),
                         valueColor = AppColors.Pickup
                     )
                 }
@@ -763,8 +767,8 @@ private fun PaymentDetailsCard(order: OrderResponse) {
             Spacer(modifier = Modifier.height(12.dp))
 
             FareRow(
-                label = "Total Amount",
-                amount = "₹${order.fare}",
+                label = stringResource(R.string.total_amount),
+                amount = stringResource(R.string.fare_format, order.fare),
                 isBold = true,
                 valueColor = AppColors.Primary
             )
@@ -822,7 +826,7 @@ private fun CouponCard(order: OrderResponse) {
         ) {
             Icon(
                 imageVector = Icons.Default.LocalOffer,
-                contentDescription = "Coupon",
+                contentDescription = null,
                 tint = AppColors.Pickup,
                 modifier = Modifier.size(24.dp)
             )
@@ -834,14 +838,14 @@ private fun CouponCard(order: OrderResponse) {
                     color = AppColors.Pickup
                 )
                 Text(
-                    text = "Coupon Applied",
+                    text = stringResource(R.string.coupon_applied),
                     style = MaterialTheme.typography.labelSmall,
                     color = AppColors.TextSecondary
                 )
             }
             order.discountAmount?.let {
                 Text(
-                    text = "-₹$it",
+                    text = stringResource(R.string.discount_format, it),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Pickup
@@ -873,13 +877,13 @@ private fun GstInfoCard(gstin: String) {
         ) {
             Icon(
                 imageVector = Icons.Default.Receipt,
-                contentDescription = "GST",
+                contentDescription = null,
                 tint = AppColors.Primary,
                 modifier = Modifier.size(24.dp)
             )
             Column {
                 Text(
-                    text = "GSTIN",
+                    text = stringResource(R.string.gstin_info_label),
                     style = MaterialTheme.typography.labelMedium,
                     color = AppColors.TextSecondary
                 )
@@ -917,12 +921,12 @@ private fun CancellationInfoCard(order: OrderResponse) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Cancel,
-                    contentDescription = "Cancelled",
+                    contentDescription = stringResource(R.string.cancelled_label),
                     tint = AppColors.Drop,
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = "Order Cancelled",
+                    text = stringResource(R.string.order_cancelled),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Drop
@@ -930,13 +934,13 @@ private fun CancellationInfoCard(order: OrderResponse) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Reason: ${order.cancellationReason}",
+                text = stringResource(R.string.reason_format, order.cancellationReason ?: ""),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary
             )
             order.cancelledBy?.let {
                 Text(
-                    text = "Cancelled by: $it",
+                    text = stringResource(R.string.cancelled_by_format, it),
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary
                 )
@@ -964,7 +968,7 @@ private fun RatingCard(order: OrderResponse) {
                 .padding(16.dp)
         ) {
             Text(
-                text = "Your Rating",
+                text = stringResource(R.string.your_rating),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -979,7 +983,7 @@ private fun RatingCard(order: OrderResponse) {
                                 ?: 0)
                         ) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
-                        tint = Color(0xFFFFC107),
+                        tint = StarYellow,
                         modifier = Modifier.size(28.dp)
                     )
                 }

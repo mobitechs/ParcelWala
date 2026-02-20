@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -31,6 +32,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -73,26 +75,12 @@ fun AddressConfirmationScreen(
     // ============ FORM STATE ============
     val addressKey = "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
 
-    // Contact Details
-    var contactName by remember(addressKey) {
-        mutableStateOf(actualAddress?.contactName ?: "")
-    }
-    var contactPhone by remember(addressKey) {
-        mutableStateOf(actualAddress?.contactPhone ?: "")
-    }
+    var contactName by remember(addressKey) { mutableStateOf(actualAddress?.contactName ?: "") }
+    var contactPhone by remember(addressKey) { mutableStateOf(actualAddress?.contactPhone ?: "") }
+    var buildingDetails by remember(addressKey) { mutableStateOf(actualAddress?.buildingDetails ?: "") }
+    var landmark by remember(addressKey) { mutableStateOf(actualAddress?.landmark ?: "") }
+    var pincode by remember(addressKey) { mutableStateOf(actualAddress?.pincode ?: "") }
 
-    // Address Details
-    var buildingDetails by remember(addressKey) {
-        mutableStateOf(actualAddress?.buildingDetails ?: "")
-    }
-    var landmark by remember(addressKey) {
-        mutableStateOf(actualAddress?.landmark ?: "")
-    }
-    var pincode by remember(addressKey) {
-        mutableStateOf(actualAddress?.pincode ?: "")
-    }
-
-    // Address Type Selection - Handle both "Other" and "other"
     var selectedType by remember(addressKey) {
         mutableStateOf(
             when (actualAddress?.addressType?.lowercase()) {
@@ -103,31 +91,22 @@ fun AddressConfirmationScreen(
         )
     }
 
-    // ✅ FIX 1: Custom label for "Other" type - properly check and pre-fill
     var customLabel by remember(addressKey) {
         mutableStateOf(
-            // Check if addressType is "Other" (case-insensitive)
             if (actualAddress?.addressType?.equals("other", ignoreCase = true) == true) {
-                // If label is different from "Other" and "Selected Location", use it
                 val label = actualAddress.label
                 if (!label.equals("other", ignoreCase = true) &&
                     !label.equals("selected location", ignoreCase = true)) {
                     label
-                } else {
-                    ""
-                }
-            } else {
-                ""
-            }
+                } else { "" }
+            } else { "" }
         )
     }
 
-    // UI State
     var useMyNumber by remember { mutableStateOf(false) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
 
-    // Handle "Use my mobile number" checkbox
     LaunchedEffect(useMyNumber) {
         if (useMyNumber && userPhoneNumber != null) {
             contactPhone = userPhoneNumber.replace("+91", "").replace(" ", "").trim()
@@ -140,7 +119,6 @@ fun AddressConfirmationScreen(
             actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0
     val defaultLat = actualAddress?.latitude ?: 19.0760
     val defaultLng = actualAddress?.longitude ?: 72.8777
-
     val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${actualAddress?.longitude?.toString()?.take(8)}"
 
     val cameraPositionState = rememberCameraPositionState(key = mapKey) {
@@ -151,10 +129,7 @@ fun AddressConfirmationScreen(
         if (actualAddress?.latitude != null && actualAddress.longitude != null &&
             actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0) {
             val newPosition = LatLng(actualAddress.latitude, actualAddress.longitude)
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(newPosition, 16f),
-                durationMs = 300
-            )
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(newPosition, 16f), durationMs = 300)
         }
     }
 
@@ -162,44 +137,45 @@ fun AddressConfirmationScreen(
     if (actualAddress == null) {
         EmptyState(
             icon = Icons.Default.ErrorOutline,
-            title = "No Address Selected",
-            subtitle = "Please select a location first",
-            actionText = "Go Back",
+            title = stringResource(R.string.no_address_selected),
+            subtitle = stringResource(R.string.select_location_first),
+            actionText = stringResource(R.string.go_back),
             onAction = onBack,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp)
+            modifier = Modifier.fillMaxSize().padding(32.dp)
         )
         return
     }
 
     // ============ SCREEN CONFIGURATION ============
     val screenTitle = when {
-        isSaveAddressMode && isEditMode -> "Edit Address"
-        isSaveAddressMode -> "Add New Address"
-        isEditMode -> "Edit ${if (locationType == "pickup") "Pickup" else "Drop"} Details"
-        locationType == "pickup" -> "Confirm Pickup Location"
-        else -> "Confirm Drop Location"
+        isSaveAddressMode && isEditMode -> stringResource(R.string.edit_address_title)
+        isSaveAddressMode -> stringResource(R.string.add_new_address_title)
+        isEditMode -> if (locationType == "pickup") stringResource(R.string.edit_pickup_details) else stringResource(R.string.edit_drop_details)
+        locationType == "pickup" -> stringResource(R.string.confirm_pickup_location)
+        else -> stringResource(R.string.confirm_drop_location)
     }
 
     val buttonText = when {
-        isSaveAddressMode -> "Save Address"
-        isEditMode -> "Save Changes"
-        locationType == "pickup" -> "Confirm Pickup"
-        else -> "Confirm Drop"
+        isSaveAddressMode -> stringResource(R.string.save_address)
+        isEditMode -> stringResource(R.string.save_changes)
+        locationType == "pickup" -> stringResource(R.string.confirm_pickup)
+        else -> stringResource(R.string.confirm_drop)
     }
 
     val sectionHeaderText = when {
-        isSaveAddressMode -> "Contact Details"
-        locationType == "pickup" -> "Sender Details"
-        else -> "Receiver Details"
+        isSaveAddressMode -> stringResource(R.string.contact_details_header)
+        locationType == "pickup" -> stringResource(R.string.sender_details_header)
+        else -> stringResource(R.string.receiver_details_header)
     }
 
     val nameFieldLabel = when {
-        isSaveAddressMode -> "Name *"
-        locationType == "pickup" -> "Sender Name *"
-        else -> "Receiver Name *"
+        isSaveAddressMode -> stringResource(R.string.name_required)
+        locationType == "pickup" -> stringResource(R.string.sender_name_required)
+        else -> stringResource(R.string.receiver_name_required)
     }
+
+    val enterContactNameError = stringResource(R.string.enter_contact_name_error)
+    val enterValidPhoneError = stringResource(R.string.enter_valid_phone_error)
 
     Scaffold(
         topBar = {
@@ -213,7 +189,7 @@ fun AddressConfirmationScreen(
                         )
                         if (isEditMode && !isSaveAddressMode) {
                             Text(
-                                text = "Update contact and address details",
+                                text = stringResource(R.string.update_contact_subtitle),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppColors.TextSecondary
                             )
@@ -224,7 +200,7 @@ fun AddressConfirmationScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -267,12 +243,9 @@ fun AddressConfirmationScreen(
                         ) {
                             Marker(
                                 state = MarkerState(
-                                    position = LatLng(
-                                        actualAddress.latitude,
-                                        actualAddress.longitude
-                                    )
+                                    position = LatLng(actualAddress.latitude, actualAddress.longitude)
                                 ),
-                                title = if (locationType == "pickup") "Pickup" else "Drop"
+                                title = if (locationType == "pickup") stringResource(R.string.pickup_fallback) else stringResource(R.string.drop_fallback)
                             )
                         }
                     } else {
@@ -291,7 +264,7 @@ fun AddressConfirmationScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Location coordinates not available",
+                                    text = stringResource(R.string.location_not_available),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = AppColors.TextHint
                                 )
@@ -308,7 +281,7 @@ fun AddressConfirmationScreen(
                             color = AppColors.TextPrimary.copy(alpha = 0.9f)
                         ) {
                             Text(
-                                text = "This location will be saved",
+                                text = stringResource(R.string.location_saved_badge),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.White,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -335,7 +308,7 @@ fun AddressConfirmationScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Change Location",
+                                text = stringResource(R.string.change_location),
                                 color = AppColors.Primary,
                                 style = MaterialTheme.typography.labelMedium
                             )
@@ -377,9 +350,9 @@ fun AddressConfirmationScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = when {
-                                    isSaveAddressMode -> "Selected Location"
-                                    locationType == "pickup" -> "Pickup Location"
-                                    else -> "Drop Location"
+                                    isSaveAddressMode -> stringResource(R.string.selected_location)
+                                    locationType == "pickup" -> stringResource(R.string.pickup_location)
+                                    else -> stringResource(R.string.drop_location)
                                 },
                                 style = MaterialTheme.typography.labelMedium,
                                 color = when {
@@ -391,7 +364,7 @@ fun AddressConfirmationScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = actualAddress.address.ifEmpty { "Address not available" },
+                                text = actualAddress.address.ifEmpty { stringResource(R.string.address_not_available) },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = AppColors.TextPrimary
                             )
@@ -423,33 +396,19 @@ fun AddressConfirmationScreen(
                 // Contact Name
                 OutlinedTextField(
                     value = contactName,
-                    onValueChange = {
-                        contactName = it
-                        nameError = null
-                    },
+                    onValueChange = { contactName = it; nameError = null },
                     label = { Text(nameFieldLabel) },
-                    placeholder = { Text("Enter contact person name") },
+                    placeholder = { Text(stringResource(R.string.enter_contact_name)) },
                     leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
+                        Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = AppColors.Primary)
                     },
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                    )
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -458,59 +417,37 @@ fun AddressConfirmationScreen(
                 OutlinedTextField(
                     value = contactPhone,
                     onValueChange = {
-                        if (it.length <= 10 && it.all { char -> char.isDigit() }) {
-                            contactPhone = it
-                            phoneError = null
-                        }
+                        if (it.length <= 10 && it.all { char -> char.isDigit() }) { contactPhone = it; phoneError = null }
                     },
-                    label = { Text("Contact Phone *") },
-                    placeholder = { Text("Enter 10 digit mobile number") },
+                    label = { Text(stringResource(R.string.contact_phone_required)) },
+                    placeholder = { Text(stringResource(R.string.enter_10_digit_mobile)) },
                     leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
+                        Icon(imageVector = Icons.Default.Phone, contentDescription = null, tint = AppColors.Primary)
                     },
-                    prefix = { Text("+91 ") },
+                    prefix = { Text(stringResource(R.string.phone_prefix)) },
                     isError = phoneError != null,
                     supportingText = phoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                    )
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
 
                 // "Use my mobile number" checkbox
                 if (isSaveAddressMode && userPhoneNumber != null) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = useMyNumber,
                             onCheckedChange = { useMyNumber = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = AppColors.Primary,
-                                checkmarkColor = Color.White
-                            )
+                            colors = CheckboxDefaults.colors(checkedColor = AppColors.Primary, checkmarkColor = Color.White)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Use my mobile number: $userPhoneNumber",
+                            text = stringResource(R.string.use_my_mobile_format, userPhoneNumber),
                             style = MaterialTheme.typography.bodyMedium,
                             color = AppColors.TextPrimary
                         )
@@ -521,7 +458,7 @@ fun AddressConfirmationScreen(
 
                 // ============ ADDRESS DETAILS SECTION ============
                 Text(
-                    text = "Address Details (Optional)",
+                    text = stringResource(R.string.address_details_optional),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary,
@@ -534,27 +471,14 @@ fun AddressConfirmationScreen(
                 OutlinedTextField(
                     value = buildingDetails,
                     onValueChange = { buildingDetails = it },
-                    label = { Text("Building Details") },
-                    placeholder = { Text("Flat no, Building name") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Apartment,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
+                    label = { Text(stringResource(R.string.building_details_label)) },
+                    placeholder = { Text(stringResource(R.string.building_details_placeholder)) },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Apartment, contentDescription = null, tint = AppColors.Primary) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                    )
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -563,27 +487,14 @@ fun AddressConfirmationScreen(
                 OutlinedTextField(
                     value = landmark,
                     onValueChange = { landmark = it },
-                    label = { Text("Landmark") },
-                    placeholder = { Text("e.g., Near petrol pump, Opposite mall") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
+                    label = { Text(stringResource(R.string.landmark_label)) },
+                    placeholder = { Text(stringResource(R.string.landmark_placeholder)) },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Place, contentDescription = null, tint = AppColors.Primary) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(
-                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                    )
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -591,35 +502,15 @@ fun AddressConfirmationScreen(
                 // Pincode
                 OutlinedTextField(
                     value = pincode,
-                    onValueChange = {
-                        if (it.length <= 6 && it.all { char -> char.isDigit() }) {
-                            pincode = it
-                        }
-                    },
-                    label = { Text("Pincode") },
-                    placeholder = { Text("Enter 6 digit pincode") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.PinDrop,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
+                    onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) { pincode = it } },
+                    label = { Text(stringResource(R.string.pincode_label)) },
+                    placeholder = { Text(stringResource(R.string.pincode_placeholder)) },
+                    leadingIcon = { Icon(imageVector = Icons.Default.PinDrop, contentDescription = null, tint = AppColors.Primary) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { focusManager.clearFocus() }
-                    )
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                 )
 
                 // ============ SAVE AS SECTION ============
@@ -627,7 +518,7 @@ fun AddressConfirmationScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Save address as",
+                        text = stringResource(R.string.save_address_as),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary,
@@ -638,41 +529,29 @@ fun AddressConfirmationScreen(
 
                     // Address Type Selector
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         AddressTypeChip(
-                            text = "Home",
-                            icon = Icons.Default.Home,
+                            text = stringResource(R.string.home_type), icon = Icons.Default.Home,
                             isSelected = selectedType == "Home",
-                            onClick = {
-                                selectedType = "Home"
-                                customLabel = ""
-                            },
+                            onClick = { selectedType = "Home"; customLabel = "" },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
-                            text = "Shop",
-                            icon = Icons.Default.Store,
+                            text = stringResource(R.string.shop_type), icon = Icons.Default.Store,
                             isSelected = selectedType == "Shop",
-                            onClick = {
-                                selectedType = "Shop"
-                                customLabel = ""
-                            },
+                            onClick = { selectedType = "Shop"; customLabel = "" },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
-                            text = "Other",
-                            icon = Icons.Default.MoreHoriz,
+                            text = stringResource(R.string.other_type), icon = Icons.Default.MoreHoriz,
                             isSelected = selectedType == "Other",
                             onClick = { selectedType = "Other" },
                             modifier = Modifier.weight(1f)
                         )
                     }
 
-                    // ✅ Custom Label Input for "Other" type (NOT mandatory)
                     AnimatedVisibility(
                         visible = selectedType == "Other",
                         enter = fadeIn() + expandVertically(),
@@ -680,31 +559,17 @@ fun AddressConfirmationScreen(
                     ) {
                         Column {
                             Spacer(modifier = Modifier.height(12.dp))
-
                             OutlinedTextField(
                                 value = customLabel,
                                 onValueChange = { customLabel = it },
-                                label = { Text("Label Name (Optional)") },  // ✅ Changed to Optional
-                                placeholder = { Text("e.g., Office, Gym, Friend's Place") },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Label,
-                                        contentDescription = null,
-                                        tint = AppColors.Primary
-                                    )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AppColors.Primary,
-                                    unfocusedBorderColor = AppColors.Border
-                                ),
+                                label = { Text(stringResource(R.string.label_name_optional)) },
+                                placeholder = { Text(stringResource(R.string.label_placeholder)) },
+                                leadingIcon = { Icon(imageVector = Icons.Default.Label, contentDescription = null, tint = AppColors.Primary) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(
-                                    onDone = { focusManager.clearFocus() }
-                                )
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                             )
                         }
                     }
@@ -721,24 +586,11 @@ fun AddressConfirmationScreen(
                 PrimaryButton(
                     text = buttonText,
                     onClick = {
-                        // Validate required fields
                         var isValid = true
-
-                        if (contactName.isBlank()) {
-                            nameError = "Please enter contact name"
-                            isValid = false
-                        }
-
-                        if (contactPhone.length != 10) {
-                            phoneError = "Please enter valid 10 digit number"
-                            isValid = false
-                        }
-
-                        // ✅ FIX 2: Removed validation for customLabel - it's now optional
+                        if (contactName.isBlank()) { nameError = enterContactNameError; isValid = false }
+                        if (contactPhone.length != 10) { phoneError = enterValidPhoneError; isValid = false }
 
                         if (isValid) {
-                            // ✅ Determine label based on type
-                            // If Other and customLabel is blank, just use "Other"
                             val finalLabel = when (selectedType) {
                                 "Home" -> "Home"
                                 "Shop" -> "Shop"
@@ -746,7 +598,6 @@ fun AddressConfirmationScreen(
                                 else -> actualAddress.label.ifEmpty { "Other" }
                             }
 
-                            // Create updated address
                             val confirmedAddress = actualAddress.copy(
                                 addressType = if (isSaveAddressMode) selectedType else actualAddress.addressType,
                                 label = if (isSaveAddressMode) finalLabel else actualAddress.label.ifEmpty { "Address" },
@@ -767,9 +618,7 @@ fun AddressConfirmationScreen(
                         isEditMode -> Icons.Default.Check
                         else -> Icons.Default.ArrowForward
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(16.dp)
                 )
             }
         }
@@ -798,9 +647,7 @@ private fun AddressTypeChip(
         )
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(

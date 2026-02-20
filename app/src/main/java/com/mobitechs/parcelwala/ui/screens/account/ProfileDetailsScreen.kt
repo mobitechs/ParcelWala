@@ -10,9 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
@@ -59,7 +61,7 @@ fun ProfileDetailsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Profile Details",
+                        text = stringResource(R.string.profile_details),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -68,7 +70,7 @@ fun ProfileDetailsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }
@@ -105,7 +107,7 @@ fun ProfileDetailsScreen(
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
-                            text = "Personal Details",
+                            text = stringResource(R.string.personal_details),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = AppColors.TextPrimary
@@ -114,7 +116,7 @@ fun ProfileDetailsScreen(
 
                     TextButton(onClick = { showEditSheet = true }) {
                         Text(
-                            text = "Edit",
+                            text = stringResource(R.string.edit),
                             color = AppColors.Primary,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -125,7 +127,7 @@ fun ProfileDetailsScreen(
 
                 // User Name
                 Text(
-                    text = uiState.userName ?: "User",
+                    text = uiState.userName ?: stringResource(R.string.default_user_name),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
@@ -135,7 +137,7 @@ fun ProfileDetailsScreen(
 
                 // Email
                 Text(
-                    text = uiState.email ?: "No email added",
+                    text = uiState.email ?: stringResource(R.string.no_email_added),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )

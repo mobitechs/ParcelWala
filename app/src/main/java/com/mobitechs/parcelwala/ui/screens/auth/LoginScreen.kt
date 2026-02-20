@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.AuthViewModel
  */
 @Composable
 fun LoginScreen(
-    onNavigateToOtp: (String, String?) -> Unit,  // ✅ CHANGED: Added otp parameter
+    onNavigateToOtp: (String, String?) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -30,6 +31,10 @@ fun LoginScreen(
     var termsAccepted by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+
+    // Hoist error strings for use in non-composable lambdas
+    val errorValidPhone = stringResource(R.string.error_valid_phone_10_digit)
+    val errorAcceptTerms = stringResource(R.string.error_accept_terms)
 
     // Navigate to OTP when sent - pass OTP from response
     LaunchedEffect(uiState.otpSent) {
@@ -59,11 +64,11 @@ fun LoginScreen(
                     tint = AppColors.Drop
                 )
             },
-            title = { Text("Error", color = AppColors.TextPrimary) },
+            title = { Text(stringResource(R.string.label_error_title), color = AppColors.TextPrimary) },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text("OK", color = AppColors.Primary)
+                    Text(stringResource(R.string.label_ok), color = AppColors.Primary)
                 }
             },
             containerColor = AppColors.Surface
@@ -91,7 +96,7 @@ fun LoginScreen(
             ) {
                 Image(
                     painter = painterResource(R.drawable.logo_pw),
-                    contentDescription = "App Logo",
+                    contentDescription = stringResource(R.string.content_desc_app_logo),
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -100,7 +105,7 @@ fun LoginScreen(
 
             // Title
             Text(
-                text = "Welcome to Parcel Wala",
+                text = stringResource(R.string.label_welcome),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary,
@@ -110,7 +115,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Enter your phone number to continue",
+                text = stringResource(R.string.label_enter_phone_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -139,7 +144,7 @@ fun LoginScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "+91",
+                            text = stringResource(R.string.label_country_code),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = AppColors.TextPrimary
@@ -151,10 +156,10 @@ fun LoginScreen(
                 PhoneNumberField(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
-                    label = "Phone Number",
+                    label = stringResource(R.string.label_phone_number),
                     modifier = Modifier.weight(1f),
                     isError = phoneNumber.isNotEmpty() && phoneNumber.length != 10,
-                    errorMessage = "Enter valid 10-digit number"
+                    errorMessage = stringResource(R.string.error_invalid_phone)
                 )
             }
 
@@ -175,7 +180,7 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "I agree to Terms & Conditions and Privacy Policy",
+                    text = stringResource(R.string.label_terms_agreement),
                     style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary
                 )
@@ -185,15 +190,15 @@ fun LoginScreen(
 
             // Send OTP Button
             PrimaryButton(
-                text = "Send OTP",
+                text = stringResource(R.string.label_send_otp),
                 onClick = {
                     when {
                         phoneNumber.length != 10 -> {
-                            errorMessage = "Please enter a valid 10-digit phone number"
+                            errorMessage = errorValidPhone
                             showError = true
                         }
                         !termsAccepted -> {
-                            errorMessage = "Please accept Terms & Conditions to continue"
+                            errorMessage = errorAcceptTerms
                             showError = true
                         }
                         else -> viewModel.sendOtp(phoneNumber)
@@ -208,7 +213,7 @@ fun LoginScreen(
 
             // Footer Info
             Text(
-                text = "By continuing, you agree to our Terms of Service and Privacy Policy",
+                text = stringResource(R.string.label_footer_terms),
                 style = MaterialTheme.typography.labelSmall,
                 color = AppColors.TextHint,
                 textAlign = TextAlign.Center,
