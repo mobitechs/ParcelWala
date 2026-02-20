@@ -1,0 +1,643 @@
+<resources>
+    <string name="app_name">ParcelWala</string>
+
+    <!-- Address Card -->
+    <string name="label_pickup">पिकअप</string>
+    <string name="label_drop">ड्रॉप</string>
+    <string name="content_desc_sender">भेजने वाला</string>
+    <string name="content_desc_receiver">प्राप्तकर्ता</string>
+    <string name="separator_dot">" • "</string>
+
+    <string name="label_loading">लोड हो रहा है…</string>
+    <string name="label_retry">पुनः प्रयास</string>
+    <string name="content_desc_empty">खाली</string>
+
+    <!-- InputComponents -->
+    <string name="mobile_number_label">मोबाइल नंबर</string>
+    <string name="phone_placeholder">10 अंकों का मोबाइल नंबर</string>
+    <string name="full_name_label">पूरा नाम</string>
+    <string name="name_placeholder">पूरा नाम दर्ज करें</string>
+    <string name="address_label">मकान/फ्लैट/दुकान नं., मंजिल</string>
+    <string name="address_placeholder">जैसे, फ्लैट 101, दूसरी मंजिल</string>
+    <string name="label_required_suffix"> *</string>
+    <string name="label_optional_suffix"> (वैकल्पिक)</string>
+    <string name="label_required_format">%s *</string>
+    <string name="label_optional_format">%s (वैकल्पिक)</string>
+    <string name="character_counter_format">%d/%d</string>
+
+    <!-- ErrorView -->
+    <string name="error_content_description">त्रुटि</string>
+    <string name="error_title">उफ़!</string>
+    <string name="retry">पुनः प्रयास</string>
+
+    <!-- Location Components -->
+    <string name="content_desc_edit">संपादित करें</string>
+    <string name="label_edit">संपादित करें</string>
+    <string name="label_pickup_location">पिकअप स्थान</string>
+    <string name="label_drop_location">ड्रॉप स्थान</string>
+    <string name="label_estimated_time">अनुमानित: 15-20 मिनट</string>
+    <string name="label_home">घर</string>
+    <string name="label_shop">दुकान</string>
+    <string name="label_other">अन्य</string>
+
+    <!-- OTP Dialog -->
+    <string name="label_pickup_otp">पिकअप OTP</string>
+    <string name="otp_share_message">पिकअप की पुष्टि के लिए ड्राइवर को यह OTP बताएं</string>
+    <string name="label_got_it">समझ गया</string>
+    <string name="label_enter_pickup_otp">पिकअप OTP दर्ज करें</string>
+    <string name="otp_ask_customer_message">ग्राहक से OTP पूछें</string>
+    <string name="label_cancel">रद्द करें</string>
+    <string name="label_verify">सत्यापित करें</string>
+    <string name="otp_error_message">कृपया 4 अंकों का OTP दर्ज करें</string>
+
+    <!-- Rating Dialog -->
+    <string name="label_delivery_completed">डिलीवरी पूरी हुई!</string>
+    <string name="label_booking_number">बुकिंग #%s</string>
+    <string name="label_driver_rated_you">ड्राइवर ने आपको रेट किया</string>
+    <string name="label_feedback_optional">फ़ीडबैक (वैकल्पिक)</string>
+    <string name="label_feedback_placeholder">अपना अनुभव साझा करें…</string>
+    <string name="label_update_rating">अपनी रेटिंग अपडेट करें</string>
+    <string name="label_rate_driver">ड्राइवर को रेट करें</string>
+    <string name="label_skip">छोड़ें</string>
+    <string name="label_update">अपडेट</string>
+    <string name="label_submit">सबमिट</string>
+    <string name="label_select_rating_hint">सबमिट करने के लिए कृपया रेटिंग चुनें</string>
+
+    <!-- SignalR Debug -->
+    <string name="label_signalr_debug">SignalR डीबग</string>
+    <string name="label_disconnected">डिस्कनेक्ट</string>
+    <string name="label_connecting">कनेक्ट हो रहा है…</string>
+    <string name="label_connected">कनेक्टेड</string>
+    <string name="label_reconnecting">पुनः कनेक्ट हो रहा है…</string>
+    <string name="label_error">त्रुटि</string>
+    <string name="content_desc_collapse">संक्षिप्त करें</string>
+    <string name="content_desc_expand">विस्तार करें</string>
+    <string name="label_na">उपलब्ध नहीं</string>
+    <string name="label_unknown">अज्ञात</string>
+    <string name="label_logs_count">लॉग (%d)</string>
+    <string name="content_desc_clear">साफ़ करें</string>
+    <string name="label_clear">साफ़ करें</string>
+    <string name="label_connected_check">कनेक्टेड ✓</string>
+    <string name="label_just_now">अभी</string>
+    <string name="label_seconds_ago">%d सेकंड पहले</string>
+    <string name="label_minutes_ago">%d मिनट पहले</string>
+
+    <!-- Vehicle/Goods Mock Data -->
+    <string name="vehicle_2_wheeler">2 व्हीलर</string>
+    <string name="vehicle_2_wheeler_desc">छोटे पैकेज के लिए उपयुक्त</string>
+    <string name="vehicle_2_wheeler_capacity">10 किलो तक</string>
+    <string name="vehicle_3_wheeler">3 व्हीलर</string>
+    <string name="vehicle_3_wheeler_desc">मध्यम लोड के लिए उपयुक्त</string>
+    <string name="vehicle_3_wheeler_capacity">100 किलो तक</string>
+    <string name="vehicle_tata_ace">टाटा ऐस</string>
+    <string name="vehicle_tata_ace_desc">फर्नीचर और बक्सों के लिए सर्वोत्तम</string>
+    <string name="vehicle_tata_ace_capacity">750 किलो तक</string>
+    <string name="vehicle_pickup">पिकअप</string>
+    <string name="vehicle_pickup_desc">बड़े सामान की ढुलाई</string>
+    <string name="vehicle_pickup_capacity">1000 किलो तक</string>
+    <string name="vehicle_tempo">टेम्पो</string>
+    <string name="vehicle_tempo_desc">घर शिफ्टिंग और भारी सामान</string>
+    <string name="vehicle_tempo_capacity">2000 किलो तक</string>
+    <string name="vehicle_hamal">हमाल</string>
+    <string name="vehicle_hamal_desc">मजदूरी सहायता</string>
+    <string name="vehicle_hamal_capacity">शारीरिक श्रम</string>
+    <string name="goods_food">घर का बना / तैयार / ताजा खाना</string>
+    <string name="goods_furniture">फर्नीचर / घर की सजावट</string>
+    <string name="goods_general">सामान्य सामान</string>
+
+    <!-- AccountBottomSheets -->
+    <string name="close">बंद करें</string>
+    <string name="add_gstin_title">GSTIN जोड़ें</string>
+    <string name="add_gstin_description">अपने भविष्य के ऑर्डर के लिए GSTIN के साथ इनवॉइस प्राप्त करें\nऔर इनपुट टैक्स क्रेडिट का दावा करें</string>
+    <string name="gstin_label">GSTIN</string>
+    <string name="gstin_placeholder">22AAAAA0000A1Z5</string>
+    <string name="gstin_error">कृपया वैध 15 अंकों का GSTIN दर्ज करें</string>
+    <string name="confirm">पुष्टि करें</string>
+    <string name="edit_profile_title">प्रोफ़ाइल संपादित करें</string>
+    <string name="first_name_label">पहला नाम</string>
+    <string name="last_name_label">उपनाम</string>
+    <string name="mobile_number_disabled_label">मोबाइल नंबर</string>
+    <string name="cannot_be_changed">बदला नहीं जा सकता।</string>
+    <string name="email_address_label">ईमेल पता</string>
+    <string name="email_placeholder">अपना ईमेल दर्ज करें</string>
+
+    <!-- AccountScreen -->
+    <string name="logout_title">लॉगआउट</string>
+    <string name="logout_message">क्या आप वाकई लॉगआउट करना चाहते हैं?</string>
+    <string name="logout">लॉगआउट</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="default_user_name">उपयोगकर्ता</string>
+    <string name="view_label">देखें</string>
+    <string name="profile_content_description">प्रोफ़ाइल</string>
+    <string name="add_email">ईमेल जोड़ें</string>
+    <string name="verify">सत्यापित करें</string>
+    <string name="add_gst_details">GST विवरण जोड़ें</string>
+    <string name="saved_addresses">सेव किए गए पते</string>
+    <string name="help_support">सहायता</string>
+    <string name="gst_details">GST विवरण</string>
+    <string name="add_gstin">GSTIN जोड़ें</string>
+    <string name="refer_earn">रेफर करें और कमाएं</string>
+    <string name="refer_earn_subtitle">शेयर करें और इनाम पाएं</string>
+    <string name="terms_conditions">नियम एवं शर्तें</string>
+    <string name="terms_subtitle">हमारी नीतियां पढ़ें</string>
+    <string name="logout_subtitle">ऐप से साइन आउट करें</string>
+    <string name="version_format">संस्करण %s</string>
+    <string name="app_version">1.0.0</string>
+
+    <!-- AddressSearchScreen -->
+    <string name="add_address">पता जोड़ें</string>
+    <string name="back">वापस</string>
+    <string name="search_area_placeholder">क्षेत्र, गली का नाम खोजें…</string>
+    <string name="select_on_map">नक्शे पर चुनें</string>
+    <string name="searching">खोज रहे हैं…</string>
+
+    <!-- ProfileDetailsScreen -->
+    <string name="profile_details">प्रोफ़ाइल विवरण</string>
+    <string name="personal_details">व्यक्तिगत विवरण</string>
+    <string name="edit">संपादित करें</string>
+    <string name="no_email_added">कोई ईमेल नहीं जोड़ा</string>
+
+    <!-- SavedAddressesScreen -->
+    <string name="delete_address_title">पता हटाएं</string>
+    <string name="delete_address_message">क्या आप वाकई इस पते को हटाना चाहते हैं?</string>
+    <string name="delete">हटाएं</string>
+    <string name="loading_addresses">पते लोड हो रहे हैं…</string>
+    <string name="no_saved_addresses">कोई सेव किया गया पता नहीं</string>
+    <string name="add_addresses_subtitle">जल्दी बुकिंग के लिए पते जोड़ें</string>
+    <string name="add">जोड़ें</string>
+    <string name="no_address_details">पते का विवरण नहीं</string>
+
+    <string name="label_loading_default">लोड हो रहा है…</string>
+
+    <!-- Auth Common -->
+    <string name="label_error_title">त्रुटि</string>
+    <string name="label_ok">ठीक है</string>
+
+    <!-- Complete Profile Screen -->
+    <string name="title_complete_profile">प्रोफ़ाइल पूरी करें</string>
+    <string name="content_desc_profile">प्रोफ़ाइल</string>
+    <string name="label_lets_get_started">शुरू करते हैं</string>
+    <string name="label_complete_profile_subtitle">जारी रखने के लिए अपनी प्रोफ़ाइल पूरी करें</string>
+    <string name="label_full_name">पूरा नाम</string>
+    <string name="error_name_min_length">नाम कम से कम 3 अक्षरों का होना चाहिए</string>
+    <string name="label_email_optional">ईमेल (वैकल्पिक)</string>
+    <string name="hint_enter_email">अपना ईमेल दर्ज करें</string>
+    <string name="error_invalid_email">कृपया वैध ईमेल दर्ज करें</string>
+    <string name="label_referral_code_optional">रेफरल कोड (वैकल्पिक)</string>
+    <string name="hint_enter_referral_code">रेफरल कोड दर्ज करें</string>
+    <string name="label_continue">जारी रखें</string>
+    <string name="error_enter_name">कृपया अपना नाम दर्ज करें</string>
+    <string name="label_skip_for_now">अभी छोड़ें</string>
+    <string name="label_update_profile_hint">आप कभी भी सेटिंग्स से अपनी प्रोफ़ाइल अपडेट कर सकते हैं</string>
+
+    <!-- Login Screen -->
+    <string name="content_desc_app_logo">ऐप लोगो</string>
+    <string name="label_welcome">पार्सल वाला में आपका स्वागत है</string>
+    <string name="label_enter_phone_subtitle">जारी रखने के लिए अपना फोन नंबर दर्ज करें</string>
+    <string name="label_country_code">+91</string>
+    <string name="label_phone_number">फोन नंबर</string>
+    <string name="error_invalid_phone">वैध 10 अंकों का नंबर दर्ज करें</string>
+    <string name="label_terms_agreement">मैं नियम एवं शर्तों और गोपनीयता नीति से सहमत हूं</string>
+    <string name="label_send_otp">OTP भेजें</string>
+    <string name="error_invalid_phone_full">कृपया वैध 10 अंकों का फोन नंबर दर्ज करें</string>
+    <string name="error_accept_terms">कृपया जारी रखने के लिए नियम एवं शर्तें स्वीकार करें</string>
+    <string name="label_footer_terms">जारी रखकर, आप हमारी सेवा शर्तों और गोपनीयता नीति से सहमत हैं</string>
+
+    <!-- OTP Screen -->
+    <string name="title_verify_otp">OTP सत्यापित करें</string>
+    <string name="content_desc_back">वापस</string>
+    <string name="content_desc_otp">OTP</string>
+    <string name="label_enter_4_digit_code">4 अंकों का कोड दर्ज करें जो भेजा गया है</string>
+    <string name="label_phone_with_code">+91 %s</string>
+    <string name="label_test_otp">🧪 टेस्ट OTP</string>
+    <string name="error_complete_otp">कृपया पूरा 4 अंकों का OTP दर्ज करें</string>
+    <string name="label_didnt_receive_code">कोड नहीं मिला? </string>
+    <string name="label_resend_otp">OTP पुनः भेजें</string>
+    <string name="label_resend_in">%d सेकंड में पुनः भेजें</string>
+
+    <!-- Error Messages -->
+    <string name="error_name_min_chars">नाम कम से कम 3 अक्षरों का होना चाहिए</string>
+    <string name="error_valid_email">कृपया वैध ईमेल दर्ज करें</string>
+    <string name="error_valid_phone_10_digit">कृपया वैध 10 अंकों का फोन नंबर दर्ज करें</string>
+    <string name="error_complete_4_digit_otp">कृपया पूरा 4 अंकों का OTP दर्ज करें</string>
+
+    <!-- HomeScreen -->
+    <string name="app_title">पार्सल वाला</string>
+    <string name="app_subtitle">आपका डिलीवरी पार्टनर</string>
+    <string name="notifications">सूचनाएं</string>
+    <string name="loading_vehicles">वाहन लोड हो रहे हैं…</string>
+    <string name="active_booking_snackbar">आपकी पहले से एक बुकिंग चल रही है। नई बुकिंग के लिए पहले उसे पूरा या रद्द करें।</string>
+    <string name="complete_current_booking_snackbar">पहले अपनी मौजूदा बुकिंग पूरी करें।</string>
+    <string name="select_vehicle_type">वाहन प्रकार चुनें</string>
+    <string name="active_booking_banner_text">आपकी एक बुकिंग चल रही है। देखने के लिए टैप करें।</string>
+    <string name="no_vehicles_available">कोई वाहन उपलब्ध नहीं</string>
+    <string name="try_again_later">कृपया बाद में पुनः प्रयास करें</string>
+    <string name="error_dialog_title">त्रुटि</string>
+    <string name="ok">ठीक है</string>
+    <string name="no_riders_available">कोई राइडर उपलब्ध नहीं</string>
+    <string name="finding_rider">आपका राइडर खोज रहे हैं…</string>
+    <string name="rider_assigned">राइडर मिल गया!</string>
+    <string name="rider_on_the_way">राइडर रास्ते में है</string>
+    <string name="goods_picked_up">सामान उठा लिया</string>
+    <string name="on_the_way_to_drop">ड्रॉप की ओर जा रहा है</string>
+    <string name="booking_in_progress">बुकिंग जारी है</string>
+    <string name="trip_format">ट्रिप #%s • प्रयास %d</string>
+    <string name="trip_id_format">ट्रिप #%s</string>
+    <string name="timed_out">समय समाप्त</string>
+    <string name="remaining">शेष</string>
+    <string name="view_details">विवरण देखें</string>
+    <string name="retry_search">पुनः खोजें</string>
+    <string name="time_format_total">3:00</string>
+    <string name="vehicle_fallback">वाहन</string>
+    <string name="cash">नकद</string>
+    <string name="tap_to_view_details">विवरण देखने के लिए टैप करें</string>
+    <string name="pickup_content_description">पिकअप</string>
+    <string name="pick_up_from">यहां से उठाएं</string>
+    <string name="change">बदलें</string>
+    <string name="onwards"> से शुरू</string>
+    <string name="announcements">घोषणाएं</string>
+    <string name="view_all">सभी देखें</string>
+    <string name="new_service">नई सेवा!</string>
+    <string name="new_service_description">लोडिंग-अनलोडिंग सेवा शुरू</string>
+    <string name="marketing_line1">डिलीवरी है?</string>
+    <string name="marketing_line2">हो जाएगा!</string>
+
+    <!-- MainScreen -->
+    <string name="home_tab">होम</string>
+    <string name="orders_tab">ऑर्डर</string>
+    <string name="payments_tab">भुगतान</string>
+    <string name="account_tab">अकाउंट</string>
+
+    <!-- OrderDetailsScreen -->
+    <string name="order_details">ऑर्डर विवरण</string>
+    <string name="support">सहायता</string>
+    <string name="book_again">फिर से बुक करें</string>
+    <string name="delivery_otp">डिलीवरी OTP</string>
+    <string name="share_otp_with_driver">पुष्टि के लिए ड्राइवर को बताएं</string>
+    <string name="driver_details">ड्राइवर विवरण</string>
+    <string name="driver_fallback">ड्राइवर</string>
+    <string name="rating_label">रेटिंग</string>
+    <string name="call_driver">ड्राइवर को कॉल करें</string>
+    <string name="goods_information">सामान की जानकारी</string>
+    <string name="type_label">प्रकार</string>
+    <string name="weight_label">वजन</string>
+    <string name="weight_format">%s किलो</string>
+    <string name="packages_label">पैकेज</string>
+    <string name="value_label">मूल्य</string>
+    <string name="value_format">₹%s</string>
+    <string name="instructions_label">निर्देश</string>
+    <string name="payment_details">भुगतान विवरण</string>
+    <string name="payment_method">भुगतान विधि</string>
+    <string name="na">उपलब्ध नहीं</string>
+    <string name="base_fare">बेस किराया</string>
+    <string name="trip_fare">ट्रिप किराया</string>
+    <string name="discount_label">छूट</string>
+    <string name="total_amount">कुल राशि</string>
+    <string name="coupon_applied">कूपन लागू</string>
+    <string name="gstin_info_label">GSTIN</string>
+    <string name="order_cancelled">ऑर्डर रद्द</string>
+    <string name="cancelled_label">रद्द</string>
+    <string name="reason_format">कारण: %s</string>
+    <string name="cancelled_by_format">रद्द किया: %s</string>
+    <string name="your_rating">आपकी रेटिंग</string>
+    <string name="distance_label">दूरी</string>
+    <string name="distance_format">%s किमी</string>
+    <string name="duration_label">अवधि</string>
+    <string name="fare_format">₹%s</string>
+    <string name="discount_format">-₹%s</string>
+
+    <!-- OrdersScreen -->
+    <string name="my_orders">मेरे ऑर्डर</string>
+    <string name="active_booking_banner_orders">आपकी एक बुकिंग चल रही है। पूरी या रद्द होने तक फिर से बुक करें अक्षम है।</string>
+    <string name="complete_or_cancel_active">पहले अपनी चल रही बुकिंग पूरी या रद्द करें।</string>
+    <string name="loading_orders">आपके ऑर्डर लोड हो रहे हैं…</string>
+    <string name="something_went_wrong">कुछ गलत हो गया</string>
+    <string name="try_again">पुनः प्रयास करें</string>
+    <string name="looking_for_rider">राइडर खोज रहे हैं…</string>
+    <string name="unrated">रेट नहीं किया</string>
+    <string name="pickup_fallback">पिकअप</string>
+    <string name="drop_fallback">ड्रॉप</string>
+    <string name="rate_label">रेट करें</string>
+    <string name="no_completed_orders">कोई पूर्ण ऑर्डर नहीं</string>
+    <string name="no_cancelled_orders">कोई रद्द ऑर्डर नहीं</string>
+    <string name="no_searching_orders">कोई खोज जारी नहीं</string>
+    <string name="no_active_orders">कोई सक्रिय ऑर्डर नहीं</string>
+    <string name="no_orders_yet">अभी तक कोई ऑर्डर नहीं</string>
+    <string name="completed_orders_empty_subtitle">आपकी पूरी हुई डिलीवरी यहां दिखेंगी</string>
+    <string name="cancelled_orders_empty_subtitle">दिखाने के लिए कोई रद्द ऑर्डर नहीं</string>
+    <string name="searching_orders_empty_subtitle">वर्तमान में कोई ऑर्डर राइडर नहीं खोज रहा</string>
+    <string name="active_orders_empty_subtitle">अभी कोई डिलीवरी जारी नहीं</string>
+    <string name="orders_empty_subtitle">बुकिंग करने पर आपके ऑर्डर यहां दिखेंगे</string>
+
+    <!-- Payments Screen -->
+    <string name="title_payments">भुगतान</string>
+    <string name="label_wallet_balance">वॉलेट बैलेंस</string>
+    <string name="label_add_money">पैसे जोड़ें</string>
+    <string name="label_payment_methods">भुगतान विधियां</string>
+    <string name="label_recent_transactions">हाल के लेनदेन</string>
+    <string name="label_no_transactions">अभी तक कोई लेनदेन नहीं</string>
+    <string name="label_processing_payment">भुगतान प्रक्रिया में…</string>
+    <string name="label_upi">UPI</string>
+    <string name="label_upi_subtitle">किसी भी UPI ऐप से भुगतान करें</string>
+    <string name="label_cards">कार्ड</string>
+    <string name="label_cards_subtitle">क्रेडिट और डेबिट कार्ड</string>
+    <string name="label_net_banking">नेट बैंकिंग</string>
+    <string name="label_net_banking_subtitle">सभी प्रमुख बैंक</string>
+    <string name="label_cash">नकद</string>
+    <string name="label_cash_subtitle">डिलीवरी पर भुगतान</string>
+    <string name="label_booking_number_prefix">बुकिंग #%s</string>
+    <string name="label_refund">रिफंड</string>
+    <string name="label_wallet_topup">वॉलेट टॉपअप</string>
+    <string name="label_add_money_to_wallet">वॉलेट में पैसे जोड़ें</string>
+    <string name="label_enter_amount">राशि दर्ज करें</string>
+    <string name="label_currency_prefix">₹ </string>
+    <string name="label_add_amount">₹%s जोड़ें</string>
+    <string name="label_minimum_amount">न्यूनतम राशि: ₹10</string>
+    <string name="snackbar_payment_success">भुगतान सफल! लेनदेन: %s</string>
+    <string name="snackbar_payment_failed">भुगतान विफल: %s</string>
+    <string name="snackbar_wallet_topup_success">₹%d जोड़ा गया! नया बैलेंस: ₹%d</string>
+
+    <!-- Splash Screen -->
+    <string name="label_app_name_display">पार्सल वाला</string>
+    <string name="label_tagline">डिलीवरी आसान बनाई</string>
+
+    <!-- Booking Confirmation Screen -->
+    <string name="title_select_vehicle">वाहन चुनें</string>
+    <string name="label_booking_from_previous">पिछले ऑर्डर से बुकिंग</string>
+    <string name="label_missing_locations">स्थान गायब हैं</string>
+    <string name="label_select_pickup_drop">कृपया पिकअप और ड्रॉप स्थान चुनें</string>
+    <string name="label_go_back">वापस जाएं</string>
+    <string name="label_choose_your_ride">अपनी सवारी चुनें</string>
+    <string name="label_pre_selected_hint">आपके पिछले ऑर्डर से पहले से चुना गया</string>
+    <string name="label_select_vehicle_hint">अपनी डिलीवरी के लिए सही वाहन चुनें</string>
+    <string name="content_desc_refresh">रीफ्रेश</string>
+    <string name="label_no_vehicles">कोई वाहन उपलब्ध नहीं</string>
+    <string name="label_no_vehicles_subtitle">कृपया पुनः प्रयास करें या अलग स्थान चुनें</string>
+    <string name="label_fare_info">किराये में 25 मिनट की मुफ्त लोडिंग/अनलोडिंग शामिल है</string>
+    <string name="label_dismiss">खारिज करें</string>
+    <string name="label_calculating_fares">किराया गणना हो रही है…</string>
+    <string name="label_finding_best_prices">आपके लिए सबसे अच्छी कीमत खोज रहे हैं</string>
+    <string name="label_proceed">आगे बढ़ें</string>
+    <string name="label_select_vehicle_to_proceed">आगे बढ़ने के लिए वाहन चुनें</string>
+    <string name="label_previous">पिछला</string>
+    <string name="label_surge">सर्ज</string>
+    <string name="label_incl_toll">टोल शामिल</string>
+    <string name="label_booking_again">फिर से बुकिंग</string>
+    <string name="label_details_prefilled">पिछले ऑर्डर से विवरण भरा गया</string>
+    <string name="content_desc_book_again">फिर से बुक करें</string>
+    <string name="label_trip_details">ट्रिप विवरण</string>
+    <string name="content_desc_close">बंद करें</string>
+    <string name="label_distance">दूरी</string>
+    <string name="label_est_time">अनुमानित समय</string>
+    <string name="label_fastest">सबसे तेज़</string>
+    <string name="label_route">मार्ग</string>
+    <string name="label_discount_off">₹%d छूट</string>
+
+    <!-- Coupon Screen -->
+    <string name="title_apply_coupon">कूपन लगाएं</string>
+    <string name="label_have_coupon">कूपन कोड है?</string>
+    <string name="hint_enter_code">कोड दर्ज करें</string>
+    <string name="label_apply">लागू करें</string>
+    <string name="label_no_coupons">कोई कूपन उपलब्ध नहीं</string>
+    <string name="label_no_coupons_subtitle">रोमांचक ऑफर के लिए बाद में देखें</string>
+    <string name="label_available_coupons">उपलब्ध कूपन</string>
+    <string name="label_loading_coupons">कूपन लोड हो रहे हैं…</string>
+    <string name="label_apply_uppercase">लागू करें</string>
+
+    <!-- AddGSTINScreen -->
+    <string name="add_gst_details_title">GST विवरण जोड़ें</string>
+    <string name="why_add_gstin">GSTIN क्यों जोड़ें?</string>
+    <string name="gstin_benefit_description">इनपुट टैक्स क्रेडिट दावों के लिए GSTIN के साथ विस्तृत इनवॉइस प्राप्त करें</string>
+    <string name="enter_gst_details">GST विवरण दर्ज करें</string>
+    <string name="gstin_invalid_error">कृपया वैध 15 अंकों का GSTIN दर्ज करें</string>
+    <string name="gstin_char_count">%d/15 अक्षर</string>
+    <string name="company_name_label">कंपनी/व्यवसाय का नाम</string>
+    <string name="company_name_placeholder">ABC प्राइवेट लिमिटेड</string>
+    <string name="company_name_required">कंपनी का नाम आवश्यक है</string>
+    <string name="benefits_title">लाभ</string>
+    <string name="benefit_itc">इनपुट टैक्स क्रेडिट (ITC) का दावा करें</string>
+    <string name="benefit_invoice">विस्तृत GST इनवॉइस प्राप्त करें</string>
+    <string name="benefit_accounting">उचित लेखांकन रिकॉर्ड बनाए रखें</string>
+    <string name="benefit_tax_filing">सरलीकृत कर दाखिल</string>
+    <string name="save_gst_details">GST विवरण सेव करें</string>
+
+    <!-- AddressConfirmationScreen -->
+    <string name="no_address_selected">कोई पता नहीं चुना</string>
+    <string name="select_location_first">कृपया पहले एक स्थान चुनें</string>
+    <string name="go_back">वापस जाएं</string>
+    <string name="edit_address_title">पता संपादित करें</string>
+    <string name="add_new_address_title">नया पता जोड़ें</string>
+    <string name="edit_pickup_details">पिकअप विवरण संपादित करें</string>
+    <string name="edit_drop_details">ड्रॉप विवरण संपादित करें</string>
+    <string name="confirm_pickup_location">पिकअप स्थान पुष्टि करें</string>
+    <string name="confirm_drop_location">ड्रॉप स्थान पुष्टि करें</string>
+    <string name="save_address">पता सेव करें</string>
+    <string name="save_changes">बदलाव सेव करें</string>
+    <string name="confirm_pickup">पिकअप पुष्टि करें</string>
+    <string name="confirm_drop">ड्रॉप पुष्टि करें</string>
+    <string name="contact_details_header">संपर्क विवरण</string>
+    <string name="sender_details_header">भेजने वाले का विवरण</string>
+    <string name="receiver_details_header">प्राप्तकर्ता का विवरण</string>
+    <string name="name_required">नाम *</string>
+    <string name="sender_name_required">भेजने वाले का नाम *</string>
+    <string name="receiver_name_required">प्राप्तकर्ता का नाम *</string>
+    <string name="update_contact_subtitle">संपर्क और पता विवरण अपडेट करें</string>
+    <string name="location_saved_badge">यह स्थान सेव किया जाएगा</string>
+    <string name="change_location">स्थान बदलें</string>
+    <string name="selected_location">चयनित स्थान</string>
+    <string name="pickup_location">पिकअप स्थान</string>
+    <string name="drop_location">ड्रॉप स्थान</string>
+    <string name="address_not_available">पता उपलब्ध नहीं</string>
+    <string name="location_not_available">स्थान निर्देशांक उपलब्ध नहीं</string>
+    <string name="enter_contact_name">संपर्क व्यक्ति का नाम दर्ज करें</string>
+    <string name="contact_phone_required">संपर्क फोन *</string>
+    <string name="enter_10_digit_mobile">10 अंकों का मोबाइल नंबर दर्ज करें</string>
+    <string name="phone_prefix">+91 </string>
+    <string name="use_my_mobile_format">मेरा मोबाइल नंबर उपयोग करें: %s</string>
+    <string name="address_details_optional">पता विवरण (वैकल्पिक)</string>
+    <string name="building_details_label">बिल्डिंग विवरण</string>
+    <string name="building_details_placeholder">फ्लैट नं., बिल्डिंग का नाम</string>
+    <string name="landmark_label">लैंडमार्क</string>
+    <string name="landmark_placeholder">जैसे, पेट्रोल पंप के पास, मॉल के सामने</string>
+    <string name="pincode_label">पिनकोड</string>
+    <string name="pincode_placeholder">6 अंकों का पिनकोड दर्ज करें</string>
+    <string name="save_address_as">पता इस रूप में सेव करें</string>
+    <string name="home_type">घर</string>
+    <string name="shop_type">दुकान</string>
+    <string name="other_type">अन्य</string>
+    <string name="label_name_optional">लेबल नाम (वैकल्पिक)</string>
+    <string name="label_placeholder">जैसे, ऑफिस, जिम, दोस्त का घर</string>
+    <string name="enter_contact_name_error">कृपया संपर्क नाम दर्ज करें</string>
+    <string name="enter_valid_phone_error">कृपया वैध 10 अंकों का नंबर दर्ज करें</string>
+    <string name="address_fallback">पता</string>
+
+    <!-- Goods Type Bottom Sheet -->
+    <string name="title_select_goods_type">सामान प्रकार चुनें</string>
+    <string name="label_choose_goods_hint">आप जो सामान भेज रहे हैं उसका प्रकार चुनें</string>
+    <string name="label_confirm_selection">चयन पुष्टि करें</string>
+
+    <!-- Location Search Screen -->
+    <string name="label_search_pickup">पिकअप स्थान खोजें…</string>
+    <string name="label_search_drop">ड्रॉप स्थान खोजें…</string>
+    <string name="label_search_location">स्थान खोजें…</string>
+    <string name="label_searching">खोज रहे हैं…</string>
+    <string name="label_recent_searches">हाल की खोजें</string>
+    <string name="content_desc_history">इतिहास</string>
+    <string name="content_desc_use">उपयोग करें</string>
+    <string name="label_saved_addresses">सेव किए गए पते</string>
+    <string name="label_recent_pickups">हाल के पिकअप</string>
+    <string name="content_desc_recent">हाल का</string>
+    <string name="content_desc_select">चुनें</string>
+    <string name="content_desc_save">सेव करें</string>
+    <string name="label_current">वर्तमान</string>
+    <string name="label_on_map">नक्शे पर</string>
+    <string name="save_address_btn">पता सेव करें</string>
+
+    <!-- Map Picker Screen -->
+    <string name="title_select_location">स्थान चुनें</string>
+    <string name="content_desc_pin">पिन</string>
+    <string name="label_selected_location">चयनित स्थान</string>
+    <string name="label_getting_address">पता प्राप्त हो रहा है…</string>
+    <string name="label_move_map_hint">स्थान चुनने के लिए नक्शा हिलाएं</string>
+    <string name="label_latitude">अक्षांश</string>
+    <string name="label_longitude">देशांतर</string>
+    <string name="label_confirm_location">स्थान पुष्टि करें</string>
+    <string name="content_desc_my_location">मेरा स्थान</string>
+    <string name="label_unknown_location">अज्ञात स्थान</string>
+    <string name="label_unable_get_address">पता प्राप्त करने में असमर्थ</string>
+
+    <!-- Route Map Screen -->
+    <string name="label_distance_label">दूरी</string>
+    <string name="label_duration_label">अवधि</string>
+
+    <!-- Searching Rider Screen -->
+    <string name="label_finding_route">मार्ग खोज रहे हैं…</string>
+    <string name="label_rider_found">राइडर मिला! कनेक्ट हो रहा है…</string>
+    <string name="label_no_drivers_available">कोई ड्राइवर उपलब्ध नहीं</string>
+    <string name="label_searching_drivers">आसपास के ड्राइवर खोज रहे हैं · %s</string>
+    <string name="label_rider_found_title">राइडर मिल गया! 🎉</string>
+    <string name="label_no_riders_available">कोई राइडर उपलब्ध नहीं</string>
+    <string name="label_searching_for_drivers">ड्राइवर खोज रहे हैं…</string>
+    <string name="label_connecting_driver">आपके ड्राइवर से कनेक्ट हो रहा है…</string>
+    <string name="label_all_drivers_busy">अभी सभी ड्राइवर व्यस्त हैं</string>
+    <string name="label_checking_drivers">आसपास के ड्राइवर जांच रहे हैं · प्रयास %d</string>
+    <string name="label_try_again">पुनः प्रयास करें</string>
+    <string name="label_attempt_completed">प्रयास %d पूरा</string>
+    <string name="label_remaining">शेष</string>
+    <string name="label_support">सहायता</string>
+    <string name="label_vehicle_fallback">वाहन</string>
+
+    <!-- Cancellation Bottom Sheet -->
+    <string name="title_cancel_trip">ट्रिप रद्द करें?</string>
+    <string name="label_select_reason">कृपया एक कारण चुनें</string>
+    <string name="label_reason_driver_delayed">ड्राइवर बहुत देर कर रहा है</string>
+    <string name="label_reason_change_plans">योजना बदल गई</string>
+    <string name="label_reason_wrong_address">गलत पिकअप/ड्रॉप स्थान</string>
+    <string name="label_reason_price_high">कीमत बहुत ज्यादा है</string>
+    <string name="label_reason_booking_mistake">गलती से बुक हो गया</string>
+    <string name="label_reason_other">अन्य कारण</string>
+    <string name="label_please_specify">कृपया बताएं</string>
+    <string name="hint_enter_reason">अपना कारण दर्ज करें…</string>
+    <string name="label_cancellation_policy">रद्दीकरण नीति</string>
+    <string name="label_cancellation_warning">बार-बार रद्द करने पर अस्थायी निलंबन हो सकता है।</string>
+    <string name="label_keep_trip">ट्रिप रखें</string>
+    <string name="label_cancel_trip">ट्रिप रद्द करें</string>
+    <string name="title_confirm_cancellation">रद्दीकरण पुष्टि करें</string>
+    <string name="label_confirm_cancel_message">क्या आप वाकई इस ट्रिप को रद्द करना चाहते हैं?</string>
+    <string name="label_yes_cancel">हां, रद्द करें</string>
+    <string name="label_no_keep_it">नहीं, रखें</string>
+    <string name="label_cancelled">रद्द</string>
+    <string name="label_other_reason">अन्य</string>
+
+    <!-- RestrictedItemsBottomSheet -->
+    <string name="restricted_items_title">प्रतिबंधित सामान</string>
+    <string name="restricted_items_subtitle">ये सामान भेजे नहीं जा सकते</string>
+    <string name="important_notice">महत्वपूर्ण सूचना</string>
+    <string name="restricted_items_warning">प्रतिबंधित सामान भेजने पर बुकिंग रद्द और कानूनी कार्रवाई हो सकती है</string>
+    <string name="i_understand">मैं समझता/समझती हूं</string>
+
+    <!-- ReviewBookingScreen -->
+    <string name="review_booking">बुकिंग समीक्षा</string>
+    <string name="creating_booking">बुकिंग बना रहे हैं…</string>
+    <string name="offers_and_discounts">ऑफर और छूट</string>
+    <string name="fare_summary">किराया सारांश</string>
+    <string name="goods_description">सामान विवरण</string>
+    <string name="read_before_booking">बुकिंग से पहले पढ़ें</string>
+    <string name="by_booking_agree">बुकिंग करके आप हमारी </string>
+    <string name="terms_of_service">सेवा शर्तों</string>
+    <string name="you_save_format">आपकी बचत ₹%d</string>
+    <string name="book_vehicle_format">%s बुक करें</string>
+    <string name="dismiss">खारिज करें</string>
+    <string name="view_trip_details">ट्रिप विवरण देखें</string>
+    <string name="free_loading_format">%d मिनट मुफ्त लोडिंग-अनलोडिंग समय शामिल</string>
+    <string name="surge_pricing_format">अधिक मांग: %s%% सर्ज प्राइसिंग लागू</string>
+    <string name="subtotal">उप-कुल</string>
+    <string name="base_fare_incl_format">बेस किराया (%d किमी शामिल)</string>
+    <string name="distance_charge_format">दूरी (%s किमी)</string>
+    <string name="platform_fee">प्लेटफॉर्म शुल्क</string>
+    <string name="surge_format">सर्ज (%s%%)</string>
+    <string name="gst_format">GST (%d%%)</string>
+    <string name="coupon_format">कूपन (%s)</string>
+    <string name="coupon_discount">कूपन छूट</string>
+    <string name="amount_payable">देय राशि</string>
+    <string name="view_detailed_breakdown">विस्तृत विवरण देखें</string>
+    <string name="fare_breakdown">किराया विवरण</string>
+    <string name="total_amount_label">कुल राशि</string>
+    <string name="apply_coupon">कूपन लगाएं</string>
+    <string name="remove">हटाएं</string>
+    <string name="gstin_added">GSTIN जोड़ा गया</string>
+    <string name="have_gst_number">GST नंबर है?</string>
+    <string name="gstin_itc_info">इनपुट टैक्स क्रेडिट के लिए GSTIN के साथ इनवॉइस प्राप्त करें</string>
+    <string name="select_goods_type">सामान प्रकार चुनें</string>
+    <string name="select_label">चुनें</string>
+    <string name="do_not_send_restricted">प्रतिबंधित सामान न भेजें</string>
+    <string name="choose_payment_method">भुगतान विधि चुनें</string>
+    <string name="selected">चयनित</string>
+    <string name="selected_label">चयनित</string>
+    <string name="fare_loading_term">किराये में %d मिनट मुफ्त लोडिंग/अनलोडिंग समय शामिल है।</string>
+    <string name="extra_loading_charge">अतिरिक्त लोडिंग/अनलोडिंग समय के लिए ₹ 2.0/मिनट।</string>
+    <string name="fare_route_change">मार्ग या स्थान बदलने पर किराया बदल सकता है।</string>
+    <string name="parking_charges">पार्किंग शुल्क ग्राहक द्वारा देय।</string>
+    <string name="toll_included">टोल और परमिट शुल्क, यदि कोई हो, शामिल हैं।</string>
+    <string name="no_overloading">हम ओवरलोडिंग की अनुमति नहीं देते।</string>
+    <string name="default_label">डिफॉल्ट</string>
+    <string name="default_suffix">(डिफॉल्ट)</string>
+
+    <!-- RiderFoundScreen -->
+    <string name="delivery_complete">डिलीवरी पूरी!</string>
+    <string name="parcel_in_transit">पार्सल रास्ते में</string>
+    <string name="driver_arrived">ड्राइवर पहुंच गया!</string>
+    <string name="rider_assigned_title">राइडर मिल गया!</string>
+    <string name="trip_label">ट्रिप %s</string>
+    <string name="share">शेयर</string>
+    <string name="eta_min_format">~%d मिनट</string>
+    <string name="waiting_charges_applied">प्रतीक्षा शुल्क लागू</string>
+    <string name="driver_is_waiting">ड्राइवर प्रतीक्षा कर रहा है</string>
+    <string name="free_waiting">मुफ्त प्रतीक्षा</string>
+    <string name="hurry_to_pickup">कृपया पिकअप पॉइंट पर\nजल्दी आएं</string>
+    <string name="charge_per_min_format">₹%d/मिनट</string>
+    <string name="waiting_charge_applied_fare">प्रतीक्षा शुल्क\nकिराये में जोड़ा गया</string>
+    <string name="charge_breakdown_format">₹%d × %d मिनट</string>
+    <string name="plus_charge_format">+ ₹%d</string>
+    <string name="free_waiting_info_format">3 मिनट के बाद, ₹%d/मिनट प्रतीक्षा शुल्क लागू</string>
+    <string name="free_label">मुफ्त</string>
+    <string name="rider_photo">राइडर की फोटो</string>
+    <string name="trips_format">%d ट्रिप</string>
+    <string name="call_rider">राइडर को कॉल करें</string>
+    <string name="pickup_otp">पिकअप OTP</string>
+    <string name="share_otp_for_verification">पिकअप सत्यापन के लिए राइडर को यह OTP बताएं</string>
+    <string name="trip_fare_label">ट्रिप किराया</string>
+    <string name="cash_payment">नकद भुगतान</string>
+    <string name="waiting_charge_label">प्रतीक्षा शुल्क</string>
+    <string name="total_cash">कुल (नकद)</string>
+    <string name="cancel_booking_title">बुकिंग रद्द करें?</string>
+    <string name="select_reason">कृपया एक कारण चुनें:</string>
+    <string name="cancel_reason_driver_slow">ड्राइवर बहुत देर कर रहा है</string>
+    <string name="cancel_reason_another_ride">दूसरी सवारी मिल गई</string>
+    <string name="cancel_reason_plans_changed">योजना बदल गई</string>
+    <string name="cancel_reason_wrong_location">गलत पिकअप/ड्रॉप स्थान</string>
+    <string name="cancel_reason_other">अन्य कारण</string>
+    <string name="cancel_booking_btn">बुकिंग रद्द करें</string>
+    <string name="go_back_btn">वापस जाएं</string>
+
+</resources>
