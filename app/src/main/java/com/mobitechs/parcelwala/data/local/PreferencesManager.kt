@@ -1,5 +1,4 @@
 // data/local/PreferencesManager.kt
-// ✅ UPDATED: Added active booking persistence for crash recovery
 package com.mobitechs.parcelwala.data.local
 
 import android.content.Context
@@ -11,7 +10,11 @@ import com.mobitechs.parcelwala.data.model.request.SearchHistory
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.utils.Constants
 import com.mobitechs.parcelwala.utils.Constants.SEARCH_HISTORY_KEY
+import com.mobitechs.parcelwala.utils.LocaleHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +22,7 @@ private const val TAG = "PreferencesManager"
 
 @Singleton
 class PreferencesManager @Inject constructor(
-    @ApplicationContext context: Context
+    @ApplicationContext private val context: Context
 ) {
 
     private val sharedPreferences: SharedPreferences = context.getSharedPreferences(
@@ -87,17 +90,13 @@ class PreferencesManager @Inject constructor(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ✅ NEW: ACTIVE BOOKING PERSISTENCE (Crash Recovery)
+    // ACTIVE BOOKING PERSISTENCE (Crash Recovery)
     // ═══════════════════════════════════════════════════════════════════════
 
     companion object {
         private const val KEY_ACTIVE_BOOKING = "active_booking_data"
     }
 
-    /**
-     * Save the active booking as JSON string.
-     * Called every time booking state changes in ActiveBookingManager.
-     */
     fun saveActiveBooking(bookingJson: String) {
         sharedPreferences.edit()
             .putString(KEY_ACTIVE_BOOKING, bookingJson)
@@ -105,23 +104,45 @@ class PreferencesManager @Inject constructor(
         Log.d(TAG, "💾 Active booking saved to prefs")
     }
 
-    /**
-     * Get the persisted active booking JSON.
-     * Returns null if no booking was saved or app is fresh.
-     */
     fun getActiveBooking(): String? {
         return sharedPreferences.getString(KEY_ACTIVE_BOOKING, null)
     }
 
-    /**
-     * Clear the persisted active booking.
-     * Called when booking is completed, cancelled, or delivered.
-     */
     fun clearActiveBooking() {
         sharedPreferences.edit()
             .remove(KEY_ACTIVE_BOOKING)
             .apply()
         Log.d(TAG, "🗑️ Active booking cleared from prefs")
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LANGUAGE PREFERENCE
+    // Delegates to LocaleHelper's own SharedPreferences so it's readable
+    // in attachBaseContext() before Hilt injection is available.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private val _selectedLanguageFlow = MutableStateFlow(
+        LocaleHelper.getSavedLanguage(context)
+    )
+
+    /** Observable flow of the selected language code */
+    val selectedLanguageFlow: Flow<String> = _selectedLanguageFlow.asStateFlow()
+
+    /**
+     * Save selected language code.
+     * Writes to LocaleHelper's dedicated SharedPreferences (synchronous commit).
+     */
+    fun setLanguage(languageCode: String) {
+        LocaleHelper.saveLanguage(context, languageCode)
+        _selectedLanguageFlow.value = languageCode
+        Log.d(TAG, "🌐 Language saved: $languageCode")
+    }
+
+    /**
+     * Get the saved language code synchronously.
+     */
+    fun getSelectedLanguage(): String {
+        return LocaleHelper.getSavedLanguage(context)
     }
 
     // ═══════════════════════════════════════════════════════════════════════

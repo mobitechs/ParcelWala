@@ -32,10 +32,6 @@ import com.mobitechs.parcelwala.ui.screens.orders.OrdersScreen
 import com.mobitechs.parcelwala.ui.screens.payments.PaymentsScreen
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
-/**
- * Bottom Navigation Items
- * Defines the tabs in the bottom navigation bar
- */
 sealed class BottomNavItem(
     val route: String,
     val titleResId: Int,
@@ -71,15 +67,6 @@ sealed class BottomNavItem(
     )
 }
 
-/**
- * Main Screen with Bottom Navigation
- *
- * Contains:
- * - Home tab with vehicle selection
- * - Orders tab with order history
- * - Payments tab
- * - Account tab with profile management
- */
 @SuppressLint("ContextCastToActivity")
 @Composable
 fun MainScreen(
@@ -92,6 +79,7 @@ fun MainScreen(
     onNavigateToSavedAddresses: () -> Unit = {},
     onNavigateToProfileDetails: () -> Unit = {},
     onNavigateToGSTDetails: () -> Unit = {},
+    onNavigateToLanguage: () -> Unit = {},
     currentRoute: String = "home"
 ) {
     val navController = rememberNavController()
@@ -117,18 +105,15 @@ fun MainScreen(
                 navController = navController,
                 startDestination = currentRoute.ifEmpty { BottomNavItem.Home.route }
             ) {
-                // ============ HOME TAB ============
                 composable(BottomNavItem.Home.route) {
                     HomeScreen(
                         onNavigateToLocationSearch = onNavigateToLocationSearch,
                         onNavigateToActiveBooking = { activeBooking ->
-                            // Navigate to active booking screen
                             onNavigateToActiveBooking(activeBooking)
                         }
                     )
                 }
 
-                // ============ ORDERS TAB ============
                 composable(BottomNavItem.Orders.route) {
                     OrdersScreen(
                         onOrderClick = { order ->
@@ -140,7 +125,6 @@ fun MainScreen(
                     )
                 }
 
-                // ============ PAYMENTS TAB ============
                 composable(BottomNavItem.Payments.route) {
                     val activity = LocalContext.current as? MainActivity
                     activity?.let {
@@ -148,7 +132,6 @@ fun MainScreen(
                     }
                 }
 
-                // ============ ACCOUNT TAB ============
                 composable(BottomNavItem.Account.route) {
                     AccountScreen(
                         onNavigateToSavedAddresses = onNavigateToSavedAddresses,
@@ -156,6 +139,7 @@ fun MainScreen(
                         onNavigateToGSTDetails = onNavigateToGSTDetails,
                         onNavigateToReferral = { /* TODO: Navigate to Referral */ },
                         onNavigateToTerms = { /* TODO: Navigate to Terms */ },
+                        onNavigateToLanguage = onNavigateToLanguage,
                         onLogout = onNavigateToLogin
                     )
                 }
@@ -164,10 +148,6 @@ fun MainScreen(
     }
 }
 
-/**
- * Bottom Navigation Bar
- * Custom styled navigation bar with orange theme
- */
 @Composable
 private fun BottomNavigationBar(
     navController: NavHostController,
@@ -215,7 +195,6 @@ private fun BottomNavigationBar(
                     selectedTextColor = AppColors.Primary,
                     unselectedIconColor = AppColors.TextSecondary,
                     unselectedTextColor = AppColors.TextSecondary,
-                    // Transparent indicator - no light orange background
                     indicatorColor = Color.Transparent
                 )
             )

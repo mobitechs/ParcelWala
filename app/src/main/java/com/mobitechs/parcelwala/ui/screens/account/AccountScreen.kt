@@ -28,16 +28,6 @@ import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 
-/**
- * Account Screen
- * Main profile/account management screen with navigation to sub-features
- *
- * Features:
- * - User profile header with View/Edit option
- * - Quick action cards (Saved Addresses, Help & Support)
- * - GST Details section
- * - Logout option
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
@@ -46,6 +36,7 @@ fun AccountScreen(
     onNavigateToGSTDetails: () -> Unit,
     onNavigateToReferral: () -> Unit,
     onNavigateToTerms: () -> Unit,
+    onNavigateToLanguage: () -> Unit,
     onLogout: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel()
 ) {
@@ -143,7 +134,6 @@ fun AccountScreen(
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Saved Addresses Card
                 QuickActionCard(
                     icon = Icons.Default.Favorite,
                     title = stringResource(R.string.saved_addresses),
@@ -151,7 +141,6 @@ fun AccountScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Help & Support Card
                 QuickActionCard(
                     icon = Icons.Default.HelpOutline,
                     title = stringResource(R.string.help_support),
@@ -181,6 +170,16 @@ fun AccountScreen(
                     title = stringResource(R.string.refer_earn),
                     subtitle = stringResource(R.string.refer_earn_subtitle),
                     onClick = onNavigateToReferral
+                )
+
+                HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
+
+                // Language
+                MenuItemRow(
+                    icon = Icons.Outlined.Language,
+                    title = stringResource(R.string.language),
+                    subtitle = stringResource(R.string.language_options_display),
+                    onClick = onNavigateToLanguage
                 )
 
                 HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
@@ -222,10 +221,6 @@ fun AccountScreen(
     }
 }
 
-/**
- * Profile Header Card
- * Displays user info with View and Add GST options
- */
 @Composable
 private fun ProfileHeaderCard(
     userName: String,
@@ -244,7 +239,6 @@ private fun ProfileHeaderCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // View Button - Top Right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -265,7 +259,6 @@ private fun ProfileHeaderCard(
                 }
             }
 
-            // Profile Avatar
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -283,7 +276,6 @@ private fun ProfileHeaderCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // User Name
             Text(
                 text = userName,
                 style = MaterialTheme.typography.headlineSmall,
@@ -293,7 +285,6 @@ private fun ProfileHeaderCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Email with verify option
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -315,7 +306,6 @@ private fun ProfileHeaderCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Add GST Details Button
             OutlinedButton(
                 onClick = onAddGSTClick,
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -341,10 +331,6 @@ private fun ProfileHeaderCard(
     }
 }
 
-/**
- * Quick Action Card
- * Reusable card for quick actions like Saved Addresses, Help
- */
 @Composable
 private fun QuickActionCard(
     icon: ImageVector,
@@ -384,10 +370,6 @@ private fun QuickActionCard(
     }
 }
 
-/**
- * GST Details Card
- * Shows GST section with add option
- */
 @Composable
 private fun GSTDetailsCard(
     gstin: String?,
@@ -443,10 +425,6 @@ private fun GSTDetailsCard(
     }
 }
 
-/**
- * Menu Item Row
- * Reusable menu item with icon, title, and subtitle
- */
 @Composable
 private fun MenuItemRow(
     icon: ImageVector,

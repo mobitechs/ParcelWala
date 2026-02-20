@@ -199,8 +199,17 @@ fun NavGraph(
                 onNavigateToProfileDetails = {
                     navController.navigate("profile_details")
                 },
+                onNavigateToLanguage = {
+                    navController.navigate(Screen.Language.route)
+                },
                 onNavigateToGSTDetails = { },
                 currentRoute = "home"
+            )
+        }
+
+        composable(Screen.Language.route) {
+            com.mobitechs.parcelwala.ui.screens.account.LanguageSelectionScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

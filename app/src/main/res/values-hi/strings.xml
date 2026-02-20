@@ -640,4 +640,22 @@
     <string name="cancel_booking_btn">बुकिंग रद्द करें</string>
     <string name="go_back_btn">वापस जाएं</string>
 
+    <string name="language_change_hint">आप कभी भी अकाउंट सेटिंग्स से भाषा बदल सकते हैं</string>
+    <string name="change_language_title">भाषा बदलें</string>
+    <string name="restart_now">अभी पुनः शुरू करें</string>
+    <string name="language_options_display">English • हिंदी • मराठी</string>
+
+    <string name="language">भाषा</string>
+    <string name="select_language">भाषा चुनें</string>
+    <string name="lang_english">English</string>
+    <string name="lang_hindi">हिंदी (Hindi)</string>
+    <string name="lang_marathi">मराठी (Marathi)</string>
+    <string name="lang_gujarati">ગુજરાતી (Gujarati)</string>
+    <string name="lang_tamil">தமிழ் (Tamil)</string>
+    <string name="lang_telugu">తెలుగు (Telugu)</string>
+    <string name="lang_kannada">ಕನ್ನಡ (Kannada)</string>
+    <string name="lang_bengali">বাংলা (Bengali)</string>
+    <string name="restart_dialog_message">नई भाषा लागू करने के लिए ऐप को पुनः प्रारंभ करना होगा।</string>
+    <string name="selected_cd">चयनित</string>
+
 </resources>

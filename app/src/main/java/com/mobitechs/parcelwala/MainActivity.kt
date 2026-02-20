@@ -1,5 +1,6 @@
 package com.mobitechs.parcelwala
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -22,6 +23,7 @@ import com.mobitechs.parcelwala.ui.navigation.Screen
 import com.mobitechs.parcelwala.ui.theme.ParcelWalaTheme
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentViewModel
 import com.mobitechs.parcelwala.utils.AuthEventManager
+import com.mobitechs.parcelwala.utils.LocaleHelper
 import com.mobitechs.parcelwala.utils.RequestNotificationPermission
 import com.razorpay.PaymentData
 import com.razorpay.PaymentResultWithDataListener
@@ -37,11 +39,17 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
     @Inject
     lateinit var fcmTokenManager: FCMTokenManager
+
     @Inject
     lateinit var authEventManager: AuthEventManager
 
     val paymentViewModel: PaymentViewModel by viewModels()
 
+    override fun attachBaseContext(newBase: Context) {
+        val languageCode = LocaleHelper.getSavedLanguage(newBase)
+        val context = LocaleHelper.setLocale(newBase, languageCode)
+        super.attachBaseContext(context)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +60,6 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         handleNotificationIntent()
 
         setContent {
-
 
             RequestNotificationPermission { isGranted ->
                 if (isGranted) {
@@ -66,35 +73,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
+                    val snackbarHostState = remember { SnackbarHostState() }
 
-//                    LaunchedEffect(Unit) {
-//                        authEventManager.sessionExpiredEvent.collect {
-//                            // Navigate to login and clear entire back stack
-//                            navController.navigate(Screen.Login.route) {
-//                                popUpTo(0) { inclusive = true }  // Clear ALL screens
-//                            }
-//                        }
-//                    }
-
-//                    if  you want to show snack bar session expired then un comment this and comment above code
-                                    val snackbarHostState = remember { SnackbarHostState() }
-
-                                    // ✅ Observe session expired events
-                                    LaunchedEffect(Unit) {
-                                        authEventManager.sessionExpiredEvent.collect {
-                                            // Show message
-                                            snackbarHostState.showSnackbar(
-                                                message = "Session expired. Please login again.",
-                                                duration = SnackbarDuration.Short
-                                            )
-
-                                            // Navigate to login
-                                            navController.navigate(Screen.Login.route) {
-                                                popUpTo(0) { inclusive = true }
-                                            }
-                                        }
-                                    }
-
+                    // Observe session expired events
+                    LaunchedEffect(Unit) {
+                        authEventManager.sessionExpiredEvent.collect {
+                            snackbarHostState.showSnackbar(
+                                message = "Session expired. Please login again.",
+                                duration = SnackbarDuration.Short
+                            )
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
 
                     NavGraph(
                         navController = navController,
@@ -103,24 +95,17 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 }
             }
         }
-
     }
-
-
-
 
     fun initializeFCM() {
         lifecycleScope.launch {
             val token = fcmTokenManager.getToken()
             Log.d("MainActivity", "FCM Token: $token")
-
-            // Subscribe to general notifications topic
             fcmTokenManager.subscribeToTopic("all_users")
         }
     }
 
     fun handleNotificationIntent() {
-        // Check if app was opened from notification
         intent?.extras?.let { extras ->
             val notificationType = extras.getString("type")
             val bookingId = extras.getString("booking_id")
@@ -128,15 +113,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
             Log.d("MainActivity", "Notification data: type=$notificationType, bookingId=$bookingId")
 
-            // Handle deep linking based on notification type
             when (notificationType) {
                 "booking" -> {
                     bookingId?.let {
                         // Navigate to booking details
-                        // navController.navigate("booking_details/$bookingId")
                     }
                 }
-                // Add more cases as needed
             }
         }
     }
@@ -146,17 +128,14 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         val orderId = paymentData?.orderId ?: return
         val signature = paymentData?.signature ?: return
 
-        // Check if this is a wallet topup or booking payment
         val state = paymentViewModel.uiState.value
         if (state.topupOrderResponse != null) {
-            // Wallet topup flow
             paymentViewModel.onWalletTopupSuccess(
                 razorpayPaymentId = paymentId,
                 razorpayOrderId = orderId,
                 razorpaySignature = signature
             )
         } else {
-            // Booking payment flow
             paymentViewModel.onRazorpayPaymentSuccess(
                 razorpayPaymentId = paymentId,
                 razorpayOrderId = orderId,

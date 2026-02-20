@@ -51,6 +51,7 @@ sealed class Screen(val route: String) {
     }
 
     // ============ ACCOUNT FLOW SCREENS ============
+    object Language : Screen("language")
     object AccountFlow : Screen("account_flow")
     object SavedAddresses : Screen("saved_addresses")
     object AddressSearch : Screen("address_search")
