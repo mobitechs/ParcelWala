@@ -129,9 +129,9 @@ fun OrderDetailsScreen(
                     AddressesCard(
                         order.pickupContactName,
                         order.pickupContactPhone,
+                        order.pickupAddress,
                         order.dropContactName,
                         order.dropContactPhone,
-                        order.pickupAddress,
                         order.dropAddress
                     )
                 }
