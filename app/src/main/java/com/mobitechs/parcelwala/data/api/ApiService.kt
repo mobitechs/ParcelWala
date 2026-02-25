@@ -182,9 +182,7 @@ interface ApiService {
         @Body request: VerifyPaymentRequest
     ): ApiResponse<VerifyPaymentResponse>
 
-    // Get saved payment methods
-    @GET("customer/payment-methods")
-    suspend fun getPaymentMethods(): ApiResponse<List<PaymentMethodResponse>>
+
 
     // Get transaction history
     @GET("customer/transactions")
@@ -211,13 +209,6 @@ interface ApiService {
     suspend fun verifyWalletTopup(
         @Body request: WalletTopupVerifyRequest
     ): ApiResponse<WalletTopupResponse>
-
-    // Get wallet transactions
-    @GET("customer/wallet/transactions")
-    suspend fun getWalletTransactions(
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
-    ): ApiResponse<TransactionListResponse>
 
 
 

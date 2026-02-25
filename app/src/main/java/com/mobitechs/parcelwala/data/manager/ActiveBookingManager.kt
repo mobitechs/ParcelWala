@@ -183,7 +183,8 @@ data class ActiveBooking(
     val status: BookingStatus,
     val createdAt: Long,
     val searchStartTime: Long = createdAt,
-    val searchAttempts: Int = 1
+    val searchAttempts: Int = 1,
+    val paymentMethod: String = "cash",
 )
 
 enum class BookingStatus {

@@ -38,6 +38,7 @@ data class PaymentUiState(
     val currentBookingId: Int? = null,
     val currentAmount: Double = 0.0,
     val currentPaymentMethod: String = "upi",
+    val currentNotes: String = "",
     val currentOrderResponse: CreateOrderResponse? = null,
 
     // Wallet topup state
@@ -64,7 +65,8 @@ sealed class PaymentEvent {
 
     data class WalletTopupSuccess(
         val newBalance: Double,
-        val amount: Double
+        val amount: Double,
+        val transactionNumber: String? = null
     ) : PaymentEvent()
 }
 
@@ -95,13 +97,15 @@ class PaymentViewModel @Inject constructor(
     fun initiateBookingPayment(
         bookingId: Int,
         amount: Double,
-        paymentMethod: String
+        paymentMethod: String,
+        notes: String
     ) {
         _uiState.update {
             it.copy(
                 currentBookingId = bookingId,
                 currentAmount = amount,
-                currentPaymentMethod = paymentMethod
+                currentPaymentMethod = paymentMethod,
+                currentNotes = notes
             )
         }
 
@@ -109,7 +113,8 @@ class PaymentViewModel @Inject constructor(
             paymentRepository.createPaymentOrder(
                 bookingId = bookingId,
                 amount = amount,
-                paymentMethod = paymentMethod
+                paymentMethod = paymentMethod,
+                notes = notes
             ).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
@@ -123,7 +128,6 @@ class PaymentViewModel @Inject constructor(
                                     currentOrderResponse = orderResponse
                                 )
                             }
-                            // Emit event to open Razorpay checkout
                             _paymentEvent.emit(
                                 PaymentEvent.OpenRazorpayCheckout(orderResponse)
                             )
@@ -146,7 +150,6 @@ class PaymentViewModel @Inject constructor(
 
     /**
      * Step 2: Open Razorpay Checkout SDK
-     * Called from Activity after receiving OpenRazorpayCheckout event
      */
     fun openRazorpayCheckout(activity: Activity, orderResponse: CreateOrderResponse) {
         razorpayManager.openCheckout(
@@ -157,8 +160,7 @@ class PaymentViewModel @Inject constructor(
     }
 
     /**
-     * Step 3: Handle Razorpay success callback
-     * Verify payment on backend
+     * Step 3: Handle Razorpay success callback - verify payment on backend
      */
     fun onRazorpayPaymentSuccess(
         razorpayPaymentId: String,
@@ -212,7 +214,7 @@ class PaymentViewModel @Inject constructor(
      */
     fun onRazorpayPaymentFailure(errorCode: Int, errorMessage: String?) {
         val message = when (errorCode) {
-            Checkout.PAYMENT_CANCELED -> "Payment cancelled"
+            Checkout.PAYMENT_CANCELED -> "Payment cancelled by user"
             Checkout.NETWORK_ERROR -> "Network error. Please check your connection"
             Checkout.INVALID_OPTIONS -> "Invalid payment options"
             else -> errorMessage ?: "Payment failed"
@@ -229,6 +231,10 @@ class PaymentViewModel @Inject constructor(
     // WALLET TOPUP FLOW
     // ============================================================
 
+    /**
+     * Step 1: Create wallet topup order via backend API
+     * Calls: POST payments/wallet/create-order
+     */
     fun initiateWalletTopup(amount: Double) {
         _uiState.update { it.copy(topupAmount = amount) }
 
@@ -258,12 +264,21 @@ class PaymentViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(isLoading = false, error = result.message)
                         }
+                        _paymentEvent.emit(
+                            PaymentEvent.PaymentFailure(
+                                result.message ?: "Failed to create topup order"
+                            )
+                        )
                     }
                 }
             }
         }
     }
 
+    /**
+     * Step 3: Verify wallet topup after Razorpay success
+     * Calls: POST payments/wallet/verify
+     */
     fun onWalletTopupSuccess(
         razorpayPaymentId: String,
         razorpayOrderId: String,
@@ -285,20 +300,27 @@ class PaymentViewModel @Inject constructor(
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
-                                    walletBalance = response.newBalance,
+                                    walletBalance = response.balanceAfter,
                                     topupOrderResponse = null
                                 )
                             }
                             _paymentEvent.emit(
                                 PaymentEvent.WalletTopupSuccess(
-                                    newBalance = response.newBalance,
+                                    newBalance = response.balanceAfter,
                                     amount = response.amount
                                 )
                             )
                         }
                     }
                     is NetworkResult.Error -> {
-                        _uiState.update { it.copy(isLoading = false, error = result.message) }
+                        _uiState.update {
+                            it.copy(isLoading = false, error = result.message)
+                        }
+                        _paymentEvent.emit(
+                            PaymentEvent.PaymentFailure(
+                                result.message ?: "Wallet topup verification failed"
+                            )
+                        )
                     }
                 }
             }
@@ -359,34 +381,4 @@ class PaymentViewModel @Inject constructor(
         const val NETWORK_ERROR = 0
         const val INVALID_OPTIONS = 1
     }
-
-
-
-    /**
-     * ⚠️ TEST MODE - Opens Razorpay directly without backend
-     * Remove this when backend is ready
-     */
-    fun testWalletTopup(activity: Activity, amount: Double) {
-        _uiState.update { it.copy(topupAmount = amount, isLoading = false) }
-
-        val testOrder = CreateOrderResponse(
-            orderId = "",
-            amount = amount,
-            amountInPaise = (amount * 100).toInt(),
-            currency = "INR",
-            receipt = "test_${System.currentTimeMillis()}",
-            status = "created",
-            razorpayKeyId = RazorpayManager.TEST_KEY_ID,
-            customerName = "Test User",
-            customerPhone = "9876543210",
-            customerEmail = "test@parcelwala.com"
-        )
-
-        // Save so callback knows it's a topup
-        _uiState.update { it.copy(topupOrderResponse = testOrder) }
-
-        // Open Razorpay checkout directly
-        razorpayManager.openCheckout(activity, testOrder, "Wallet Topup - ₹$amount")
-    }
-
 }

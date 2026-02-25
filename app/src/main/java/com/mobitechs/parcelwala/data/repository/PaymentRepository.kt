@@ -31,14 +31,16 @@ class PaymentRepository @Inject constructor(
     fun createPaymentOrder(
         bookingId: Int,
         amount: Double,
-        paymentMethod: String
+        paymentMethod: String,
+        notes: String
     ): Flow<NetworkResult<CreateOrderResponse>> = flow {
         emit(NetworkResult.Loading())
         try {
             val request = CreatePaymentOrderRequest(
                 bookingId = bookingId,
                 amount = amount,
-                paymentMethod = paymentMethod
+                paymentMethod = paymentMethod,
+                notes = notes
             )
             val response = apiService.createPaymentOrder(request)
 

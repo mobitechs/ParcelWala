@@ -84,9 +84,13 @@ class RiderTrackingViewModel @Inject constructor(
     private val _waitingState = MutableStateFlow(WaitingTimerState())
     val waitingState: StateFlow<WaitingTimerState> = _waitingState.asStateFlow()
 
-    // ✅ FIX #3: Rating State
+    // Rating State
     private val _ratingState = MutableStateFlow(RatingUiState())
     val ratingState: StateFlow<RatingUiState> = _ratingState.asStateFlow()
+
+    // ✅ NEW: Post-Delivery Payment State
+    private val _paymentState = MutableStateFlow(PostDeliveryPaymentState())
+    val paymentState: StateFlow<PostDeliveryPaymentState> = _paymentState.asStateFlow()
 
     private var waitingTimerJob: Job? = null
 
@@ -154,8 +158,6 @@ class RiderTrackingViewModel @Inject constructor(
             }
         }
 
-        // ✅ FIX: bookingCancelled collector ONLY logs.
-        // handleCancelled() via _bookingUpdates is the SOLE cancel handler.
         viewModelScope.launch {
             realTimeRepository.bookingCancelled.collect { notification ->
                 Log.d(TAG, "📥 BOOKING_CANCELLED event received: cancelledBy=${notification.cancelledBy} | reason=${notification.reason} | bookingId=${notification.bookingId}")
@@ -249,7 +251,70 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ✅ FIX #3 & #4: RATING + REDIRECT TO HOME
+    // ✅ POST-DELIVERY PAYMENT FLOW
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Called when online/wallet payment is completed successfully.
+     * Proceeds to show rating dialog.
+     */
+    fun onPaymentCompleted() {
+        viewModelScope.launch {
+            val state = _paymentState.value
+            Log.d(TAG, "💳 Payment completed for booking ${state.bookingId}")
+
+            _paymentState.update { it.copy(showPaymentScreen = false, isPaymentCompleted = true) }
+
+            showRatingAfterPayment(
+                bookingId = state.bookingId,
+                totalFare = state.totalFare,
+                waitingCharge = state.waitingCharge
+            )
+        }
+    }
+
+    /**
+     * Called when cash payment is confirmed (user taps "Confirm Cash Payment").
+     * Proceeds to show rating dialog.
+     */
+    fun onCashPaymentConfirmed() {
+        viewModelScope.launch {
+            val state = _paymentState.value
+            Log.d(TAG, "💵 Cash payment confirmed for booking ${state.bookingId}")
+
+            _paymentState.update { it.copy(showPaymentScreen = false, isPaymentCompleted = true) }
+
+            showRatingAfterPayment(
+                bookingId = state.bookingId,
+                totalFare = state.totalFare,
+                waitingCharge = state.waitingCharge
+            )
+        }
+    }
+
+    /**
+     * Internal: Shows rating dialog after payment is handled.
+     */
+    private suspend fun showRatingAfterPayment(
+        bookingId: String,
+        totalFare: Int,
+        waitingCharge: Int
+    ) {
+        _ratingState.update {
+            it.copy(
+                showRatingDialog = true,
+                bookingId = bookingId,
+                driverName = _assignedRider.value?.riderName ?: "Driver",
+                driverPhoto = _assignedRider.value?.photoUrl,
+                vehicleType = _assignedRider.value?.vehicleType,
+                totalFare = totalFare,
+                waitingCharge = waitingCharge
+            )
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RATING + REDIRECT TO HOME
     // ═══════════════════════════════════════════════════════════════════════
 
     fun submitRating(bookingId: String, rating: Int, feedback: String?) {
@@ -261,7 +326,6 @@ class RiderTrackingViewModel @Inject constructor(
                     _ratingState.update { it.copy(isSubmitting = false, isSubmitted = true) }
                     Log.d(TAG, "⭐ Rating submitted: $rating stars")
 
-                    // ✅ FIX #4: Auto-redirect to home after showing thank you
                     delay(2000)
                     _ratingState.value = RatingUiState()
                     activeBookingManager.clearActiveBooking()
@@ -294,7 +358,6 @@ class RiderTrackingViewModel @Inject constructor(
         _ratingState.value = RatingUiState()
     }
 
-    // ✅ FIX #4: Clear booking + navigate home on rating completed/skipped
     fun onRatingCompleted() {
         viewModelScope.launch {
             _ratingState.value = RatingUiState()
@@ -391,6 +454,7 @@ class RiderTrackingViewModel @Inject constructor(
         routeFetchJob?.cancel()
         _waitingState.value = WaitingTimerState()
         _ratingState.value = RatingUiState()
+        _paymentState.value = PostDeliveryPaymentState() // ✅ NEW: clear payment state
         initialDistanceMeters = null
         lastNotifiedEta = null
         lastRouteFetchTime = 0L
@@ -521,7 +585,6 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = serverEta
         }
 
-        // Pre-fetch pickup → drop route
         val dropLat = activeBookingManager.activeBooking.value?.dropAddress?.latitude ?: 0.0
         val dropLng = activeBookingManager.activeBooking.value?.dropAddress?.longitude ?: 0.0
         if (pickupLat != 0.0 && pickupLng != 0.0 && dropLat != 0.0 && dropLng != 0.0) {
@@ -553,14 +616,10 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    // ✅ FIX #1: START WAITING TIMER when driver arrives at pickup
     private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
-
-        // START WAITING TIMER
         startWaitingTimer()
 
-        // Clear ETA/distance since driver is at pickup
         _etaMinutes.value = 0
         _distanceKm.value = 0.0
 
@@ -586,7 +645,6 @@ class RiderTrackingViewModel @Inject constructor(
     private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
 
-        // STOP WAITING TIMER
         val finalCharge = getFinalWaitingCharge()
         stopWaitingTimer()
         Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
@@ -632,7 +690,6 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    // ✅ FIX #2: Delivery arrival notification + toast
     private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
 
@@ -648,7 +705,10 @@ class RiderTrackingViewModel @Inject constructor(
         _toastMessage.emit("Rider arrived at delivery location!")
     }
 
-    // ✅ FIX #3 & #4: Show rating dialog on delivery complete, then redirect home
+    // ═══════════════════════════════════════════════════════════════════════
+    // ✅ UPDATED: DELIVERY COMPLETED → PAYMENT → RATING → HOME
+    // ═══════════════════════════════════════════════════════════════════════
+
     private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.DELIVERED)
         stopWaitingTimer()
@@ -656,6 +716,10 @@ class RiderTrackingViewModel @Inject constructor(
         val baseFare = activeBookingManager.activeBooking.value?.fare ?: 0
         val waitingCharge = _waitingState.value.waitingCharge
         val totalFare = baseFare + waitingCharge
+
+        // ✅ Get payment method from the booking (you need this field in your ActiveBooking model)
+        // If your ActiveBooking doesn't have paymentMethod yet, default to "cash"
+        val paymentMethod = activeBookingManager.activeBooking.value?.paymentMethod ?: "cash"
 
         notificationHelper.showStickyStatusNotification(
             bookingId = update.bookingId.toString(),
@@ -666,6 +730,9 @@ class RiderTrackingViewModel @Inject constructor(
                 if (waitingCharge > 0) {
                     append(" (incl. ₹$waitingCharge waiting)")
                 }
+                if (paymentMethod.lowercase() != "cash") {
+                    append("\n💳 Complete payment to proceed")
+                }
                 append("\n⭐ Rate your experience")
             },
             isFinal = true
@@ -674,16 +741,44 @@ class RiderTrackingViewModel @Inject constructor(
         realTimeRepository.disconnect()
         _toastMessage.emit("Delivery completed!")
 
-        // ✅ Show rating dialog with fare details
-        _ratingState.update {
-            it.copy(
-                showRatingDialog = true,
+        Log.d(TAG, "💳 Payment method: $paymentMethod | Total: ₹$totalFare")
+
+        if (paymentMethod.lowercase() == "cash") {
+            // ═══════════════════════════════════════════════════
+            // CASH: Skip payment screen → go directly to rating
+            // ═══════════════════════════════════════════════════
+            Log.d(TAG, "💵 Cash payment — showing rating directly")
+            showRatingAfterPayment(
                 bookingId = update.bookingId.toString(),
-                driverName = _assignedRider.value?.riderName ?: "Driver",
-                driverPhoto = _assignedRider.value?.photoUrl,
-                vehicleType = _assignedRider.value?.vehicleType,
                 totalFare = totalFare,
                 waitingCharge = waitingCharge
+            )
+        } else {
+            // ═══════════════════════════════════════════════════
+            // ONLINE/WALLET: Show payment screen first
+            // ═══════════════════════════════════════════════════
+            Log.d(TAG, "💳 Online payment — showing payment screen")
+            _paymentState.update {
+                it.copy(
+                    showPaymentScreen = true,
+                    bookingId = update.bookingId.toString(),
+                    baseFare = baseFare,
+                    waitingCharge = waitingCharge,
+                    totalFare = totalFare,
+                    driverName = _assignedRider.value?.riderName ?: "Driver",
+                    paymentMethod = paymentMethod
+                )
+            }
+
+            _navigationEvent.emit(
+                RiderTrackingNavigationEvent.ShowPaymentScreen(
+                    bookingId = update.bookingId.toString(),
+                    baseFare = baseFare,
+                    waitingCharge = waitingCharge,
+                    totalFare = totalFare,
+                    driverName = _assignedRider.value?.riderName ?: "Driver",
+                    paymentMethod = paymentMethod
+                )
             )
         }
 
@@ -692,7 +787,6 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    // ✅ FIX: SOLE cancel handler — driver cancel retries, customer/system goes home
     private suspend fun handleCancelled(update: BookingStatusUpdate) {
         Log.d(TAG, "🚫 handleCancelled() called! cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
         stopWaitingTimer()
@@ -714,7 +808,6 @@ class RiderTrackingViewModel @Inject constructor(
                 }
             )
 
-            // Clear rider-specific state but keep booking alive
             _assignedRider.value = null
             _riderLocation.value = null
             _bookingOtp.value = null
@@ -840,7 +933,6 @@ class RiderTrackingViewModel @Inject constructor(
             _etaMinutes.value = calculatedEtaMin
         }
 
-        // Update route polyline (throttled)
         if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
             if (targetLat != 0.0 && targetLng != 0.0) {
                 fetchRouteThrottled(location.latitude, location.longitude, targetLat, targetLng, isDriverToPickup = true)
@@ -859,7 +951,6 @@ class RiderTrackingViewModel @Inject constructor(
             )
         }
 
-        // Update notification
         if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
             val driverName = _assignedRider.value?.riderName
             val bookingId = _uiState.value.currentBookingId ?: return
@@ -1003,7 +1094,7 @@ data class WaitingTimerState(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RATING UI STATE — ✅ Updated with driverPhoto and vehicleType fields
+// RATING UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
 data class RatingUiState(
@@ -1020,6 +1111,21 @@ data class RatingUiState(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ✅ NEW: POST-DELIVERY PAYMENT STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+data class PostDeliveryPaymentState(
+    val showPaymentScreen: Boolean = false,
+    val bookingId: String = "",
+    val baseFare: Int = 0,
+    val waitingCharge: Int = 0,
+    val totalFare: Int = 0,
+    val driverName: String = "",
+    val paymentMethod: String = "cash",
+    val isPaymentCompleted: Boolean = false
+)
+
+// ═══════════════════════════════════════════════════════════════════════════
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1032,7 +1138,7 @@ data class RiderTrackingUiState(
 )
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NAVIGATION EVENTS — ✅ Added DriverCancelledRetrySearch
+// NAVIGATION EVENTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 sealed class RiderTrackingNavigationEvent {
@@ -1057,8 +1163,17 @@ sealed class RiderTrackingNavigationEvent {
 
     data class BookingCancelled(val reason: String) : RiderTrackingNavigationEvent()
 
-    // ✅ NEW: When driver cancels, go back to searching screen
     data class DriverCancelledRetrySearch(val message: String) : RiderTrackingNavigationEvent()
 
+    // ✅ NEW: Show payment screen after delivery
+    data class ShowPaymentScreen(
+        val bookingId: String,
+        val baseFare: Int,
+        val waitingCharge: Int,
+        val totalFare: Int,
+        val driverName: String,
+        val paymentMethod: String
+    ) : RiderTrackingNavigationEvent()
+
     object NavigateToHome : RiderTrackingNavigationEvent()
-} 
+}

@@ -1,8 +1,4 @@
 // ui/navigation/NavGraph.kt
-// ✅ FIX: All onCancelBooking callbacks now use riderTrackingViewModel.cancelBooking(reason)
-//    - SearchingRiderScreen (booking_flow) ✅
-//    - RiderFoundScreen (booking_flow) ✅ FIXED
-//    - SearchingRiderScreen (active_booking_flow) ✅ FIXED
 package com.mobitechs.parcelwala.ui.navigation
 
 import android.annotation.SuppressLint
@@ -53,6 +49,7 @@ import com.mobitechs.parcelwala.ui.screens.booking.RiderFoundScreen
 import com.mobitechs.parcelwala.ui.screens.booking.SearchingRiderScreen
 import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
+import com.mobitechs.parcelwala.ui.screens.payments.PostDeliveryPaymentScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
@@ -62,19 +59,6 @@ import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import com.mobitechs.parcelwala.utils.Constants
 
-/**
- * Main Navigation Graph
- *
- * REAL-TIME FLOW (Like Ola/Uber/Porter):
- * ═══════════════════════════════════════
- * 1. User confirms booking → CreateBooking API
- * 2. Navigate to SearchingRiderScreen
- * 3. RiderTrackingViewModel connects to real-time service
- * 4. When RIDER_ASSIGNED received → Navigate to RiderFoundScreen
- * 5. If CANCELLED/NO_RIDER → Stay on SearchingRiderScreen (show retry)
- * 6. RiderFoundScreen shows rider details, OTP, live tracking
- * 7. Subsequent status updates handled on RiderFoundScreen
- */
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
@@ -403,7 +387,6 @@ fun NavGraph(
                 val uiState by viewModel.uiState.collectAsState()
 
                 LaunchedEffect(Unit) {
-                    // Check ViewModel state first (in case of back navigation)
                     if (uiState.isBookAgain && uiState.pickupAddress != null && uiState.dropAddress != null) {
                         navController.navigate("booking_confirm") {
                             popUpTo("booking_entry") { inclusive = true }
@@ -688,17 +671,15 @@ fun NavGraph(
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
                 val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
-                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry) // ✅ SHARED!
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
 
                 val uiState by bookingViewModel.uiState.collectAsState()
                 val selectedFareDetails by bookingViewModel.selectedFareDetails.collectAsState()
 
-                // ✅ CRITICAL: Observe RiderTrackingViewModel navigation events
                 LaunchedEffect(Unit) {
                     riderTrackingViewModel.navigationEvent.collect { event ->
                         when (event) {
                             is RiderTrackingNavigationEvent.RiderAssigned -> {
-                                // ✅ Navigate to RiderFoundScreen when rider is assigned
                                 navController.navigate("rider_found/${event.bookingId}") {
                                     popUpTo("searching_rider/{bookingId}") { inclusive = true }
                                 }
@@ -721,7 +702,6 @@ fun NavGraph(
                     }
                 }
 
-                // Also observe BookingViewModel navigation (for cancel API completion)
                 LaunchedEffect(Unit) {
                     bookingViewModel.navigationEvent.collect { event ->
                         when (event) {
@@ -742,7 +722,7 @@ fun NavGraph(
                         dropAddress = uiState.dropAddress!!,
                         selectedFareDetails = selectedFareDetails!!,
                         fare = uiState.finalFare,
-                        onRiderFound = { /* Handled by navigation event */ },
+                        onRiderFound = { },
                         onContactSupport = {
                             val intent = Intent(Intent.ACTION_DIAL).apply {
                                 data = Uri.parse("tel:+919876543210")
@@ -750,7 +730,6 @@ fun NavGraph(
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
-                        // ✅ Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
                             riderTrackingViewModel.cancelBooking(reason)
                         },
@@ -774,11 +753,10 @@ fun NavGraph(
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
                 val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
-                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry) // ✅ SHARED!
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
 
                 val uiState by bookingViewModel.uiState.collectAsState()
 
-                // Handle navigation events
                 LaunchedEffect(Unit) {
                     riderTrackingViewModel.navigationEvent.collect { event ->
                         when (event) {
@@ -789,8 +767,14 @@ fun NavGraph(
                                 // Stay on RiderFoundScreen - map switches to delivery route
                             }
                             is RiderTrackingNavigationEvent.Delivered -> {
-                                // Rating dialog shown in RiderFoundScreen
-                                // NavigateToHome fires after rating completes
+                                // ✅ Rating dialog shown in RiderFoundScreen (for cash)
+                                // or payment screen navigated to (for online)
+                            }
+                            // ✅ NEW: Navigate to payment screen after delivery
+                            is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
+                                navController.navigate(
+                                    "post_delivery_payment/${event.bookingId}/${event.baseFare}/${event.waitingCharge}/${Uri.encode(event.driverName)}/${event.paymentMethod}"
+                                )
                             }
                             is RiderTrackingNavigationEvent.NavigateToHome -> {
                                 navController.navigate(Screen.Main.route) {
@@ -803,7 +787,6 @@ fun NavGraph(
                                 }
                             }
                             is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
-                                // Navigate back to searching screen
                                 navController.navigate("searching_rider/${bookingId}") {
                                     popUpTo("rider_found/{bookingId}") { inclusive = true }
                                 }
@@ -813,7 +796,6 @@ fun NavGraph(
                     }
                 }
 
-                // Observe booking cancellation from API
                 LaunchedEffect(Unit) {
                     bookingViewModel.navigationEvent.collect { event ->
                         when (event) {
@@ -828,9 +810,7 @@ fun NavGraph(
                 }
 
                 DisposableEffect(Unit) {
-                    onDispose {
-                        // Don't disconnect here - let the ViewModel handle lifecycle
-                    }
+                    onDispose { }
                 }
 
                 if (uiState.pickupAddress != null && uiState.dropAddress != null) {
@@ -839,7 +819,6 @@ fun NavGraph(
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         fare = uiState.finalFare,
-                        // ✅ FIX: Cancel via SignalR so hub notifies BOTH parties
                         onCancelBooking = { reason ->
                             riderTrackingViewModel.cancelBooking(reason)
                         },
@@ -854,6 +833,61 @@ fun NavGraph(
                 } else {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 }
+            }
+
+            // ════════════════════════════════════════════════════════════════
+            // ✅ NEW: POST-DELIVERY PAYMENT SCREEN (booking_flow)
+            // ════════════════════════════════════════════════════════════════
+            composable(
+                route = "post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}",
+                arguments = listOf(
+                    navArgument("bookingId") { type = NavType.StringType },
+                    navArgument("baseFare") { type = NavType.IntType },
+                    navArgument("waitingCharge") { type = NavType.IntType },
+                    navArgument("driverName") { type = NavType.StringType },
+                    navArgument("paymentMethod") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+                val baseFare = backStackEntry.arguments?.getInt("baseFare") ?: 0
+                val waitingCharge = backStackEntry.arguments?.getInt("waitingCharge") ?: 0
+                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
+                val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
+
+                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
+
+                // Listen for NavigateToHome (after rating completes)
+                LaunchedEffect(Unit) {
+                    riderTrackingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                PostDeliveryPaymentScreen(
+                    bookingId = bookingId,
+                    baseFare = baseFare,
+                    waitingCharge = waitingCharge,
+                    driverName = driverName,
+                    paymentMethod = paymentMethod,
+                    onPaymentComplete = {
+                        // Online/Wallet payment done → show rating
+                        riderTrackingViewModel.onPaymentCompleted()
+                        navController.popBackStack() // Back to RiderFoundScreen where rating dialog shows
+                    },
+                    onPaymentSkipped = {
+                        // User switched to cash on payment screen → show rating
+                        riderTrackingViewModel.onCashPaymentConfirmed()
+                        navController.popBackStack()
+                    }
+                )
             }
         }
 
@@ -872,12 +906,10 @@ fun NavGraph(
                     val bookingViewModel: BookingViewModel = hiltViewModel()
                     val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel()
 
-                    // ✅ CRITICAL: Navigation event collectors (were missing before!)
                     LaunchedEffect(Unit) {
                         riderTrackingViewModel.navigationEvent.collect { event ->
                             when (event) {
                                 is RiderTrackingNavigationEvent.RiderAssigned -> {
-                                    // ✅ Navigate to RiderFoundScreen when rider is assigned
                                     navController.navigate("active_rider_found/${event.bookingId}") {
                                         popUpTo("active_searching_rider") { inclusive = true }
                                     }
@@ -903,7 +935,6 @@ fun NavGraph(
                         }
                     }
 
-                    // ✅ Also observe BookingViewModel (for cancel API completion)
                     LaunchedEffect(Unit) {
                         bookingViewModel.navigationEvent.collect { event ->
                             when (event) {
@@ -923,7 +954,7 @@ fun NavGraph(
                         dropAddress = activeBooking.dropAddress,
                         selectedFareDetails = activeBooking.fareDetails,
                         fare = activeBooking.fare,
-                        onRiderFound = { /* Handled by navigation event */ },
+                        onRiderFound = { },
                         onContactSupport = {
                             val intent = Intent(Intent.ACTION_DIAL).apply {
                                 data = Uri.parse("tel:+919876543210")
@@ -943,7 +974,7 @@ fun NavGraph(
             }
 
             // ═══════════════════════════════════════════════════════════════════
-            // ✅ NEW: RIDER FOUND SCREEN (was completely missing!)
+            // RIDER FOUND SCREEN (active booking resume)
             // ═══════════════════════════════════════════════════════════════════
             composable(
                 route = "active_rider_found/{bookingId}",
@@ -953,14 +984,12 @@ fun NavGraph(
                 val activeBooking = activeBookingToResume
 
                 if (activeBooking != null) {
-                    // ✅ Use parent entry to share ViewModels within active_booking_flow
                     val parentEntry = remember(navController) {
                         navController.getBackStackEntry("active_booking_flow")
                     }
                     val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
                     val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
 
-                    // ✅ Handle navigation events on RiderFoundScreen
                     LaunchedEffect(Unit) {
                         riderTrackingViewModel.navigationEvent.collect { event ->
                             when (event) {
@@ -970,13 +999,19 @@ fun NavGraph(
                                     }
                                 }
                                 is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
-                                    // Go back to searching screen
                                     navController.navigate("active_searching_rider") {
                                         popUpTo("active_booking_flow") { inclusive = false }
                                     }
                                 }
                                 is RiderTrackingNavigationEvent.Delivered -> {
-                                    // Stay on screen — rating dialog will show
+                                    // Stay on screen — rating dialog will show (for cash)
+                                    // or payment screen navigated (for online)
+                                }
+                                // ✅ NEW: Navigate to payment screen after delivery
+                                is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
+                                    navController.navigate(
+                                        "active_post_delivery_payment/${event.bookingId}/${event.baseFare}/${event.waitingCharge}/${Uri.encode(event.driverName)}/${event.paymentMethod}"
+                                    )
                                 }
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
                                     navController.navigate(Screen.Main.route) {
@@ -991,7 +1026,6 @@ fun NavGraph(
                         }
                     }
 
-                    // ✅ Observe booking cancel from API
                     LaunchedEffect(Unit) {
                         bookingViewModel.navigationEvent.collect { event ->
                             when (event) {
@@ -1024,6 +1058,61 @@ fun NavGraph(
                 } else {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // ✅ NEW: POST-DELIVERY PAYMENT SCREEN (active_booking_flow)
+            // ═══════════════════════════════════════════════════════════════════
+            composable(
+                route = "active_post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}",
+                arguments = listOf(
+                    navArgument("bookingId") { type = NavType.StringType },
+                    navArgument("baseFare") { type = NavType.IntType },
+                    navArgument("waitingCharge") { type = NavType.IntType },
+                    navArgument("driverName") { type = NavType.StringType },
+                    navArgument("paymentMethod") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+                val baseFare = backStackEntry.arguments?.getInt("baseFare") ?: 0
+                val waitingCharge = backStackEntry.arguments?.getInt("waitingCharge") ?: 0
+                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
+                val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
+
+                val parentEntry = remember(navController) {
+                    navController.getBackStackEntry("active_booking_flow")
+                }
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
+
+                // Listen for NavigateToHome (after rating completes)
+                LaunchedEffect(Unit) {
+                    riderTrackingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("active_booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                PostDeliveryPaymentScreen(
+                    bookingId = bookingId,
+                    baseFare = baseFare,
+                    waitingCharge = waitingCharge,
+                    driverName = driverName,
+                    paymentMethod = paymentMethod,
+                    onPaymentComplete = {
+                        riderTrackingViewModel.onPaymentCompleted()
+                        navController.popBackStack() // Back to RiderFoundScreen where rating shows
+                    },
+                    onPaymentSkipped = {
+                        riderTrackingViewModel.onCashPaymentConfirmed()
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }

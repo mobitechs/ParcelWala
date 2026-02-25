@@ -1,6 +1,7 @@
 package com.mobitechs.parcelwala.ui.screens.payments
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,15 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.R
-import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
-import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
 import com.mobitechs.parcelwala.data.model.request.TransactionResponse
-import com.mobitechs.parcelwala.data.model.request.VerifyPaymentRequest
-import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
-import com.mobitechs.parcelwala.data.model.request.WalletTopupOrderRequest
-import com.mobitechs.parcelwala.data.model.request.WalletTopupVerifyRequest
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentEvent
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentViewModel
@@ -53,12 +47,10 @@ fun PaymentsScreen(
     var showTopupSheet by remember { mutableStateOf(false) }
     var topupAmount by remember { mutableStateOf("") }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    // Payment result dialog state
+    var paymentResultData by remember { mutableStateOf<PaymentResultData?>(null) }
 
-    // Hoist snackbar strings for non-composable scope
-    val snackbarPaymentSuccess = stringResource(R.string.snackbar_payment_success, "%s")
-    val snackbarPaymentFailed = stringResource(R.string.snackbar_payment_failed, "%s")
-    val snackbarWalletTopupSuccess = stringResource(R.string.snackbar_wallet_topup_success, 0, 0)
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Handle payment events
     LaunchedEffect(Unit) {
@@ -70,20 +62,54 @@ fun PaymentsScreen(
                     }
                 }
                 is PaymentEvent.PaymentSuccess -> {
-                    snackbarHostState.showSnackbar(
-                        "Payment successful! Transaction: ${event.response.transactionNumber}"
+                    // Show success result dialog
+                    paymentResultData = PaymentResultData(
+                        isSuccess = true,
+                        amount = event.response.amount,
+                        transactionNumber = event.response.transactionNumber,
+                        isWalletTopup = false
                     )
+                    // Also show toast
+                    Toast.makeText(
+                        context,
+                        "✅ Payment successful!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     paymentViewModel.loadTransactions()
                 }
                 is PaymentEvent.PaymentFailure -> {
-                    snackbarHostState.showSnackbar("Payment failed: ${event.message}")
+                    // Show failure result dialog
+                    paymentResultData = PaymentResultData(
+                        isSuccess = false,
+                        amount = uiState.currentAmount,
+                        message = event.message,
+                        isWalletTopup = uiState.topupOrderResponse != null
+                    )
+                    // Also show toast
+                    Toast.makeText(
+                        context,
+                        "❌ Payment failed: ${event.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
                 is PaymentEvent.WalletTopupSuccess -> {
                     showTopupSheet = false
                     topupAmount = ""
-                    snackbarHostState.showSnackbar(
-                        "₹${event.amount.toInt()} added! New balance: ₹${event.newBalance.toInt()}"
+                    // Show success result dialog for wallet topup
+                    paymentResultData = PaymentResultData(
+                        isSuccess = true,
+                        amount = event.amount,
+                        walletNewBalance = event.newBalance,
+                        isWalletTopup = true
                     )
+                    // Also show toast
+                    Toast.makeText(
+                        context,
+                        "✅ ₹${event.amount.toInt()} added to wallet!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    paymentViewModel.loadTransactions()
+                    paymentViewModel.loadWalletBalance()
                 }
             }
         }
@@ -194,14 +220,22 @@ fun PaymentsScreen(
                 onTopup = {
                     val amount = topupAmount.toDoubleOrNull()
                     if (amount != null && amount >= 10) {
-                        (context as? MainActivity)?.let { act ->
-                            paymentViewModel.testWalletTopup(act, amount)
-                        }
+                        paymentViewModel.initiateWalletTopup(amount)
                     }
                 },
                 onDismiss = { showTopupSheet = false }
             )
         }
+    }
+
+    // Payment Result Dialog
+    paymentResultData?.let { resultData ->
+        PaymentResultDialog(
+            resultData = resultData,
+            onDismiss = {
+                paymentResultData = null
+            }
+        )
     }
 
     // Loading overlay

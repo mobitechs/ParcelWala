@@ -6,33 +6,20 @@ import com.google.gson.annotations.SerializedName
  * Request to create Razorpay order on backend
  */
 data class CreatePaymentOrderRequest(
-    @SerializedName("booking_id")
     val bookingId: Int,
-
-    @SerializedName("amount")
     val amount: Double,
-
-    @SerializedName("payment_method")
-    val paymentMethod: String  // "card", "upi", "netbanking", "wallet"
+    val paymentMethod: String,  // "card", "upi", "netbanking", "wallet"
+    val notes: String
 )
 
 /**
  * Request to verify payment on backend after Razorpay checkout
  */
 data class VerifyPaymentRequest(
-    @SerializedName("booking_id")
     val bookingId: Int,
-
-    @SerializedName("razorpay_payment_id")
     val razorpayPaymentId: String,
-
-    @SerializedName("razorpay_order_id")
     val razorpayOrderId: String,
-
-    @SerializedName("razorpay_signature")
     val razorpaySignature: String,
-
-    @SerializedName("payment_method")
     val paymentMethod: String
 )
 
@@ -40,7 +27,6 @@ data class VerifyPaymentRequest(
  * Request to create wallet topup order
  */
 data class WalletTopupOrderRequest(
-    @SerializedName("amount")
     val amount: Double
 )
 
@@ -48,16 +34,9 @@ data class WalletTopupOrderRequest(
  * Request to verify wallet topup
  */
 data class WalletTopupVerifyRequest(
-    @SerializedName("amount")
     val amount: Double,
-
-    @SerializedName("razorpay_payment_id")
     val razorpayPaymentId: String,
-
-    @SerializedName("razorpay_order_id")
     val razorpayOrderId: String,
-
-    @SerializedName("razorpay_signature")
     val razorpaySignature: String
 )
 
@@ -66,34 +45,15 @@ data class WalletTopupVerifyRequest(
  * Response from backend after creating Razorpay order
  */
 data class CreateOrderResponse(
-    @SerializedName("order_id")
     val orderId: String,
-
-    @SerializedName("amount")
     val amount: Double,
-
-    @SerializedName("amount_in_paise")
     val amountInPaise: Int,
-
-    @SerializedName("currency")
     val currency: String,
-
-    @SerializedName("receipt")
     val receipt: String,
-
-    @SerializedName("status")
     val status: String,
-
-    @SerializedName("razorpay_key_id")
     val razorpayKeyId: String,
-
-    @SerializedName("customer_name")
     val customerName: String?,
-
-    @SerializedName("customer_phone")
     val customerPhone: String?,
-
-    @SerializedName("customer_email")
     val customerEmail: String?
 )
 
@@ -101,25 +61,12 @@ data class CreateOrderResponse(
  * Response from backend after payment verification
  */
 data class VerifyPaymentResponse(
-    @SerializedName("success")
     val success: Boolean,
-
-    @SerializedName("transaction_id")
     val transactionId: String,
-
-    @SerializedName("transaction_number")
     val transactionNumber: String,
-
-    @SerializedName("amount")
     val amount: Double,
-
-    @SerializedName("payment_status")
     val paymentStatus: String,
-
-    @SerializedName("payment_method")
     val paymentMethod: String,
-
-    @SerializedName("transaction_time")
     val transactionTime: String
 )
 
@@ -127,13 +74,8 @@ data class VerifyPaymentResponse(
  * Wallet balance response
  */
 data class WalletBalanceResponse(
-    @SerializedName("balance")
     val balance: Double,
-
-    @SerializedName("currency")
     val currency: String,
-
-    @SerializedName("last_updated")
     val lastUpdated: String
 )
 
@@ -141,17 +83,14 @@ data class WalletBalanceResponse(
  * Wallet topup verification response
  */
 data class WalletTopupResponse(
-    @SerializedName("transaction_id")
-    val transactionId: String,
-
-    @SerializedName("amount")
+    val customerId: String,
+    val transactionType: String,
     val amount: Double,
-
-    @SerializedName("new_balance")
-    val newBalance: Double,
-
-    @SerializedName("transaction_time")
-    val transactionTime: String
+    val balanceBefore: Double,
+    val balanceAfter: Double,
+    val description: String,
+    val referenceType: String,
+    val createdAt: String,
 )
 
 /**

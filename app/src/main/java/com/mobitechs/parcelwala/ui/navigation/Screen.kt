@@ -6,13 +6,6 @@ import com.mobitechs.parcelwala.data.model.request.SavedAddress
 /**
  * Navigation Screen Routes
  * Defines all navigation destinations in the app
- *
- * Organization:
- * - Auth screens (Splash, Login, OTP, CompleteProfile)
- * - Main screen (with bottom navigation)
- * - Booking flow screens
- * - Account/Profile flow screens
- * - Order screens
  */
 sealed class Screen(val route: String) {
 
@@ -50,6 +43,17 @@ sealed class Screen(val route: String) {
         fun createRoute(bookingId: String) = "searching_rider/$bookingId"
     }
 
+    // ✅ NEW: Post-delivery payment screen
+    object PostDeliveryPayment : Screen("post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}") {
+        fun createRoute(
+            bookingId: String,
+            baseFare: Int,
+            waitingCharge: Int,
+            driverName: String,
+            paymentMethod: String
+        ) = "post_delivery_payment/$bookingId/$baseFare/$waitingCharge/$driverName/$paymentMethod"
+    }
+
     // ============ ACCOUNT FLOW SCREENS ============
     object Language : Screen("language")
     object AccountFlow : Screen("account_flow")
@@ -70,7 +74,6 @@ sealed class Screen(val route: String) {
 
 /**
  * Navigation Helper for Location Flow
- * Holds pickup and drop address data during booking
  */
 data class LocationFlowData(
     val pickupAddress: SavedAddress? = null,
