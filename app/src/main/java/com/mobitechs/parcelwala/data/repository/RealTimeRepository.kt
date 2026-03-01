@@ -186,6 +186,22 @@ class RealTimeRepository @Inject constructor(
         }
     }
 
+
+    suspend fun updateBookingStatus(bookingId: Int, status: String): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
+            Log.d(TAG, "📤 UPDATE STATUS: bookingId=$bookingId | status=$status")
+            hubConnection?.invoke(Constants.SignalREvents.BOOKING_STATUS_UPDATE, bookingId, status)?.blockingAwait()
+            Log.d(TAG, "✅ Status update sent: $status")
+            Result.success(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Status update failed: ${e.message}", e)
+            scope.launch { _errors.emit(SignalRError(e.message ?: "Failed to update status", "STATUS_UPDATE_FAILED")) }
+            Result.failure(e)
+        }
+    }
+
+
     // ═══════════════════════════════════════════════════════════════════════
     // SIGNALR CONNECT
     // ═══════════════════════════════════════════════════════════════════════
@@ -229,7 +245,7 @@ class RealTimeRepository @Inject constructor(
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun setupEventHandlers() {
-        hubConnection?.on("Connected", { data: Any ->
+        hubConnection?.on(Constants.SignalREvents.CONNECTED, { data: Any ->
             scope.launch { Log.d(TAG, "📥 Connected event: $data") }
         }, Any::class.java)
 
@@ -256,7 +272,7 @@ class RealTimeRepository @Inject constructor(
                     Log.d(TAG, "📥 BOOKING STATUS UPDATE: $data")
                     val update = parseBookingStatusUpdate(data)
                     if (update != null) {
-                        Log.d(TAG, "📊 Status: ${update.status} | Driver: ${update.driverName} | OTP: ${update.otp}")
+                        Log.d(TAG, "📊 Status: ${update.status} | Driver: ${update.driverName} | Pickup OTP: ${update.pickupOtp}| Delivery OTP: ${update.deliveredOtp}")
                         _bookingUpdates.emit(update)
                     }
                 } catch (e: Exception) { Log.e(TAG, "❌ Parse error: ${e.message}", e) }
@@ -392,39 +408,11 @@ class RealTimeRepository @Inject constructor(
     // PARSING HELPERS
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ✅ FIXED: Now extracts additionalData nested object
     private fun parseBookingStatusUpdate(data: Any): BookingStatusUpdate? {
         return try {
             val json = gson.toJson(data)
-            val mapType = object : TypeToken<Map<String, Any>>() {}.type
-            val map: Map<String, Any> = gson.fromJson(json, mapType)
+            gson.fromJson(json,BookingStatusUpdate::class.java)
 
-            val additionalData = parseAdditionalData(map)
-
-            BookingStatusUpdate(
-                bookingId = getIntValue(map, "BookingId", "bookingId") ?: 0,
-                bookingNumber = getStringValue(map, "BookingNumber", "bookingNumber"),
-                status = getStringValue(map, "Status", "status"),
-                statusMessage = getStringValue(map, "StatusMessage", "statusMessage"),
-                messageAlt = getStringValue(map, "Message", "message"),
-                timestamp = getStringValue(map, "Timestamp", "timestamp"),
-                driverId = getIntValue(map, "DriverId", "driverId"),
-                driverName = getStringValue(map, "DriverName", "driverName"),
-                driverPhone = getStringValue(map, "DriverPhone", "driverPhone"),
-                vehicleNumber = getStringValue(map, "VehicleNumber", "vehicleNumber"),
-                vehicleType = getStringValue(map, "VehicleType", "vehicleType"),
-                driverRating = getDoubleValue(map, "DriverRating", "driverRating"),
-                driverPhoto = getStringValue(map, "DriverPhoto", "driverPhoto"),
-                otp = getStringValue(map, "PickupOtp", "pickupOtp", "Otp", "otp"),
-                deliveryOtp = getStringValue(map, "DeliveryOtp", "deliveryOtp"),
-                estimatedArrival = getStringValue(map, "EstimatedArrival", "estimatedArrival"),
-                etaMinutes = getIntValue(map, "EtaMinutes", "etaMinutes"),
-                driverLatitude = getDoubleValue(map, "DriverLatitude", "driverLatitude", "Latitude", "latitude"),
-                driverLongitude = getDoubleValue(map, "DriverLongitude", "driverLongitude", "Longitude", "longitude"),
-                cancellationReason = getStringValue(map, "CancellationReason", "cancellationReason", "Reason", "reason"),
-                cancelledBy = getStringValue(map, "CancelledBy", "cancelledBy"),
-                additionalData = additionalData
-            )
         } catch (e: Exception) {
             Log.e(TAG, "Parse BookingStatusUpdate error: ${e.message}", e)
             null
@@ -435,25 +423,8 @@ class RealTimeRepository @Inject constructor(
     private fun parseRiderLocationUpdate(data: Any): RiderLocationUpdate? {
         return try {
             val json = gson.toJson(data)
-            val mapType = object : TypeToken<Map<String, Any>>() {}.type
-            val map: Map<String, Any> = gson.fromJson(json, mapType)
+            gson.fromJson(json,RiderLocationUpdate::class.java)
 
-            RiderLocationUpdate(
-                bookingId = getStringValue(map, "BookingId", "bookingId") ?: "",
-                riderId = getStringValue(map, "RiderId", "riderId"),
-                driverId = getIntValue(map, "DriverId", "driverId"),
-                latitude = getDoubleValue(map, "Latitude", "latitude") ?: 0.0,
-                longitude = getDoubleValue(map, "Longitude", "longitude") ?: 0.0,
-                // ✅ NEW: Extract backend straight-line distances (in KM)
-                distanceToPickupKm = getDoubleValue(map, "DistanceToPickup", "distanceToPickup"),
-                distanceToDropKm = getDoubleValue(map, "DistanceToDrop", "distanceToDrop"),
-                speed = getDoubleValue(map, "Speed", "speed"),
-                heading = getDoubleValue(map, "Heading", "heading"),
-                etaMinutes = getIntValue(map, "EtaMinutes", "etaMinutes"),
-                distanceMeters = getDoubleValue(map, "DistanceMeters", "distanceMeters"),
-                status = getStringValue(map, "Status", "status"),
-                timestamp = getStringValue(map, "Timestamp", "timestamp")
-            )
         } catch (e: Exception) {
             Log.e(TAG, "Parse RiderLocationUpdate error: ${e.message}", e)
             null
@@ -463,16 +434,7 @@ class RealTimeRepository @Inject constructor(
     private fun parseBookingCancelled(data: Any): BookingCancelledNotification? {
         return try {
             val json = gson.toJson(data)
-            val mapType = object : TypeToken<Map<String, Any>>() {}.type
-            val map: Map<String, Any> = gson.fromJson(json, mapType)
-            BookingCancelledNotification(
-                bookingId = getIntValue(map, "BookingId", "bookingId") ?: 0,
-                cancelledBy = getStringValue(map, "CancelledBy", "cancelledBy"),
-                reason = getStringValue(map, "Reason", "reason"),
-                message = getStringValue(map, "Message", "message") ?: "Booking cancelled",
-                refundAmount = getDoubleValue(map, "RefundAmount", "refundAmount"),
-                timestamp = getStringValue(map, "Timestamp", "timestamp")
-            )
+            gson.fromJson(json,BookingCancelledNotification::class.java)
         } catch (e: Exception) {
             Log.e(TAG, "Parse BookingCancelled error: ${e.message}", e)
             null
@@ -482,13 +444,7 @@ class RealTimeRepository @Inject constructor(
     private fun parseError(data: Any): SignalRError {
         return try {
             val json = gson.toJson(data)
-            val mapType = object : TypeToken<Map<String, Any>>() {}.type
-            val map: Map<String, Any> = gson.fromJson(json, mapType)
-            SignalRError(
-                message = getStringValue(map, "Message", "message") ?: "Unknown error",
-                code = getStringValue(map, "Code", "code"),
-                errorCode = getStringValue(map, "ErrorCode", "errorCode")
-            )
+            gson.fromJson(json,SignalRError::class.java)
         } catch (e: Exception) { SignalRError(message = data.toString()) }
     }
 

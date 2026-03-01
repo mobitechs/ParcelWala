@@ -1,88 +1,47 @@
-// data/model/realtime/RealTimeModels.kt
-// ✅ No changes from previous version - already correct
-// - distanceToPickupKm/distanceToDropKm fields present
-// - getRelevantDistanceMeters() helper present
-// - AdditionalBookingData model present
-// - estimatedArrivalToMinutes() present
+
 package com.mobitechs.parcelwala.data.model.realtime
 
 import com.google.gson.annotations.SerializedName
 
-// ════════════════════════════════════════════════════════════════════════════
-// BOOKING STATUS UPDATE
-// ════════════════════════════════════════════════════════════════════════════
-
 data class BookingStatusUpdate(
-    @SerializedName("bookingId")
     val bookingId: Int,
-
-    @SerializedName("bookingNumber")
     val bookingNumber: String? = null,
-
-    @SerializedName("status")
     val status: String? = null,
-
-    @SerializedName("statusMessage")
     val statusMessage: String? = null,
-
-    @SerializedName("message")
-    val messageAlt: String? = null,
-
-    @SerializedName("timestamp")
+        val messageAlt: String? = null,
     val timestamp: String? = null,
-
-    @SerializedName("driverId")
-    val driverId: Int? = null,
-
-    @SerializedName("driverName")
+        val driverId: Int? = null,
     val driverName: String? = null,
-
-    @SerializedName("driverPhone")
     val driverPhone: String? = null,
-
-    @SerializedName("driverRating")
     val driverRating: Double? = null,
-
-    @SerializedName("driverPhoto")
     val driverPhoto: String? = null,
-
-    @SerializedName("vehicleNumber")
     val vehicleNumber: String? = null,
-
-    @SerializedName("vehicleType")
     val vehicleType: String? = null,
-
-    @SerializedName("pickupOtp")
-    val otp: String? = null,
-
-    @SerializedName("deliveryOtp")
-    val deliveryOtp: String? = null,
-
-    @SerializedName("estimatedArrival")
+    val vehiclePhoto: String? = null,
+    val pickupOtp: String? = null,
+    val deliveredOtp: String? = null,
     val estimatedArrival: String? = null,
-
-    @SerializedName("etaMinutes")
     val etaMinutes: Int? = null,
-
-    @SerializedName("driverLatitude")
     val driverLatitude: Double? = null,
-
-    @SerializedName("driverLongitude")
     val driverLongitude: Double? = null,
-
-    @SerializedName("cancellationReason")
     val cancellationReason: String? = null,
-
-    @SerializedName("cancelledBy")
     val cancelledBy: String? = null,
-
-    @SerializedName("totalFare")
-    val totalFare: Int? = null,
-
-    @SerializedName("waitingCharge")
-    val waitingCharge: Int? = null,
-
-    @SerializedName("additionalData")
+    val baseFare: Double? = null,
+    val distanceFare: Double? = null,
+    val loadingCharges: Double? = null,
+    val waitingCharges: Double? = null,
+    val tollCharges: Double? = null,
+    val platformFee: Double? = null,
+    val surgeMultiplier: Double? = null,
+    val surgeAmount: Double? = null,
+    val subTotal: Double? = null,
+    val gstPercentage: Double? = null,
+    val gstAmount: Double? = null,
+    val couponDiscount: Double? = null,
+    val roundedFare: Double? = null,
+    val totalFare: Double? = null,
+    val paymentStatus: String? = null,
+    val paymentMethod: String? = "cash",
     val additionalData: AdditionalBookingData? = null
 ) {
     val message: String?
@@ -129,11 +88,12 @@ data class BookingStatusUpdate(
             "searching" -> BookingStatusType.SEARCHING
             "assigned" -> BookingStatusType.RIDER_ASSIGNED
             "heading_to_pickup", "pickup_started" -> BookingStatusType.RIDER_ENROUTE
-            "arrived_at_pickup", "arrived_pickup", "arrived" -> BookingStatusType.ARRIVED
-            "picked_up", "pickup_completed" -> BookingStatusType.PICKED_UP
+            "arrived_pickup" -> BookingStatusType.ARRIVED
+            "pickup_completed" -> BookingStatusType.PICKED_UP
             "heading_to_drop", "in_transit" -> BookingStatusType.IN_TRANSIT
-            "arrived_at_delivery", "arrived_delivery" -> BookingStatusType.ARRIVED_DELIVERY
-            "delivered", "delivery_completed", "completed" -> BookingStatusType.DELIVERED
+            "arrived_delivery" -> BookingStatusType.ARRIVED_DELIVERY
+            "payment_success" -> BookingStatusType.PAYMENT_SUCCESS
+            "delivery_completed", "completed" -> BookingStatusType.DELIVERED
             "cancelled" -> BookingStatusType.CANCELLED
             "no_rider", "no_driver" -> BookingStatusType.NO_RIDER
             else -> BookingStatusType.SEARCHING
@@ -142,10 +102,10 @@ data class BookingStatusUpdate(
 }
 
 data class AdditionalBookingData(
-    @SerializedName("pickupAddress") val pickupAddress: String? = null,
-    @SerializedName("dropAddress") val dropAddress: String? = null,
-    @SerializedName("distance") val distance: Double? = null,
-    @SerializedName("fare") val fare: Double? = null
+    val pickupAddress: String? = null,
+    val dropAddress: String? = null,
+    val distance: Double? = null,
+    val fare: Double? = null
 )
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -218,7 +178,7 @@ data class RiderLocationUpdate(
 
 enum class BookingStatusType {
     SEARCHING, RIDER_ASSIGNED, RIDER_ENROUTE, ARRIVED,
-    PICKED_UP, IN_TRANSIT, ARRIVED_DELIVERY, DELIVERED,
+    PICKED_UP, IN_TRANSIT, ARRIVED_DELIVERY, PAYMENT_SUCCESS, DELIVERED,
     CANCELLED, NO_RIDER
 }
 

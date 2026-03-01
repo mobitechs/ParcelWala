@@ -26,7 +26,7 @@ data class BookingResponse(
     val status: String,
 
     @SerializedName("fare")
-    val fare: Int,
+    val fare: Double, // ✅ Int → Double
 
     @SerializedName("distance")
     val distance: Double,
@@ -44,34 +44,6 @@ data class BookingResponse(
     val vehicleNumber: String? = null
 )
 
-/**
- * Driver information
- */
-data class DriverInfo(
-    @SerializedName("driver_id")
-    val driverId: Int,
-
-    @SerializedName("name")
-    val name: String,
-
-    @SerializedName("phone")
-    val phone: String,
-
-    @SerializedName("profile_image")
-    val profileImage: String?,
-
-    @SerializedName("rating")
-    val rating: Double,
-
-    @SerializedName("vehicle_number")
-    val vehicleNumber: String?,
-
-    @SerializedName("current_latitude")
-    val currentLatitude: Double?,
-
-    @SerializedName("current_longitude")
-    val currentLongitude: Double?
-)
 
 /**
  * Fare calculation response wrapper
@@ -89,8 +61,10 @@ data class FareCalculationResponse(
 )
 
 /**
- * Fare details for a vehicle type
- * Includes vehicle info + calculated fare
+ * Fare details for a vehicle type.
+ *
+ * ✅ All price/fare fields are Double for precision.
+ * ✅ waitingChargePerMin & freeWaitingTimeMins drive the dynamic waiting timer.
  */
 data class FareDetails(
     // Vehicle Information
@@ -109,7 +83,7 @@ data class FareDetails(
     @SerializedName("capacity")
     val capacity: String,
 
-    // Fare Calculation
+    // Fare Calculation — all Double
     @SerializedName("base_fare")
     val baseFare: Double,
 
@@ -133,6 +107,9 @@ data class FareDetails(
 
     @SerializedName("waiting_charges")
     val waitingCharges: Double = 0.0,
+
+    @SerializedName("free_waiting_time_mins")
+    val freeWaitingTimeMins: Int? = null,
 
     @SerializedName("toll_charges")
     val tollCharges: Double = 0.0,
@@ -162,40 +139,44 @@ data class FareDetails(
     val totalFare: Double,
 
     @SerializedName("rounded_fare")
-    val roundedFare: Int,
+    val roundedFare: Double, // ✅ Int → Double
 
     @SerializedName("estimated_duration_minutes")
     val estimatedDurationMinutes: Int,
+
+    @SerializedName("waitingChargePerMin")
+    val waitingChargePerMin: Double, // ✅ Int → Double (per-min charge for waiting timer)
+
+    @SerializedName("freeWaitingTimeMins")
+    val freeWaitingTimeMinsAlt: Int? = null, // alternate JSON key from API
+
+    @SerializedName("imageUrl")
+    val imageUrl: String,
 
     @SerializedName("currency")
     val currency: String = "INR",
 
     @SerializedName("promo_applied")
-//    val promoApplied: PromoInfo? = null,
     val promoApplied: String? = "",
 
     @SerializedName("fare_breakdown")
     val fareBreakdown: List<FareBreakdownItem> = emptyList()
 ) {
-    fun getDisplayFare(): String = "₹$roundedFare"
+    companion object {
+        const val DEFAULT_FREE_WAITING_MINS = 3
+        const val DEFAULT_CHARGE_PER_MIN = 3.0
+    }
+
+    /** Resolved free waiting time — checks both JSON key variants, defaults to 3 min */
+    val resolvedFreeWaitingMins: Int
+        get() = freeWaitingTimeMins ?: freeWaitingTimeMinsAlt ?: DEFAULT_FREE_WAITING_MINS
+
+    fun getDisplayFare(): String = formatRupee(roundedFare)
     fun getEtaText(): String = "$estimatedDurationMinutes mins"
     fun hasSurgePricing(): Boolean = surgeMultiplier > 1.0
     fun getSurgePercentage(): Int = ((surgeMultiplier - 1.0) * 100).toInt()
 }
 
-/**
- * Promo Info
- */
-data class PromoInfo(
-    @SerializedName("promo_code")
-    val promoCode: String,
-
-    @SerializedName("discount_amount")
-    val discountAmount: Int,
-
-    @SerializedName("discount_type")
-    val discountType: String
-)
 
 /**
  * Fare Breakdown Item
@@ -209,14 +190,7 @@ data class FareBreakdownItem(
 
     @SerializedName("type")
     val type: String
-) {
-    fun getFormattedValue(): String {
-        return when {
-            type == "discount" && value > 0 -> "-₹${value.toInt()}"
-            else -> "₹${value.toInt()}"
-        }
-    }
-}
+)
 
 /**
  * Create booking response wrapper
@@ -231,3 +205,15 @@ data class CreateBookingResponse(
     @SerializedName("message")
     val message: String?
 )
+
+// ═══════════════════════════════════════════════════════════════════════
+// PRICE FORMATTING UTILITIES
+// ═══════════════════════════════════════════════════════════════════════
+
+/** Format price: show decimals only when fractional (150.0 → "150", 150.5 → "150.50") */
+fun formatPrice(amount: Double): String =
+    if (amount == amount.toLong().toDouble()) amount.toLong().toString()
+    else String.format("%.2f", amount)
+
+/** Format price with ₹ symbol */
+fun formatRupee(amount: Double): String = "₹${formatPrice(amount)}"

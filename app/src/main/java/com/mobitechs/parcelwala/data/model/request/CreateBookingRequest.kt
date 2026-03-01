@@ -127,7 +127,7 @@ data class CreateBookingRequest(
     val gstAmount: Double,
 
     @SerializedName("fare_before_discount")
-    val fareBeforeDiscount: Int,  // roundedFare from API
+    val fareBeforeDiscount: Double,  // roundedFare from API
 
     // ============ COUPON/DISCOUNT DETAILS ============
     @SerializedName("coupon_id")
@@ -147,7 +147,7 @@ data class CreateBookingRequest(
 
     // ============ FINAL AMOUNT ============
     @SerializedName("final_fare")
-    val finalFare: Int,  // Amount after all discounts
+    val finalFare: Double,  // Amount after all discounts
 
     // ============ PAYMENT & OTHER ============
     @SerializedName("payment_method")
@@ -164,12 +164,6 @@ data class CreateBookingRequest(
     val currency: String = "INR"
 )
 
-/**
- * Builder helper to create request from FareDetails and UI state
- *
- * ✅ FIX: Now accepts optional roadDistanceKm and roadDurationMinutes from Google Directions.
- * When available, these override the fare API's distance/duration for more accurate data.
- */
 object CreateBookingRequestBuilder {
 
     fun build(

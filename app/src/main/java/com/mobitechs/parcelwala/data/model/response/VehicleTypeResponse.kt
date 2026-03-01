@@ -38,7 +38,7 @@ data class VehicleTypeResponse(
     val waitingChargePerMin: Double = 2.0, // ₹2 per minute after free time
 
     @SerializedName("free_waiting_time_mins")
-    val freeWaitingTimeMins: Int = 25, // 25 mins free loading/unloading
+    val freeWaitingTimeMins: Int = 10, // 25 mins free loading/unloading
 
     @SerializedName("min_fare")
     val minFare: Int = 50, // Minimum fare guarantee

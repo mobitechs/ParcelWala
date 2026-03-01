@@ -21,8 +21,6 @@ object Constants {
     object SignalRMethods {
         const val JOIN_BOOKING_CHANNEL = "JoinBookingChannel"       // invoke(bookingId: String)
         const val LEAVE_BOOKING_CHANNEL = "LeaveBookingChannel"     // invoke(bookingId: String)
-
-        //        const val CANCEL_BOOKING = "CancelBooking"                  // invoke(bookingId: Int, reason: String)
         const val CANCEL_BOOKING_BY_CUSTOMER = "CancelBookingByCustomer"
     }
 
@@ -35,29 +33,15 @@ object Constants {
         const val JOINED_BOOKING_CHANNEL = "JoinedBookingChannel"
         const val LEFT_BOOKING_CHANNEL = "LeftBookingChannel"
         const val ERROR = "Error"
-
         // Booking Events
         const val BOOKING_STATUS_UPDATE = "BookingStatusUpdate"
         const val RIDER_LOCATION_UPDATE = "RiderLocationUpdate"
         const val BOOKING_CANCELLED = "BookingCancelled"
         const val BOOKING_CHANNEL_INFO = "BookingChannelInfo"
+        const val STATUS_PAYMENT_SUCCESS = "payment_success"
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // BOOKING STATUS VALUES - Expected from server
-    // ═══════════════════════════════════════════════════════════════════
-    object BookingStatusValues {
-        const val SEARCHING = "searching"
-        const val ASSIGNED = "assigned"
-        const val HEADING_TO_PICKUP = "heading_to_pickup"
-        const val ARRIVED_AT_PICKUP = "arrived_pickup"
-        const val PICKED_UP = "picked_up"
-        const val HEADING_TO_DROP = "heading_to_drop"
-        const val ARRIVED_AT_DELIVERY = "arrived_at_delivery"
-        const val DELIVERED = "delivered"
-        const val CANCELLED = "cancelled"
-        const val NO_RIDER = "no_rider"
-    }
+
 
     const val TIMEOUT_SECONDS = 30L
 
@@ -70,6 +54,4 @@ object Constants {
 
     const val GOOGLE_MAPS_API_KEY = "AIzaSyDPOIRDx-ZlXrEXaV9KFFvul7iODwNwMn4"
 
-    const val SEARCH_TIMEOUT_MS = 180000L
-    const val MAX_SEARCH_ATTEMPTS = 3
 }

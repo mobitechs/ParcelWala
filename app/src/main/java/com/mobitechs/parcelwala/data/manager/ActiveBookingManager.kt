@@ -1,7 +1,9 @@
 // data/manager/ActiveBookingManager.kt
-// ✅ UPDATED: Auto-persists to SharedPreferences on every state change
-// ✅ UPDATED: Restores active booking on app restart (crash recovery)
-// ✅ UPDATED: Stale booking auto-cleanup (bookings older than 6 hours)
+// ✅ UPDATED: fare is now Double
+// ✅ UPDATED: Carries waitingChargePerMin & freeWaitingTimeMins from FareDetails for dynamic waiting timer
+// ✅ Auto-persists to SharedPreferences on every state change
+// ✅ Restores active booking on app restart (crash recovery)
+// ✅ Stale booking auto-cleanup (bookings older than 6 hours)
 package com.mobitechs.parcelwala.data.manager
 
 import android.util.Log
@@ -24,9 +26,7 @@ class ActiveBookingManager @Inject constructor(
 
     companion object {
         const val SEARCH_TIMEOUT_MS = 3 * 60 * 1000L // 3 minutes
-
-        // ✅ Auto-expire stale bookings older than this (6 hours)
-        private const val MAX_BOOKING_AGE_MS = 6 * 60 * 60 * 1000L
+        private const val MAX_BOOKING_AGE_MS = 6 * 60 * 60 * 1000L // 6 hours
     }
 
     private val gson = Gson()
@@ -43,7 +43,7 @@ class ActiveBookingManager @Inject constructor(
     }
 
     /**
-     * ✅ Restore active booking from SharedPreferences.
+     * Restore active booking from SharedPreferences.
      * Called automatically when ActiveBookingManager is created (on app start).
      * Cleans up stale or terminal-state bookings.
      */
@@ -62,14 +62,14 @@ class ActiveBookingManager @Inject constructor(
                 return
             }
 
-            // ✅ Don't restore terminal-state bookings
+            // Don't restore terminal-state bookings
             if (booking.status == BookingStatus.DELIVERED || booking.status == BookingStatus.CANCELLED) {
                 Log.d(TAG, "🗑️ Stored booking is ${booking.status}, clearing")
                 preferencesManager.clearActiveBooking()
                 return
             }
 
-            // ✅ Don't restore stale bookings (older than 6 hours)
+            // Don't restore stale bookings (older than 6 hours)
             val age = System.currentTimeMillis() - booking.createdAt
             if (age > MAX_BOOKING_AGE_MS) {
                 Log.d(TAG, "🗑️ Stored booking is ${age / 3600000}h old, clearing")
@@ -77,7 +77,7 @@ class ActiveBookingManager @Inject constructor(
                 return
             }
 
-            // ✅ Restore the booking!
+            // Restore the booking
             _activeBooking.value = booking
             Log.d(TAG, "✅ RESTORED booking: #${booking.bookingId} | Status: ${booking.status} | Age: ${age / 60000}min")
 
@@ -104,8 +104,14 @@ class ActiveBookingManager @Inject constructor(
         }
     }
 
+    /** Update state flow and persist in one call */
+    private fun updateAndPersist(booking: ActiveBooking?) {
+        _activeBooking.value = booking
+        persistBooking(booking)
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC METHODS (same interface, now with auto-persist)
+    // PUBLIC METHODS
     // ═══════════════════════════════════════════════════════════════════════
 
     fun setActiveBooking(
@@ -113,8 +119,9 @@ class ActiveBookingManager @Inject constructor(
         pickupAddress: SavedAddress,
         dropAddress: SavedAddress,
         fareDetails: FareDetails,
-        fare: Int,
-        status: BookingStatus = BookingStatus.SEARCHING
+        fare: Double, // ✅ Int → Double
+        status: BookingStatus = BookingStatus.SEARCHING,
+        paymentMethod: String = "cash"
     ) {
         val currentTime = System.currentTimeMillis()
         val booking = ActiveBooking(
@@ -126,17 +133,19 @@ class ActiveBookingManager @Inject constructor(
             status = status,
             createdAt = currentTime,
             searchStartTime = currentTime,
-            searchAttempts = 1
+            searchAttempts = 1,
+            paymentMethod = paymentMethod,
+            // ✅ Carry waiting timer config from FareDetails API
+            waitingChargePerMin = fareDetails.waitingChargePerMin,
+            freeWaitingTimeMins = fareDetails.resolvedFreeWaitingMins
         )
-        _activeBooking.value = booking
-        persistBooking(booking)
-        Log.d(TAG, "📦 Active booking SET: #$bookingId")
+        updateAndPersist(booking)
+        Log.d(TAG, "📦 Active booking SET: #$bookingId | waitCharge/min=₹${booking.waitingChargePerMin} | freeWait=${booking.freeWaitingTimeMins}min")
     }
 
     fun updateStatus(status: BookingStatus) {
         val updated = _activeBooking.value?.copy(status = status)
-        _activeBooking.value = updated
-        persistBooking(updated)
+        updateAndPersist(updated)
         Log.d(TAG, "📊 Status → $status")
     }
 
@@ -146,14 +155,12 @@ class ActiveBookingManager @Inject constructor(
             searchAttempts = (_activeBooking.value?.searchAttempts ?: 0) + 1,
             status = BookingStatus.SEARCHING
         )
-        _activeBooking.value = updated
-        persistBooking(updated)
+        updateAndPersist(updated)
         Log.d(TAG, "🔄 Retry search: attempt ${updated?.searchAttempts}")
     }
 
     fun clearActiveBooking() {
-        _activeBooking.value = null
-        preferencesManager.clearActiveBooking()
+        updateAndPersist(null)
         Log.d(TAG, "🗑️ Active booking CLEARED")
     }
 
@@ -174,18 +181,30 @@ class ActiveBookingManager @Inject constructor(
     }
 }
 
+/**
+ * Active booking data — persisted across app restarts.
+ *
+ * ✅ fare is Double
+ * ✅ waitingChargePerMin & freeWaitingTimeMins from FareDetails API for dynamic waiting timer
+ */
 data class ActiveBooking(
     val bookingId: String,
     val pickupAddress: SavedAddress,
     val dropAddress: SavedAddress,
     val fareDetails: FareDetails,
-    val fare: Int,
+    val fare: Double, // ✅ Int → Double
     val status: BookingStatus,
     val createdAt: Long,
     val searchStartTime: Long = createdAt,
     val searchAttempts: Int = 1,
     val paymentMethod: String = "cash",
-)
+    // ✅ NEW: Dynamic waiting timer config from API
+    val waitingChargePerMin: Double = FareDetails.DEFAULT_CHARGE_PER_MIN,
+    val freeWaitingTimeMins: Int = FareDetails.DEFAULT_FREE_WAITING_MINS
+) {
+    /** Free waiting time in seconds */
+    val freeWaitingSeconds: Int get() = freeWaitingTimeMins * 60
+}
 
 enum class BookingStatus {
     SEARCHING,
@@ -194,6 +213,8 @@ enum class BookingStatus {
     RIDER_EN_ROUTE,
     PICKED_UP,
     IN_TRANSIT,
+    ARRIVED_DELIVERY,
+    PAYMENT_SUCCESS,
     DELIVERED,
     CANCELLED
 }

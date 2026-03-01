@@ -386,8 +386,8 @@ class BookingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedVehicleId = vehicleType.vehicleTypeId,
-                baseFare = vehicleType.basePrice,
-                finalFare = calculateFinalFare(vehicleType.basePrice)
+                baseFare = vehicleType.basePrice.toDouble(), // ✅ Int → Double
+                finalFare = calculateFinalFare(vehicleType.basePrice.toDouble()) // ✅ Int → Double
             )
         }
     }
@@ -406,20 +406,20 @@ class BookingViewModel @Inject constructor(
 
     fun applyCoupon(couponCode: String) {
         viewModelScope.launch {
-            val orderValue = _uiState.value.baseFare
-            bookingRepository.validateCoupon(couponCode, orderValue).collect { result ->
+            val orderValue = selectedFareDetails.value?.roundedFare ?: 0.0
+            bookingRepository.validateCoupon(couponCode, orderValue.toInt()).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { coupon ->
-                            val discountAmount = calculateDiscount(coupon, orderValue)
+                            val discount = calculateDiscount(coupon, orderValue) // ✅ Fixed: was 'discountAmount'
                             _uiState.update {
                                 it.copy(
                                     appliedCoupon = coupon.code,
                                     appliedCouponId = coupon.couponId,
                                     appliedCouponDiscountType = coupon.discountType,
-                                    appliedCouponDiscountValue = coupon.discountValue,
-                                    discount = discountAmount,
+                                    appliedCouponDiscountValue = coupon.discountValue?.toInt(), // ✅ Double? → Int?
+                                    discount = discount, // ✅ Fixed: was 'discountAmount'
                                     finalFare = calculateFinalFare(orderValue),
                                     isLoading = false,
                                     error = null
@@ -440,7 +440,7 @@ class BookingViewModel @Inject constructor(
                 appliedCouponId = null,
                 appliedCouponDiscountType = null,
                 appliedCouponDiscountValue = null,
-                discount = 0,
+                discount = 0.0, // ✅ was 0 (Int), now Double
                 finalFare = calculateFinalFare(it.baseFare)
             )
         }
@@ -454,19 +454,24 @@ class BookingViewModel @Inject constructor(
         _uiState.update { it.copy(gstin = gstin) }
     }
 
-    private fun calculateDiscount(coupon: CouponResponse, orderValue: Int): Int {
-        return when (coupon.discountType) {
+    private fun calculateDiscount(coupon: CouponResponse, orderValue: Double): Double {
+        val discountValue = coupon.discountValue?.toDouble() ?: 0.0  // ✅ Force to Double
+        val discount = when (coupon.discountType?.lowercase()) {
             "percentage" -> {
-                val discount = (orderValue * coupon.discountValue / 100)
-                coupon.maxDiscount?.let { minOf(discount, it) } ?: discount
+                val raw = orderValue * (discountValue / 100.0)
+                val maxDiscount = coupon.maxDiscount?.toDouble() ?: Double.MAX_VALUE
+                minOf(raw, maxDiscount)
             }
-            "fixed" -> coupon.discountValue
-            else -> 0
+            "flat", "fixed" -> {
+                discountValue
+            }
+            else -> 0.0
         }
+        return minOf(discount, orderValue)
     }
 
-    private fun calculateFinalFare(baseFare: Int): Int {
-        return maxOf(0, baseFare - _uiState.value.discount)
+    private fun calculateFinalFare(baseFare: Double): Double {
+        return maxOf(0.0, baseFare - _uiState.value.discount)
     }
 
     /**
@@ -504,7 +509,7 @@ class BookingViewModel @Inject constructor(
                 couponCode = state.appliedCoupon,
                 couponDiscountType = state.appliedCouponDiscountType,
                 couponDiscountValue = state.appliedCouponDiscountValue,
-                couponDiscountAmount = state.discount,
+                couponDiscountAmount = state.discount.toInt(),
                 paymentMethod = state.paymentMethod,
                 gstin = state.gstin,
                 roadDistanceKm = getRoadDistanceKm(),
@@ -529,8 +534,9 @@ class BookingViewModel @Inject constructor(
                                 pickupAddress = state.pickupAddress,
                                 dropAddress = state.dropAddress,
                                 fareDetails = selectedFare,
-                                fare = request.finalFare,
-                                status = BookingStatus.SEARCHING
+                                fare = state.finalFare, // ✅ already Double
+                                status = BookingStatus.SEARCHING,
+                                paymentMethod = state.paymentMethod
                             )
 
                             _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingId.toString()))
@@ -667,10 +673,10 @@ data class BookingUiState(
     val goodsPackages: Int? = null,
     val goodsValue: Int? = null,
 
-    // Fare
-    val baseFare: Int = 0,
-    val discount: Int = 0,
-    val finalFare: Int = 0,
+    // Fare — ✅ All Double
+    val baseFare: Double = 0.0,
+    val discount: Double = 0.0,
+    val finalFare: Double = 0.0,
 
     // Coupon Details
     val appliedCoupon: String? = null,

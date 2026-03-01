@@ -565,7 +565,7 @@
     <string name="read_before_booking">बुकिंगपूर्वी वाचा</string>
     <string name="by_booking_agree">बुकिंग करून तुम्ही आमच्या </string>
     <string name="terms_of_service">सेवा अटी</string>
-    <string name="you_save_format">तुमची बचत ₹%d</string>
+    <string name="you_save_format">तुमची बचत ₹%s</string>
     <string name="book_vehicle_format">%s बुक करा</string>
     <string name="dismiss">रद्द करा</string>
     <string name="view_trip_details">ट्रिप तपशील पहा</string>
@@ -615,11 +615,11 @@
     <string name="driver_is_waiting">ड्रायव्हर वाट पाहत आहे</string>
     <string name="free_waiting">मोफत प्रतीक्षा</string>
     <string name="hurry_to_pickup">कृपया पिकअप पॉइंटवर\nलवकर या</string>
-    <string name="charge_per_min_format">₹%d/मिनिट</string>
+    <string name="charge_per_min_format">₹%s/मिनिट</string>
     <string name="waiting_charge_applied_fare">प्रतीक्षा शुल्क\nभाड्यात जोडले</string>
-    <string name="charge_breakdown_format">₹%d × %d मिनिटे</string>
-    <string name="plus_charge_format">+ ₹%d</string>
-    <string name="free_waiting_info_format">3 मिनिटांनंतर, ₹%d/मिनिट प्रतीक्षा शुल्क लागू</string>
+    <string name="charge_breakdown_format">₹%s × %d मिनिटे</string>
+    <string name="plus_charge_format">+ ₹%s</string>
+    <string name="free_waiting_info_format">मोफत मिनिटांनंतर, ₹%s/मिनिट प्रतीक्षा शुल्क लागू</string>
     <string name="free_label">मोफत</string>
     <string name="rider_photo">रायडरचा फोटो</string>
     <string name="trips_format">%d ट्रिप</string>

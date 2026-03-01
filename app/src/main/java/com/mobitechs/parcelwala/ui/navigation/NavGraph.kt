@@ -51,6 +51,7 @@ import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.payments.PostDeliveryPaymentScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
+import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
@@ -767,13 +768,15 @@ fun NavGraph(
                                 // Stay on RiderFoundScreen - map switches to delivery route
                             }
                             is RiderTrackingNavigationEvent.Delivered -> {
-                                // ✅ Rating dialog shown in RiderFoundScreen (for cash)
+                                // Rating dialog shown in RiderFoundScreen (for cash)
                                 // or payment screen navigated to (for online)
                             }
-                            // ✅ NEW: Navigate to payment screen after delivery
                             is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
+                                val roundedFare = event.roundedFare.toString()
+                                val waitingChargeStr = event.waitingCharge.toString()
+                                val discount = event.discount.toString()
                                 navController.navigate(
-                                    "post_delivery_payment/${event.bookingId}/${event.baseFare}/${event.waitingCharge}/${Uri.encode(event.driverName)}/${event.paymentMethod}"
+                                    "post_delivery_payment/${event.bookingId}/$roundedFare/$waitingChargeStr/$discount/${event.driverName}/${event.paymentMethod}"
                                 )
                             }
                             is RiderTrackingNavigationEvent.NavigateToHome -> {
@@ -836,62 +839,42 @@ fun NavGraph(
             }
 
             // ════════════════════════════════════════════════════════════════
-            // ✅ NEW: POST-DELIVERY PAYMENT SCREEN (booking_flow)
+            // POST-DELIVERY PAYMENT SCREEN (booking_flow)
             // ════════════════════════════════════════════════════════════════
             composable(
-                route = "post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}",
+                route = "post_delivery_payment/{bookingId}/{roundedFare}/{waitingCharge}/{discount}/{driverName}/{paymentMethod}",
                 arguments = listOf(
                     navArgument("bookingId") { type = NavType.StringType },
-                    navArgument("baseFare") { type = NavType.IntType },
-                    navArgument("waitingCharge") { type = NavType.IntType },
+                    navArgument("roundedFare") { type = NavType.StringType },          // ✅ StringType for Double
+                    navArgument("waitingCharge") { type = NavType.StringType },     // ✅ StringType for Double
+                    navArgument("discount") { type = NavType.StringType },     // ✅ StringType for Double
                     navArgument("driverName") { type = NavType.StringType },
                     navArgument("paymentMethod") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val baseFare = backStackEntry.arguments?.getInt("baseFare") ?: 0
-                val waitingCharge = backStackEntry.arguments?.getInt("waitingCharge") ?: 0
-                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
+                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
+                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
+                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
+                val driverName = backStackEntry.arguments?.getString("driverName") ?: ""
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
-
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
-                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
-
-                // Listen for NavigateToHome (after rating completes)
-                LaunchedEffect(Unit) {
-                    riderTrackingViewModel.navigationEvent.collect { event ->
-                        when (event) {
-                            is RiderTrackingNavigationEvent.NavigateToHome -> {
-                                navController.navigate(Screen.Main.route) {
-                                    popUpTo("booking_flow") { inclusive = true }
-                                }
-                            }
-                            else -> {}
-                        }
-                    }
-                }
 
                 PostDeliveryPaymentScreen(
                     bookingId = bookingId,
-                    baseFare = baseFare,
+                    roundedFare = roundedFare,
                     waitingCharge = waitingCharge,
+                    discount = discount,
                     driverName = driverName,
                     paymentMethod = paymentMethod,
-                    onPaymentComplete = {
-                        // Online/Wallet payment done → show rating
-                        riderTrackingViewModel.onPaymentCompleted()
-                        navController.popBackStack() // Back to RiderFoundScreen where rating dialog shows
-                    },
-                    onPaymentSkipped = {
-                        // User switched to cash on payment screen → show rating
-                        riderTrackingViewModel.onCashPaymentConfirmed()
-                        navController.popBackStack()
-                    }
+                    onPaymentComplete = { /* navigate to completion */ },
+                    onPaymentSkipped = { /* handle cash flow */ }
                 )
             }
-        }
+        } // ✅ CLOSES booking_flow navigation block
 
-        // ============ ACTIVE BOOKING FLOW (Resume) ============
+        // ════════════════════════════════════════════════════════════════════
+        // ACTIVE BOOKING FLOW (Resume) — sibling of booking_flow
+        // ════════════════════════════════════════════════════════════════════
         navigation(
             startDestination = "active_searching_rider",
             route = "active_booking_flow"
@@ -1007,10 +990,13 @@ fun NavGraph(
                                     // Stay on screen — rating dialog will show (for cash)
                                     // or payment screen navigated (for online)
                                 }
-                                // ✅ NEW: Navigate to payment screen after delivery
                                 is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
+
+                                    val roundedFare = event.roundedFare.toString()           // ✅ Double → String
+                                    val waitingChargeStr = event.waitingCharge.toString() // ✅ Double → String
+                                    val discount = event.discount.toString()
                                     navController.navigate(
-                                        "active_post_delivery_payment/${event.bookingId}/${event.baseFare}/${event.waitingCharge}/${Uri.encode(event.driverName)}/${event.paymentMethod}"
+                                        "active_post_delivery_payment/${event.bookingId}/$roundedFare/$waitingChargeStr/$discount/${Uri.encode(event.driverName)}/${event.paymentMethod}"
                                     )
                                 }
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
@@ -1061,21 +1047,23 @@ fun NavGraph(
             }
 
             // ═══════════════════════════════════════════════════════════════════
-            // ✅ NEW: POST-DELIVERY PAYMENT SCREEN (active_booking_flow)
+            // POST-DELIVERY PAYMENT SCREEN (active_booking_flow)
             // ═══════════════════════════════════════════════════════════════════
             composable(
-                route = "active_post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}",
+                route = "active_post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{discount}/{driverName}/{paymentMethod}",
                 arguments = listOf(
                     navArgument("bookingId") { type = NavType.StringType },
-                    navArgument("baseFare") { type = NavType.IntType },
-                    navArgument("waitingCharge") { type = NavType.IntType },
+                    navArgument("roundedFare") { type = NavType.StringType },          // ✅ IntType → StringType
+                    navArgument("waitingCharge") { type = NavType.StringType },     // ✅ IntType → StringType
+                    navArgument("discount") { type = NavType.StringType },     // ✅ IntType → StringType
                     navArgument("driverName") { type = NavType.StringType },
                     navArgument("paymentMethod") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val baseFare = backStackEntry.arguments?.getInt("baseFare") ?: 0
-                val waitingCharge = backStackEntry.arguments?.getInt("waitingCharge") ?: 0
+                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0         // ✅ Fixed
+                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0  // ✅ Fixed
+                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0  // ✅ Fixed
                 val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
 
@@ -1083,6 +1071,7 @@ fun NavGraph(
                     navController.getBackStackEntry("active_booking_flow")
                 }
                 val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
+                val activity = context as? MainActivity
 
                 // Listen for NavigateToHome (after rating completes)
                 LaunchedEffect(Unit) {
@@ -1098,22 +1087,26 @@ fun NavGraph(
                     }
                 }
 
-                PostDeliveryPaymentScreen(
-                    bookingId = bookingId,
-                    baseFare = baseFare,
-                    waitingCharge = waitingCharge,
-                    driverName = driverName,
-                    paymentMethod = paymentMethod,
-                    onPaymentComplete = {
-                        riderTrackingViewModel.onPaymentCompleted()
-                        navController.popBackStack() // Back to RiderFoundScreen where rating shows
-                    },
-                    onPaymentSkipped = {
-                        riderTrackingViewModel.onCashPaymentConfirmed()
-                        navController.popBackStack()
-                    }
-                )
+                activity?.let {
+                    PostDeliveryPaymentScreen(
+                        bookingId = bookingId,
+                        roundedFare = roundedFare,
+                        waitingCharge = waitingCharge,
+                        discount = discount,
+                        driverName = driverName,
+                        paymentMethod = paymentMethod,
+                        onPaymentComplete = {
+                            riderTrackingViewModel.onPaymentCompleted()
+                            navController.popBackStack() // Back to RiderFoundScreen where rating shows
+                        },
+                        onPaymentSkipped = {
+                            riderTrackingViewModel.onCashPaymentConfirmed()
+                            navController.popBackStack()
+                        },
+                        paymentViewModel = it.paymentViewModel
+                    )
+                }
             }
-        }
-    }
+        } // closes active_booking_flow
+    } // closes NavHost
 }

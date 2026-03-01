@@ -73,25 +73,17 @@ class BookingRepository @Inject constructor(
                     return@flow
                 }
 
-                if (USE_MOCK_DATA) {
-                    delay(800)
-                    val mockData = MockBookingData.getVehicleTypes()
-                    cachedVehicleTypes = mockData
+                val response = apiService.getVehicleTypes()
+                if (response.success && response.data != null) {
+                    cachedVehicleTypes = response.data
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(mockData))
+                    emit(NetworkResult.Success(response.data))
                 } else {
-                    val response = apiService.getVehicleTypes()
-                    if (response.success && response.data != null) {
-                        cachedVehicleTypes = response.data
-                        cacheTimestamp = System.currentTimeMillis()
-                        emit(NetworkResult.Success(response.data))
-                    } else {
-                        emit(
-                            NetworkResult.Error(
-                                response.message ?: "Failed to load vehicle types"
-                            )
+                    emit(
+                        NetworkResult.Error(
+                            response.message ?: "Failed to load vehicle types"
                         )
-                    }
+                    )
                 }
             } catch (e: Exception) {
                 emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -108,21 +100,13 @@ class BookingRepository @Inject constructor(
                     return@flow
                 }
 
-                if (USE_MOCK_DATA) {
-                    delay(600)
-                    val mockData = MockBookingData.getGoodsTypes()
-                    cachedGoodsTypes = mockData
+                val response = apiService.getGoodsTypes()
+                if (response.success && response.data != null) {
+                    cachedGoodsTypes = response.data
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(mockData))
+                    emit(NetworkResult.Success(response.data))
                 } else {
-                    val response = apiService.getGoodsTypes()
-                    if (response.success && response.data != null) {
-                        cachedGoodsTypes = response.data
-                        cacheTimestamp = System.currentTimeMillis()
-                        emit(NetworkResult.Success(response.data))
-                    } else {
-                        emit(NetworkResult.Error(response.message ?: "Failed to load goods types"))
-                    }
+                    emit(NetworkResult.Error(response.message ?: "Failed to load goods types"))
                 }
             } catch (e: Exception) {
                 emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -139,25 +123,17 @@ class BookingRepository @Inject constructor(
                     return@flow
                 }
 
-                if (USE_MOCK_DATA) {
-                    delay(500)
-                    val mockData = MockBookingData.getRestrictedItems()
-                    cachedRestrictedItems = mockData
+                val response = apiService.getRestrictedItems()
+                if (response.success && response.data != null) {
+                    cachedRestrictedItems = response.data
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(mockData))
+                    emit(NetworkResult.Success(response.data))
                 } else {
-                    val response = apiService.getRestrictedItems()
-                    if (response.success && response.data != null) {
-                        cachedRestrictedItems = response.data
-                        cacheTimestamp = System.currentTimeMillis()
-                        emit(NetworkResult.Success(response.data))
-                    } else {
-                        emit(
-                            NetworkResult.Error(
-                                response.message ?: "Failed to load restricted items"
-                            )
+                    emit(
+                        NetworkResult.Error(
+                            response.message ?: "Failed to load restricted items"
                         )
-                    }
+                    )
                 }
             } catch (e: Exception) {
                 emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -174,21 +150,13 @@ class BookingRepository @Inject constructor(
                     return@flow
                 }
 
-                if (USE_MOCK_DATA) {
-                    delay(700)
-                    val mockData = MockBookingData.getAvailableCoupons()
-                    cachedCoupons = mockData
+                val response = apiService.getAvailableCoupons()
+                if (response.success && response.data != null) {
+                    cachedCoupons = response.data
                     cacheTimestamp = System.currentTimeMillis()
-                    emit(NetworkResult.Success(mockData))
+                    emit(NetworkResult.Success(response.data))
                 } else {
-                    val response = apiService.getAvailableCoupons()
-                    if (response.success && response.data != null) {
-                        cachedCoupons = response.data
-                        cacheTimestamp = System.currentTimeMillis()
-                        emit(NetworkResult.Success(response.data))
-                    } else {
-                        emit(NetworkResult.Error(response.message ?: "Failed to load coupons"))
-                    }
+                    emit(NetworkResult.Error(response.message ?: "Failed to load coupons"))
                 }
             } catch (e: Exception) {
                 emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -199,22 +167,12 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(500)
-                val coupon = MockBookingData.validateCoupon(code, orderValue)
-                if (coupon != null) {
-                    emit(NetworkResult.Success(coupon))
-                } else {
-                    emit(NetworkResult.Error("Invalid coupon code"))
-                }
+            val request = ValidateCouponRequest(code, orderValue)
+            val response = apiService.validateCoupon(request)
+            if (response.success && response.data != null) {
+                emit(NetworkResult.Success(response.data))
             } else {
-                val request = ValidateCouponRequest(code, orderValue)
-                val response = apiService.validateCoupon(request)
-                if (response.success && response.data != null) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Invalid coupon code"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Invalid coupon code"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -227,20 +185,12 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(600)
-                if (cachedSavedAddresses == null) {
-                    cachedSavedAddresses = MockAccountData.getSavedAddresses().toMutableList()
-                }
-                emit(NetworkResult.Success(cachedSavedAddresses!!.toList()))
+            val response = apiService.getSavedAddresses()
+            if (response.success && response.data != null) {
+                cachedSavedAddresses = response.data.toMutableList()
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.getSavedAddresses()
-                if (response.success && response.data != null) {
-                    cachedSavedAddresses = response.data.toMutableList()
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load addresses"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to load addresses"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -251,24 +201,12 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(500)
-                val newAddress = address.copy(
-                    addressId = MockAccountData.generateAddressId()
-                )
-                if (cachedSavedAddresses == null) {
-                    cachedSavedAddresses = mutableListOf()
-                }
-                cachedSavedAddresses!!.add(newAddress)
-                emit(NetworkResult.Success(newAddress))
+            val response = apiService.saveAddress(address)
+            if (response.success && response.data != null) {
+                cachedSavedAddresses?.add(response.data)
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.saveAddress(address)
-                if (response.success && response.data != null) {
-                    cachedSavedAddresses?.add(response.data)
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to save address"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to save address"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -279,34 +217,17 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(500)
-                if (cachedSavedAddresses == null) {
-                    emit(NetworkResult.Error("No addresses found"))
-                    return@flow
-                }
-                val existingIndex = cachedSavedAddresses!!.indexOfFirst {
-                    it.addressId == address.addressId
-                }
+            val response = apiService.updateAddress(address.addressId, address)
+            if (response.success && response.data != null) {
+                val existingIndex = cachedSavedAddresses?.indexOfFirst {
+                    it.addressId == response.data.addressId
+                } ?: -1
                 if (existingIndex >= 0) {
-                    cachedSavedAddresses!![existingIndex] = address
-                    emit(NetworkResult.Success(address))
-                } else {
-                    emit(NetworkResult.Error("Address not found"))
+                    cachedSavedAddresses!![existingIndex] = response.data
                 }
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.updateAddress(address.addressId, address)
-                if (response.success && response.data != null) {
-                    val existingIndex = cachedSavedAddresses?.indexOfFirst {
-                        it.addressId == response.data.addressId
-                    } ?: -1
-                    if (existingIndex >= 0) {
-                        cachedSavedAddresses!![existingIndex] = response.data
-                    }
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to update address"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to update address"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -317,18 +238,12 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(400)
+            val response = apiService.deleteAddress(addressId)
+            if (response.success) {
                 cachedSavedAddresses?.removeIf { it.addressId == addressId }
                 emit(NetworkResult.Success(Unit))
             } else {
-                val response = apiService.deleteAddress(addressId)
-                if (response.success) {
-                    cachedSavedAddresses?.removeIf { it.addressId == addressId }
-                    emit(NetworkResult.Success(Unit))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to delete address"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to delete address"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -347,22 +262,11 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(1200)
-                val mockFares = MockBookingData.calculateFaresForAllVehicles(
-                    pickupLat = request.pickupLatitude,
-                    pickupLng = request.pickupLongitude,
-                    dropLat = request.dropLatitude,
-                    dropLng = request.dropLongitude
-                )
-                emit(NetworkResult.Success(mockFares))
+            val response = apiService.calculateFare(request)
+            if (response.success && response.data.isNotEmpty()) {
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.calculateFare(request)
-                if (response.success && response.data.isNotEmpty()) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to calculate fares"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to calculate fares"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -374,21 +278,11 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(1000)
-                val mockBooking = MockBookingData.createBooking(
-                    vehicleTypeId = request.vehicleTypeId,
-                    pickupAddress = request.pickupAddress,
-                    dropAddress = request.dropAddress
-                )
-                emit(NetworkResult.Success(mockBooking))
+            val response = apiService.createBooking(request)
+            if (response.success) {
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.createBooking(request)
-                if (response.success) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to create booking"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to create booking"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
@@ -400,17 +294,12 @@ class BookingRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(500)
+            val reasonMap = mapOf("reason" to reason)
+            val response = apiService.cancelBooking(bookingId, reasonMap)
+            if (response.success) {
                 emit(NetworkResult.Success(Unit))
             } else {
-                val reasonMap = mapOf("reason" to reason)
-                val response = apiService.cancelBooking(bookingId, reasonMap)
-                if (response.success) {
-                    emit(NetworkResult.Success(Unit))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to cancel booking"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to cancel booking"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))

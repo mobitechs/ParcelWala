@@ -47,6 +47,7 @@ import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
+import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.components.SignalRDebugPanel
@@ -62,7 +63,7 @@ fun SearchingRiderScreen(
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
     selectedFareDetails: FareDetails,
-    fare: Int,
+    fare: Double, // ✅ Int → Double
     onRiderFound: () -> Unit,
     onContactSupport: () -> Unit,
     onViewDetails: () -> Unit,
@@ -78,6 +79,7 @@ fun SearchingRiderScreen(
     val bookingUiState by bookingViewModel.uiState.collectAsState()
     val trackingUiState by riderTrackingViewModel.uiState.collectAsState()
     val currentStatus = trackingUiState.currentStatus
+
 
     LaunchedEffect(bookingId) {
         riderTrackingViewModel.connectToBooking(
@@ -352,7 +354,7 @@ private fun SearchingSheetBody(
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
     selectedFareDetails: FareDetails,
-    fare: Int,
+    fare: Double, // ✅ Int → Double
     routeInfo: RouteInfo?,
     isSearching: Boolean,
     isRiderAssigned: Boolean,
@@ -491,7 +493,7 @@ private fun SearchingSheetBody(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            "₹$fare",
+                            formatRupee(fare), // ✅ was "₹$fare"
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = AppColors.Primary

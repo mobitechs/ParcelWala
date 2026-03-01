@@ -212,14 +212,14 @@ class BookingNotificationHelper @Inject constructor(
 
     fun showArrivedAtDeliveryNotification(
         bookingId: String,
-        deliveryOtp: String?
+        deliveredOtp: String?
     ) {
         showStickyStatusNotification(
             bookingId = bookingId,
             title = "🏠 Arriving at Delivery!",
             body = buildString {
                 append("Driver has arrived at delivery location")
-                deliveryOtp?.let { append("\n🔐 Delivery OTP: $it") }
+                deliveredOtp?.let { append("\n🔐 Delivery OTP: $it") }
             }
         )
     }

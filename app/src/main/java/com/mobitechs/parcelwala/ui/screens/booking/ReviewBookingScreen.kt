@@ -183,7 +183,7 @@ private fun VehicleTripInfoCard(fareDetails: FareDetails, displayDistanceText: S
 }
 
 @Composable
-private fun FareSummaryCard(fareDetails: FareDetails, couponDiscount: Int, appliedCouponCode: String?, finalFare: Int, onViewBreakdown: () -> Unit, modifier: Modifier = Modifier) {
+private fun FareSummaryCard(fareDetails: FareDetails, couponDiscount: Double, appliedCouponCode: String?, finalFare: Double, onViewBreakdown: () -> Unit, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
         if (fareDetails.fareBreakdown.isNotEmpty()) {
             fareDetails.fareBreakdown.forEachIndexed { index, item ->
@@ -204,10 +204,10 @@ private fun FareSummaryCard(fareDetails: FareDetails, couponDiscount: Int, appli
         if (fareDetails.discount > 0) { Spacer(Modifier.height(8.dp)); FareRow(stringResource(R.string.discount_label), -fareDetails.discount.toInt(), isDiscount = true) }
         if (couponDiscount > 0) {
             Spacer(Modifier.height(8.dp))
-            FareRow(label = if (appliedCouponCode != null) stringResource(R.string.coupon_format, appliedCouponCode) else stringResource(R.string.coupon_discount), amount = -couponDiscount, isDiscount = true)
+            FareRow(label = if (appliedCouponCode != null) stringResource(R.string.coupon_format, appliedCouponCode) else stringResource(R.string.coupon_discount), amount = couponDiscount.toInt(), isDiscount = true)
         }
         Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider, thickness = 2.dp); Spacer(Modifier.height(8.dp))
-        FareRow(stringResource(R.string.amount_payable), finalFare, isBold = true, isTotal = true)
+        FareRow(stringResource(R.string.amount_payable), finalFare.toInt(), isBold = true, isTotal = true)
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = onViewBreakdown, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.view_detailed_breakdown), color = AppColors.Primary, fontWeight = FontWeight.Medium)
@@ -217,7 +217,7 @@ private fun FareSummaryCard(fareDetails: FareDetails, couponDiscount: Int, appli
 }
 
 @Composable
-private fun FareBreakdownBottomSheet(fareDetails: FareDetails, couponDiscount: Int, appliedCouponCode: String?, displayDistanceText: String, displayDurationText: String, onDismiss: () -> Unit) {
+private fun FareBreakdownBottomSheet(fareDetails: FareDetails, couponDiscount: Double, appliedCouponCode: String?, displayDistanceText: String, displayDurationText: String, onDismiss: () -> Unit) {
     val finalAmount = fareDetails.roundedFare - couponDiscount
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
