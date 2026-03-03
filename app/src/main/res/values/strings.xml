@@ -658,4 +658,70 @@
     <string name="restart_dialog_message">App needs to restart to apply the new language.</string>
     <string name="selected_cd">Selected</string>
 
+    <!-- PaymentResultDialog -->
+    <string name="label_payment_successful">Payment Successful!</string>
+    <string name="label_payment_failed">Payment Failed</string>
+    <string name="label_wallet_topup_success_message">Money added to your wallet successfully</string>
+    <string name="label_payment_success_message">Your payment has been processed successfully</string>
+    <string name="label_payment_failure_message">Something went wrong. Please try again.</string>
+    <string name="label_amount">Amount</string>
+    <string name="label_transaction_id">Transaction ID</string>
+    <string name="label_type">Type</string>
+    <string name="label_wallet_topup_type">Wallet Top-up</string>
+    <string name="label_booking_payment_type">Booking Payment</string>
+    <string name="label_wallet_balance_result">Wallet Balance</string>
+    <string name="label_status_completed">Completed</string>
+    <string name="label_status">Status</string>
+    <string name="label_done">Done</string>
+    <string name="label_try_again_btn">Try Again</string>
+    <string name="label_payment_success_toast">Payment successful!</string>
+    <string name="label_payment_failed_toast">Payment failed: %s</string>
+    <string name="label_wallet_topup_toast_format">₹%d added to wallet!</string>
+
+    <!-- PostDeliveryPaymentScreen -->
+    <string name="label_complete_payment">Complete Payment</string>
+    <string name="label_driver_arrived_delivery">Driver arrived at delivery • %s</string>
+    <string name="label_fare_summary">Fare Summary</string>
+    <string name="label_trip_fare">Trip Fare</string>
+    <string name="label_waiting_charge_post">Waiting Charge</string>
+    <string name="label_included">Included</string>
+    <string name="label_coupon_discount">Coupon Discount</string>
+    <string name="label_discount_amount_format">- %s</string>
+    <string name="label_total_amount_post">Total Amount</string>
+    <string name="label_payment_method_title">Payment Method</string>
+    <string name="label_cash_option">Cash</string>
+    <string name="label_pay_driver_directly">Pay driver directly</string>
+    <string name="label_wallet_option">Wallet</string>
+    <string name="label_wallet_balance_format">Balance: %s</string>
+    <string name="label_check_balance">Check balance</string>
+    <string name="label_upi_option">UPI</string>
+    <string name="label_upi_apps">GPay, PhonePe, Paytm, etc.</string>
+    <string name="label_debit_credit_card">Debit/Credit Card</string>
+    <string name="label_card_networks">Visa, MasterCard, RuPay</string>
+    <string name="label_net_banking_option">Net Banking</string>
+    <string name="label_all_major_banks">All major banks</string>
+    <string name="label_insufficient_balance_title">Insufficient wallet balance</string>
+    <string name="label_insufficient_balance_message">You need %s more. Please choose another payment method or top up your wallet.</string>
+    <string name="label_low_balance">Low balance</string>
+    <string name="label_confirm_cash_format">Confirm Cash Payment  •  %s</string>
+    <string name="label_pay_from_wallet_format">Pay from Wallet  •  %s</string>
+    <string name="label_pay_amount_format">Pay %s</string>
+    <string name="label_processing_ellipsis">Processing…</string>
+    <string name="label_cash_pay_info">Pay %s cash to driver. Driver will confirm payment on their end.</string>
+    <string name="label_invalid_booking_id">Invalid booking ID</string>
+    <string name="label_payment_failed_snackbar">Payment failed: %s</string>
+
+    <!-- RiderFoundScreen -->
+    <string name="label_payment_confirmed">Payment Confirmed</string>
+    <string name="label_verifying_payment">Verifying Payment</string>
+    <string name="label_verifying_payment_message">Confirming payment with driver…\nPlease wait</string>
+    <string name="label_delivery_otp_title">Delivery OTP</string>
+    <string name="label_delivery_otp_sublabel">Share this OTP with receiver for delivery verification</string>
+    <string name="label_pickup_otp_default">Pickup OTP</string>
+    <string name="label_pickup_otp_sublabel">Share this OTP with driver for verification</string>
+    <string name="label_pickup_marker">Pickup</string>
+    <string name="label_drop_marker">Drop</string>
+    <string name="label_rider_marker">Rider</string>
+    <string name="label_wallet_for_booking">Wallet for booking #%s</string>
+    <string name="label_payment_for_booking">Payment for booking #%s</string>
 </resources>

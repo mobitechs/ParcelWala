@@ -8,6 +8,7 @@ val Orange600 = Color(0xFFFF5722)
 val Orange700 = Color(0xFFE64A19)
 val OrangeLight = Color(0xFFFFE0B2)
 
+val UpiGreen = Color(0xFF4CAF50)
 val Green500 = Color(0xFF4CAF50)
 val Red500 = Color(0xFFF44336)
 val Blue500 = Color(0xFF2196F3)

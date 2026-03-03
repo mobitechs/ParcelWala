@@ -82,4 +82,9 @@ object AppColors {
     val RouteShadow = com.mobitechs.parcelwala.ui.theme.RouteShadow
     val DividerLight = com.mobitechs.parcelwala.ui.theme.DividerLight
     val DragHandle = com.mobitechs.parcelwala.ui.theme.DragHandle
+
+    val White = Color.White
+    val Black = Color.Black
+    val Transparent = Color.Transparent
+    val UpiGreen = com.mobitechs.parcelwala.ui.theme.UpiGreen
 }

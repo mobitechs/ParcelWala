@@ -47,12 +47,13 @@ fun PaymentsScreen(
     var showTopupSheet by remember { mutableStateOf(false) }
     var topupAmount by remember { mutableStateOf("") }
 
-    // Payment result dialog state
     var paymentResultData by remember { mutableStateOf<PaymentResultData?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle payment events
+    val paymentSuccessToast = stringResource(R.string.label_payment_success_toast)
+    val walletTopupToastFormat = stringResource(R.string.label_wallet_topup_toast_format)
+
     LaunchedEffect(Unit) {
         paymentViewModel.paymentEvent.collect { event ->
             when (event) {
@@ -62,50 +63,40 @@ fun PaymentsScreen(
                     }
                 }
                 is PaymentEvent.PaymentSuccess -> {
-                    // Show success result dialog
                     paymentResultData = PaymentResultData(
                         isSuccess = true,
                         amount = event.response.amount,
                         transactionNumber = event.response.transactionNumber,
                         isWalletTopup = false
                     )
-                    // Also show toast
-                    Toast.makeText(
-                        context,
-                        "✅ Payment successful!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, paymentSuccessToast, Toast.LENGTH_SHORT).show()
                     paymentViewModel.loadTransactions()
                 }
                 is PaymentEvent.PaymentFailure -> {
-                    // Show failure result dialog
                     paymentResultData = PaymentResultData(
                         isSuccess = false,
                         amount = uiState.currentAmount,
                         message = event.message,
                         isWalletTopup = uiState.topupOrderResponse != null
                     )
-                    // Also show toast
                     Toast.makeText(
                         context,
-                        "❌ Payment failed: ${event.message}",
+                        context.getString(R.string.label_payment_failed_toast, event.message),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
                 is PaymentEvent.WalletTopupSuccess -> {
                     showTopupSheet = false
                     topupAmount = ""
-                    // Show success result dialog for wallet topup
                     paymentResultData = PaymentResultData(
                         isSuccess = true,
                         amount = event.amount,
                         walletNewBalance = event.newBalance,
                         isWalletTopup = true
                     )
-                    // Also show toast
                     Toast.makeText(
                         context,
-                        "✅ ₹${event.amount.toInt()} added to wallet!",
+                        String.format(walletTopupToastFormat, event.amount.toInt()),
                         Toast.LENGTH_SHORT
                     ).show()
                     paymentViewModel.loadTransactions()
@@ -115,7 +106,6 @@ fun PaymentsScreen(
         }
     }
 
-    // Load transactions on first launch
     LaunchedEffect(Unit) {
         paymentViewModel.loadTransactions()
         paymentViewModel.loadWalletBalance()
@@ -139,13 +129,10 @@ fun PaymentsScreen(
         containerColor = AppColors.Background
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Wallet Card
             item {
                 WalletCard(
                     balance = uiState.walletBalance,
@@ -153,12 +140,8 @@ fun PaymentsScreen(
                 )
             }
 
-            // Payment Methods
-            item {
-                PaymentMethodsSection()
-            }
+            item { PaymentMethodsSection() }
 
-            // Transaction History Header
             item {
                 Text(
                     stringResource(R.string.label_recent_transactions),
@@ -168,7 +151,6 @@ fun PaymentsScreen(
                 )
             }
 
-            // Transactions
             if (uiState.isTransactionsLoading) {
                 item {
                     Box(
@@ -207,7 +189,6 @@ fun PaymentsScreen(
         }
     }
 
-    // Wallet Topup Bottom Sheet
     if (showTopupSheet) {
         ModalBottomSheet(
             onDismissRequest = { showTopupSheet = false },
@@ -228,20 +209,16 @@ fun PaymentsScreen(
         }
     }
 
-    // Payment Result Dialog
     paymentResultData?.let { resultData ->
         PaymentResultDialog(
             resultData = resultData,
-            onDismiss = {
-                paymentResultData = null
-            }
+            onDismiss = { paymentResultData = null }
         )
     }
 
-    // Loading overlay
     if (uiState.isLoading) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxSize().background(AppColors.Black.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -260,10 +237,6 @@ fun PaymentsScreen(
         }
     }
 }
-
-// ============================================================
-// WALLET CARD
-// ============================================================
 
 @Composable
 private fun WalletCard(
@@ -287,21 +260,21 @@ private fun WalletCard(
                     Text(
                         stringResource(R.string.label_wallet_balance),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = AppColors.White.copy(alpha = 0.8f)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         currencyFormat.format(balance),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = AppColors.White
                     )
                 }
                 Icon(
                     Icons.Default.AccountBalanceWallet,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = Color.White.copy(alpha = 0.6f)
+                    tint = AppColors.White.copy(alpha = 0.6f)
                 )
             }
 
@@ -310,7 +283,7 @@ private fun WalletCard(
             Button(
                 onClick = onAddMoney,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
+                    containerColor = AppColors.White,
                     contentColor = AppColors.Primary
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -323,10 +296,6 @@ private fun WalletCard(
         }
     }
 }
-
-// ============================================================
-// PAYMENT METHODS SECTION
-// ============================================================
 
 @Composable
 private fun PaymentMethodsSection() {
@@ -388,10 +357,7 @@ private fun PaymentMethodRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(iconColor.copy(alpha = 0.1f)),
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
@@ -408,10 +374,6 @@ private fun PaymentMethodRow(
         )
     }
 }
-
-// ============================================================
-// TRANSACTION ITEM
-// ============================================================
 
 @Composable
 private fun TransactionItem(transaction: TransactionResponse) {
@@ -447,10 +409,7 @@ private fun TransactionItem(transaction: TransactionResponse) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.1f)),
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
@@ -480,10 +439,7 @@ private fun TransactionItem(transaction: TransactionResponse) {
                         color = AppColors.TextSecondary
                     )
                     Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(AppColors.TextSecondary)
+                        modifier = Modifier.size(4.dp).clip(CircleShape).background(AppColors.TextSecondary)
                     )
                     Text(
                         transaction.status.replaceFirstChar { it.uppercase() },
@@ -503,10 +459,6 @@ private fun TransactionItem(transaction: TransactionResponse) {
         }
     }
 }
-
-// ============================================================
-// WALLET TOPUP BOTTOM SHEET
-// ============================================================
 
 @Composable
 private fun WalletTopupSheet(
@@ -532,7 +484,6 @@ private fun WalletTopupSheet(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Amount Input
         OutlinedTextField(
             value = amount,
             onValueChange = { newValue ->
@@ -551,7 +502,6 @@ private fun WalletTopupSheet(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Quick Amount Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -563,7 +513,7 @@ private fun WalletTopupSheet(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = if (amount == quickAmount.toString())
-                            AppColors.Primary.copy(alpha = 0.1f) else Color.Transparent
+                            AppColors.Primary.copy(alpha = 0.1f) else AppColors.Transparent
                     ),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
@@ -578,7 +528,6 @@ private fun WalletTopupSheet(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Topup Button
         val amountValue = amount.toDoubleOrNull() ?: 0.0
         Button(
             onClick = onTopup,
@@ -590,7 +539,7 @@ private fun WalletTopupSheet(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = Color.White,
+                    color = AppColors.White,
                     strokeWidth = 2.dp
                 )
             } else {

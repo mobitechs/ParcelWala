@@ -658,4 +658,71 @@
     <string name="restart_dialog_message">नई भाषा लागू करने के लिए ऐप को पुनः प्रारंभ करना होगा।</string>
     <string name="selected_cd">चयनित</string>
 
+    <!-- PaymentResultDialog -->
+    <string name="label_payment_successful">भुगतान सफल!</string>
+    <string name="label_payment_failed">भुगतान विफल</string>
+    <string name="label_wallet_topup_success_message">आपके वॉलेट में पैसे सफलतापूर्वक जोड़े गए</string>
+    <string name="label_payment_success_message">आपका भुगतान सफलतापूर्वक प्रोसेस हो गया है</string>
+    <string name="label_payment_failure_message">कुछ गलत हो गया। कृपया पुनः प्रयास करें।</string>
+    <string name="label_amount">राशि</string>
+    <string name="label_transaction_id">ट्रांज़ैक्शन ID</string>
+    <string name="label_type">प्रकार</string>
+    <string name="label_wallet_topup_type">वॉलेट टॉप-अप</string>
+    <string name="label_booking_payment_type">बुकिंग भुगतान</string>
+    <string name="label_wallet_balance_result">वॉलेट बैलेंस</string>
+    <string name="label_status_completed">पूर्ण</string>
+    <string name="label_status">स्थिति</string>
+    <string name="label_done">हो गया</string>
+    <string name="label_try_again_btn">पुनः प्रयास करें</string>
+    <string name="label_payment_success_toast">भुगतान सफल!</string>
+    <string name="label_payment_failed_toast">भुगतान विफल: %s</string>
+    <string name="label_wallet_topup_toast_format">₹%d वॉलेट में जोड़े गए!</string>
+
+    <!-- PostDeliveryPaymentScreen -->
+    <string name="label_complete_payment">भुगतान पूरा करें</string>
+    <string name="label_driver_arrived_delivery">ड्राइवर डिलीवरी पर पहुँचा • %s</string>
+    <string name="label_fare_summary">किराया सारांश</string>
+    <string name="label_trip_fare">ट्रिप किराया</string>
+    <string name="label_waiting_charge_post">प्रतीक्षा शुल्क</string>
+    <string name="label_included">शामिल</string>
+    <string name="label_coupon_discount">कूपन छूट</string>
+    <string name="label_discount_amount_format">- %s</string>
+    <string name="label_total_amount_post">कुल राशि</string>
+    <string name="label_payment_method_title">भुगतान का तरीका</string>
+    <string name="label_cash_option">नकद</string>
+    <string name="label_pay_driver_directly">ड्राइवर को सीधे भुगतान करें</string>
+    <string name="label_wallet_option">वॉलेट</string>
+    <string name="label_wallet_balance_format">बैलेंस: %s</string>
+    <string name="label_check_balance">बैलेंस देखें</string>
+    <string name="label_upi_option">UPI</string>
+    <string name="label_upi_apps">GPay, PhonePe, Paytm, आदि</string>
+    <string name="label_debit_credit_card">डेबिट/क्रेडिट कार्ड</string>
+    <string name="label_card_networks">Visa, MasterCard, RuPay</string>
+    <string name="label_net_banking_option">नेट बैंकिंग</string>
+    <string name="label_all_major_banks">सभी प्रमुख बैंक</string>
+    <string name="label_insufficient_balance_title">वॉलेट बैलेंस अपर्याप्त</string>
+    <string name="label_insufficient_balance_message">आपको ₹%s और चाहिए। कृपया कोई अन्य भुगतान तरीका चुनें या वॉलेट में पैसे जोड़ें।</string>
+    <string name="label_low_balance">कम बैलेंस</string>
+    <string name="label_confirm_cash_format">नकद भुगतान की पुष्टि करें  •  %s</string>
+    <string name="label_pay_from_wallet_format">वॉलेट से भुगतान करें  •  %s</string>
+    <string name="label_pay_amount_format">%s भुगतान करें</string>
+    <string name="label_processing_ellipsis">प्रोसेस हो रहा है…</string>
+    <string name="label_cash_pay_info">ड्राइवर को %s नकद दें। ड्राइवर अपनी ओर से भुगतान की पुष्टि करेगा।</string>
+    <string name="label_invalid_booking_id">अमान्य बुकिंग ID</string>
+    <string name="label_payment_failed_snackbar">भुगतान विफल: %s</string>
+
+    <!-- RiderFoundScreen -->
+    <string name="label_payment_confirmed">भुगतान की पुष्टि हुई</string>
+    <string name="label_verifying_payment">भुगतान सत्यापित हो रहा है</string>
+    <string name="label_verifying_payment_message">ड्राइवर के साथ भुगतान की पुष्टि हो रही है…\nकृपया प्रतीक्षा करें</string>
+    <string name="label_delivery_otp_title">डिलीवरी OTP</string>
+    <string name="label_delivery_otp_sublabel">डिलीवरी सत्यापन के लिए यह OTP प्राप्तकर्ता को दें</string>
+    <string name="label_pickup_otp_default">पिकअप OTP</string>
+    <string name="label_pickup_otp_sublabel">पिकअप सत्यापन के लिए यह OTP ड्राइवर को दें</string>
+    <string name="label_pickup_marker">पिकअप</string>
+    <string name="label_drop_marker">ड्रॉप</string>
+    <string name="label_rider_marker">राइडर</string>
+    <string name="label_wallet_for_booking">बुकिंग #%s के लिए वॉलेट</string>
+    <string name="label_payment_for_booking">बुकिंग #%s के लिए भुगतान</string>
+
 </resources>

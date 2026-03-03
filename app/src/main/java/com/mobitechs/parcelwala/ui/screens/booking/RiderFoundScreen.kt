@@ -110,7 +110,7 @@ fun RiderFoundScreen(
                         Text(
                             text = when {
                                 isDelivered -> stringResource(R.string.delivery_complete)
-                                isPaymentSuccess -> "Payment Confirmed"
+                                isPaymentSuccess -> stringResource(R.string.label_payment_confirmed)
                                 isPostPickup -> stringResource(R.string.parcel_in_transit)
                                 isDriverArrived -> stringResource(R.string.driver_arrived)
                                 else -> stringResource(R.string.rider_assigned_title)
@@ -201,8 +201,8 @@ fun RiderFoundScreen(
                     deliveryOtp?.let { otpCode ->
                         OtpCard(
                             otp = otpCode,
-                            label = "Delivery OTP",
-                            sublabel = "Share this OTP with receiver for delivery verification",
+                            label = stringResource(R.string.label_delivery_otp_title),
+                            sublabel = stringResource(R.string.label_delivery_otp_sublabel),
                             accentColor = AppColors.Drop,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         )
@@ -289,13 +289,13 @@ fun RiderFoundScreen(
                         strokeWidth = 4.dp
                     )
                     Text(
-                        text = "Verifying Payment",
+                        text = stringResource(R.string.label_verifying_payment),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
                     )
                     Text(
-                        text = "Confirming payment with driver...\nPlease wait",
+                        text = stringResource(R.string.label_verifying_payment_message),
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.TextSecondary,
                         textAlign = TextAlign.Center
@@ -458,8 +458,8 @@ private fun RiderDetailsCard(rider: RiderInfo, onCallRider: () -> Unit, modifier
 @Composable
 private fun OtpCard(
     otp: String,
-    label: String = "Pickup OTP",
-    sublabel: String = "Share this OTP with driver for verification",
+    label: String = stringResource(R.string.label_pickup_otp_default),
+    sublabel: String = stringResource(R.string.label_pickup_otp_sublabel),
     accentColor: Color = AppColors.Primary,
     modifier: Modifier = Modifier
 ) {
@@ -641,9 +641,9 @@ private fun RiderMapView(
         properties = MapProperties(mapType = MapType.NORMAL),
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false)
     ) {
-        Marker(state = MarkerState(position = pickupLatLng), title = "Pickup", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-        Marker(state = MarkerState(position = dropLatLng), title = "Drop", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
-        riderLatLng?.let { Marker(state = MarkerState(position = it), title = "Rider", icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) }
+        Marker(state = MarkerState(position = pickupLatLng), title = stringResource(R.string.label_pickup_marker), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
+        Marker(state = MarkerState(position = dropLatLng), title = stringResource(R.string.label_drop_marker), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+        riderLatLng?.let { Marker(state = MarkerState(position = it), title = stringResource(R.string.label_rider_marker), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) }
 
         if (isPrePickup) {
             if (driverToPickupRoute.isNotEmpty()) Polyline(points = driverToPickupRoute, color = AppColors.Primary, width = 12f)

@@ -45,21 +45,13 @@ enum class PaymentMethodType(val key: String, val label: String) {
     NET_BANKING("netbanking", "Net Banking")
 }
 
-/**
- * Post-delivery payment screen shown when driver arrives at delivery location.
- *
- * Flow:
- * - If CASH → dismiss screen, wait for driver to confirm → server sends payment_success
- * - If WALLET → check balance, deduct from wallet via API → server sends payment_success
- * - If UPI/CARD/NETBANKING → open Razorpay checkout → server sends payment_success
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostDeliveryPaymentScreen(
     bookingId: String,
-    roundedFare: Double, // ✅ Int → Double
-    waitingCharge: Double, // ✅ Int → Double
-    discount: Double, // ✅ Int → Double
+    roundedFare: Double,
+    waitingCharge: Double,
+    discount: Double,
     driverName: String,
     paymentMethod: String,
     onPaymentComplete: () -> Unit,
@@ -101,7 +93,9 @@ fun PostDeliveryPaymentScreen(
                 is PaymentEvent.PaymentFailure -> {
                     paymentProcessing = false
                     showPaymentError = event.message
-                    snackbarHostState.showSnackbar("Payment failed: ${event.message}")
+                    snackbarHostState.showSnackbar(
+                        context.getString(R.string.label_payment_failed_snackbar, event.message)
+                    )
                 }
                 is PaymentEvent.WalletTopupSuccess -> { }
             }
@@ -119,9 +113,7 @@ fun PostDeliveryPaymentScreen(
         containerColor = AppColors.Background
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+            modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
             Column(
                 modifier = Modifier
@@ -132,7 +124,6 @@ fun PostDeliveryPaymentScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ── HEADER ──
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -158,30 +149,28 @@ fun PostDeliveryPaymentScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Complete Payment",
+                    text = stringResource(R.string.label_complete_payment),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
                 )
 
                 Text(
-                    text = "Driver arrived at delivery • $driverName",
+                    text = stringResource(R.string.label_driver_arrived_delivery, driverName),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextSecondary
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // ── FARE BREAKDOWN CARD ──
                 FareBreakdownCard(
                     roundedFare = roundedFare,
                     waitingCharge = waitingCharge,
-                    discount  = discount
+                    discount = discount
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // ── PAYMENT METHOD SELECTION ──
                 PaymentMethodCard(
                     selectedMethod = selectedMethod,
                     onMethodSelected = { selectedMethod = it },
@@ -191,16 +180,17 @@ fun PostDeliveryPaymentScreen(
                     currencyFormat = currencyFormat
                 )
 
-                // Wallet insufficient balance warning
                 AnimatedVisibility(visible = isWallet && uiState.walletBalance < totalFare) {
                     WarningCard(
-                        title = "Insufficient wallet balance",
-                        message = "You need ${formatRupee(totalFare - uiState.walletBalance)} more. Please choose another payment method or top up your wallet.",
+                        title = stringResource(R.string.label_insufficient_balance_title),
+                        message = stringResource(
+                            R.string.label_insufficient_balance_message,
+                            formatRupee(totalFare - uiState.walletBalance)
+                        ),
                         modifier = Modifier.padding(top = 12.dp)
                     )
                 }
 
-                // Payment error display
                 AnimatedVisibility(visible = showPaymentError != null) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -215,7 +205,7 @@ fun PostDeliveryPaymentScreen(
                             Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = AppColors.Error, modifier = Modifier.size(20.dp))
                             Text(text = showPaymentError ?: "", style = MaterialTheme.typography.bodySmall, color = AppColors.Error, modifier = Modifier.weight(1f))
                             IconButton(onClick = { showPaymentError = null }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = AppColors.Error, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.label_dismiss), tint = AppColors.Error, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -224,8 +214,7 @@ fun PostDeliveryPaymentScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // ── BOTTOM PAY BUTTON ──
-            Surface(shadowElevation = 8.dp, color = Color.White) {
+            Surface(shadowElevation = 8.dp, color = AppColors.White) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -256,19 +245,20 @@ fun PostDeliveryPaymentScreen(
                                             bookingId = bookingIdInt,
                                             amount = totalFare,
                                             paymentMethod = if (isWallet) "wallet" else selectedMethod,
-                                            notes = "${if (isWallet) "Wallet" else "Payment"} for booking #$bookingId"
+                                            notes = if (isWallet)
+                                                context.getString(R.string.label_wallet_for_booking, bookingId)
+                                            else
+                                                context.getString(R.string.label_payment_for_booking, bookingId)
                                         )
                                     } else {
                                         paymentProcessing = false
-                                        showPaymentError = "Invalid booking ID"
+                                        showPaymentError = context.getString(R.string.label_invalid_booking_id)
                                     }
                                 }
                             }
                         },
                         enabled = canPay && !paymentProcessing && !uiState.isLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isCash) AppColors.Pickup else AppColors.Primary,
@@ -276,9 +266,9 @@ fun PostDeliveryPaymentScreen(
                         )
                     ) {
                         if (paymentProcessing || uiState.isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppColors.White, strokeWidth = 2.dp)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(text = "Processing...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(text = stringResource(R.string.label_processing_ellipsis), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         } else {
                             Icon(
                                 imageVector = when {
@@ -292,9 +282,9 @@ fun PostDeliveryPaymentScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = when {
-                                    isCash -> "Confirm Cash Payment  •  ${formatRupee(totalFare)}" // ✅
-                                    isWallet -> "Pay from Wallet  •  ${formatRupee(totalFare)}" // ✅
-                                    else -> "Pay ${formatRupee(totalFare)}" // ✅
+                                    isCash -> stringResource(R.string.label_confirm_cash_format, formatRupee(totalFare))
+                                    isWallet -> stringResource(R.string.label_pay_from_wallet_format, formatRupee(totalFare))
+                                    else -> stringResource(R.string.label_pay_amount_format, formatRupee(totalFare))
                                 },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
@@ -302,11 +292,10 @@ fun PostDeliveryPaymentScreen(
                         }
                     }
 
-                    // Info text for cash payments
                     if (isCash) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Pay ${formatRupee(totalFare)} cash to driver. Driver will confirm payment on their end.", // ✅
+                            text = stringResource(R.string.label_cash_pay_info, formatRupee(totalFare)),
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.TextHint,
                             textAlign = TextAlign.Center,
@@ -319,10 +308,6 @@ fun PostDeliveryPaymentScreen(
     }
 }
 
-// ══════════════════════════════════════════════════════════════
-// EXTRACTED COMPOSABLES — Cleaner, less duplication
-// ══════════════════════════════════════════════════════════════
-
 @Composable
 private fun FareBreakdownCard(
     roundedFare: Double,
@@ -332,16 +317,14 @@ private fun FareBreakdownCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.fillMaxWidth().padding(20.dp)
         ) {
             Text(
-                text = "Fare Summary",
+                text = stringResource(R.string.label_fare_summary),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -350,7 +333,7 @@ private fun FareBreakdownCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             FareRow(
-                label = "Trip Fare",
+                label = stringResource(R.string.label_trip_fare),
                 amount = formatRupee(roundedFare),
                 icon = Icons.Default.LocalShipping,
                 iconTint = AppColors.Primary
@@ -359,8 +342,8 @@ private fun FareBreakdownCard(
             if (waitingCharge > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 FareRow(
-                    label = "Waiting Charge",
-                    amount = "Included",
+                    label = stringResource(R.string.label_waiting_charge_post),
+                    amount = stringResource(R.string.label_included),
                     icon = Icons.Outlined.Timer,
                     iconTint = AppColors.Warning,
                     amountColor = AppColors.TextSecondary
@@ -370,8 +353,8 @@ private fun FareBreakdownCard(
             if (discount > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 FareRow(
-                    label = "Coupon Discount",
-                    amount = "- ${formatRupee(discount)}",
+                    label = stringResource(R.string.label_coupon_discount),
+                    amount = stringResource(R.string.label_discount_amount_format, formatRupee(discount)),
                     icon = Icons.Default.LocalOffer,
                     iconTint = AppColors.Pickup,
                     amountColor = AppColors.Pickup
@@ -388,13 +371,13 @@ private fun FareBreakdownCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Total Amount",
+                    text = stringResource(R.string.label_total_amount_post),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.TextPrimary
                 )
                 Text(
-                    text = formatRupee(roundedFare), // ✅
+                    text = formatRupee(roundedFare),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.Primary
@@ -416,16 +399,14 @@ private fun PaymentMethodCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = AppColors.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.fillMaxWidth().padding(20.dp)
         ) {
             Text(
-                text = "Payment Method",
+                text = stringResource(R.string.label_payment_method_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.TextPrimary
@@ -435,8 +416,8 @@ private fun PaymentMethodCard(
 
             PaymentOptionItem(
                 icon = Icons.Default.MonetizationOn,
-                title = "Cash",
-                subtitle = "Pay driver directly",
+                title = stringResource(R.string.label_cash_option),
+                subtitle = stringResource(R.string.label_pay_driver_directly),
                 iconColor = AppColors.Pickup,
                 isSelected = selectedMethod == PaymentMethodType.CASH.key,
                 onClick = { onMethodSelected(PaymentMethodType.CASH.key) }
@@ -446,17 +427,17 @@ private fun PaymentMethodCard(
 
             PaymentOptionItem(
                 icon = Icons.Default.AccountBalanceWallet,
-                title = "Wallet",
+                title = stringResource(R.string.label_wallet_option),
                 subtitle = if (walletBalance > 0)
-                    "Balance: ${currencyFormat.format(walletBalance)}"
-                else "Check balance",
+                    stringResource(R.string.label_wallet_balance_format, currencyFormat.format(walletBalance))
+                else stringResource(R.string.label_check_balance),
                 iconColor = AppColors.Primary,
                 isSelected = selectedMethod == PaymentMethodType.WALLET.key,
                 onClick = { onMethodSelected(PaymentMethodType.WALLET.key) },
                 trailingContent = {
                     if (isWallet && walletBalance < totalFare) {
                         Text(
-                            text = "Low balance",
+                            text = stringResource(R.string.label_low_balance),
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.Error,
                             fontWeight = FontWeight.SemiBold
@@ -469,9 +450,9 @@ private fun PaymentMethodCard(
 
             PaymentOptionItem(
                 icon = Icons.Default.PhoneAndroid,
-                title = "UPI",
-                subtitle = "GPay, PhonePe, Paytm, etc.",
-                iconColor = Color(0xFF4CAF50),
+                title = stringResource(R.string.label_upi_option),
+                subtitle = stringResource(R.string.label_upi_apps),
+                iconColor = AppColors.UpiGreen,
                 isSelected = selectedMethod == PaymentMethodType.UPI.key,
                 onClick = { onMethodSelected(PaymentMethodType.UPI.key) }
             )
@@ -480,8 +461,8 @@ private fun PaymentMethodCard(
 
             PaymentOptionItem(
                 icon = Icons.Default.CreditCard,
-                title = "Debit/Credit Card",
-                subtitle = "Visa, MasterCard, RuPay",
+                title = stringResource(R.string.label_debit_credit_card),
+                subtitle = stringResource(R.string.label_card_networks),
                 iconColor = AppColors.Blue,
                 isSelected = selectedMethod == PaymentMethodType.CARD.key,
                 onClick = { onMethodSelected(PaymentMethodType.CARD.key) }
@@ -491,8 +472,8 @@ private fun PaymentMethodCard(
 
             PaymentOptionItem(
                 icon = Icons.Default.AccountBalance,
-                title = "Net Banking",
-                subtitle = "All major banks",
+                title = stringResource(R.string.label_net_banking_option),
+                subtitle = stringResource(R.string.label_all_major_banks),
                 iconColor = AppColors.Warning,
                 isSelected = selectedMethod == PaymentMethodType.NET_BANKING.key,
                 onClick = { onMethodSelected(PaymentMethodType.NET_BANKING.key) }
@@ -525,10 +506,6 @@ private fun WarningCard(
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════
-// HELPER COMPOSABLES
-// ══════════════════════════════════════════════════════════════
 
 @Composable
 private fun FareRow(
