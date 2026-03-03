@@ -21,7 +21,6 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
 import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
-import com.mobitechs.parcelwala.ui.theme.WarningAmber
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 /**
@@ -106,7 +105,7 @@ fun RestrictedItemsBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = null,
-                        tint = WarningAmber,
+                        tint = AppColors.WarningAmber,
                         modifier = Modifier.size(28.dp)
                     )
                     Column {

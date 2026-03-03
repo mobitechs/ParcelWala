@@ -78,7 +78,7 @@ fun RatingDialog(
                 Text(
                     text = stringResource(R.string.label_booking_number, bookingNumber),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted
+                    color = AppColors.TextMuted
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -108,7 +108,7 @@ fun RatingDialog(
                             Text(
                                 text = stringResource(R.string.label_driver_rated_you),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = TextSecondary,
+                                color = AppColors.TextSecondary,
                                 fontSize = 12.sp
                             )
 
@@ -130,7 +130,7 @@ fun RatingDialog(
                                         tint = if (index < driverRatingForCustomer.toInt()) {
                                             AppColors.Amber
                                         } else {
-                                            DividerColor
+                                            AppColors.DividerColor
                                         }
                                     )
                                     if (index < 4) Spacer(modifier = Modifier.width(2.dp))
@@ -140,7 +140,7 @@ fun RatingDialog(
                                     text = "$driverRatingForCustomer",
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
+                                    color = AppColors.TextPrimary,
                                     fontSize = 14.sp
                                 )
                             }
@@ -150,7 +150,7 @@ fun RatingDialog(
                                 Text(
                                     text = "\"$driverFeedbackForCustomer\"",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary,
+                                    color = AppColors.TextSecondary,
                                     textAlign = TextAlign.Center,
                                     fontSize = 12.sp
                                 )
@@ -160,7 +160,7 @@ fun RatingDialog(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = DividerColor)
+                HorizontalDivider(color = AppColors.DividerColor)
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // ── Customer rates driver ──
@@ -194,7 +194,7 @@ fun RatingDialog(
                             tint = if (index < rating) {
                                 AppColors.Primary
                             } else {
-                                DividerColor
+                                AppColors.DividerColor
                             }
                         )
                         if (index < 4) Spacer(modifier = Modifier.width(10.dp))
@@ -261,7 +261,7 @@ fun RatingDialog(
                     Text(
                         text = stringResource(R.string.label_select_rating_hint),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
+                        color = AppColors.TextMuted,
                         textAlign = TextAlign.Center
                     )
                 }

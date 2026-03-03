@@ -3,35 +3,50 @@ package com.mobitechs.parcelwala.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Orange500,
-    onPrimary = Color.White,
-    primaryContainer = OrangeLight,
-    onPrimaryContainer = Orange700,
+    // Primary
+    primary = AppColors.Primary,
+    onPrimary = AppColors.White,
+    primaryContainer = AppColors.PrimaryContainer,
+    onPrimaryContainer = AppColors.PrimaryDeep,
 
-    secondary = Orange600,
-    onSecondary = Color.White,
-    secondaryContainer = OrangeLight,
-    onSecondaryContainer = Orange700,
+    // Secondary (darker teal variant)
+    secondary = AppColors.PrimaryDark,
+    onSecondary = AppColors.White,
+    secondaryContainer = AppColors.PrimaryLight,
+    onSecondaryContainer = AppColors.PrimaryDeep,
 
-    tertiary = Green500,
-    onTertiary = Color.White,
+    // Tertiary (accent - amber/gold)
+    tertiary = AppColors.Accent,
+    onTertiary = AppColors.White,
+    tertiaryContainer = AppColors.AmberLight,
+    onTertiaryContainer = AppColors.OrangeDark,
 
-    error = Red500,
-    onError = Color.White,
+    // Error
+    error = AppColors.Error,
+    onError = AppColors.White,
+    errorContainer = AppColors.ErrorLight,
+    onErrorContainer = AppColors.Error,
 
-    background = Gray50,
-    onBackground = Gray900,
+    // Background
+    background = AppColors.Background,
+    onBackground = AppColors.TextPrimary,
 
-    surface = Color.White,
-    onSurface = Gray900,
-    surfaceVariant = Gray100,
-    onSurfaceVariant = Gray700,
+    // Surface
+    surface = AppColors.Surface,
+    onSurface = AppColors.TextPrimary,
+    surfaceVariant = AppColors.LightGray50,
+    onSurfaceVariant = AppColors.TextSecondary,
 
-    outline = Gray300,
-    outlineVariant = Gray200
+    // Outline
+    outline = AppColors.Border,
+    outlineVariant = AppColors.DividerLight,
+
+    // Inverse (for snackbars, etc.)
+    inverseSurface = AppColors.PrimaryDeep,
+    inverseOnSurface = AppColors.PrimaryLight,
+    inversePrimary = AppColors.PrimaryMuted
 )
 
 @Composable
@@ -43,48 +58,4 @@ fun ParcelWalaTheme(
         typography = Typography,
         content = content
     )
-}
-
-// Reusable Colors
-object AppColors {
-    val Primary = Orange500
-    val PrimaryDark = Orange600
-    val PrimaryLight = OrangeLight
-    val Pickup = Green500
-    val Drop = Red500
-    val Blue = Blue500
-    val TextPrimary = Gray900
-    val TextSecondary = Gray600
-    val TextHint = Gray400
-    val Border = Gray300
-    val Background = Gray50
-    val Surface = Color.White
-    val Divider = Gray200
-
-    val Success = Green500
-    val Warning = Color(0xFFFFA000)
-    val Error = Red500
-    val DisabledBackground = Color.LightGray
-
-    val ErrorLight = Red400
-
-    val Amber = Amber500
-    val Purple = Purple500
-    val DarkSurface = com.mobitechs.parcelwala.ui.theme.DarkSurface
-    val DarkSurfaceVariant = com.mobitechs.parcelwala.ui.theme.DarkSurfaceVariant
-    val DarkDivider = com.mobitechs.parcelwala.ui.theme.DarkDivider
-
-    val OrangeDark = com.mobitechs.parcelwala.ui.theme.OrangeDark
-    val AmberLight = com.mobitechs.parcelwala.ui.theme.AmberLight
-    val GreenLight = com.mobitechs.parcelwala.ui.theme.GreenLight
-    val LightGray50 = com.mobitechs.parcelwala.ui.theme.LightGray50
-    val AmberWarnBg = com.mobitechs.parcelwala.ui.theme.AmberWarnBg
-    val RouteShadow = com.mobitechs.parcelwala.ui.theme.RouteShadow
-    val DividerLight = com.mobitechs.parcelwala.ui.theme.DividerLight
-    val DragHandle = com.mobitechs.parcelwala.ui.theme.DragHandle
-
-    val White = Color.White
-    val Black = Color.Black
-    val Transparent = Color.Transparent
-    val UpiGreen = com.mobitechs.parcelwala.ui.theme.UpiGreen
 }

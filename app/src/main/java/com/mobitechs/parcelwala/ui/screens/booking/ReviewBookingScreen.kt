@@ -25,9 +25,6 @@ import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
 import com.mobitechs.parcelwala.ui.components.*
 import com.mobitechs.parcelwala.ui.theme.AppColors
-import com.mobitechs.parcelwala.ui.theme.WarningAmber
-import com.mobitechs.parcelwala.ui.theme.WarningAmberBg
-import com.mobitechs.parcelwala.ui.theme.WarningAmberDark
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -174,9 +171,9 @@ private fun VehicleTripInfoCard(fareDetails: FareDetails, displayDistanceText: S
         }
         if (fareDetails.hasSurgePricing()) {
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth().background(WarningAmberBg, RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.TrendingUp, null, tint = WarningAmberDark, modifier = Modifier.size(20.dp))
-                Text(stringResource(R.string.surge_pricing_format, fareDetails.getSurgePercentage()), style = MaterialTheme.typography.bodySmall, color = WarningAmberDark)
+            Row(modifier = Modifier.fillMaxWidth().background(AppColors.WarningAmberBg, RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.TrendingUp, null, tint = AppColors.WarningAmberDark, modifier = Modifier.size(20.dp))
+                Text(stringResource(R.string.surge_pricing_format, fareDetails.getSurgePercentage()), style = MaterialTheme.typography.bodySmall, color = AppColors.WarningAmberDark)
             }
         }
     }
@@ -258,7 +255,7 @@ private fun BreakdownRow(label: String, amount: Double, type: String = "charge")
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
         Text(when { type == "discount" && amount < 0 -> "-₹${(-amount).toInt()}"; type == "discount" && amount > 0 -> "-₹${amount.toInt()}"; else -> "₹${amount.toInt()}" },
-            style = MaterialTheme.typography.bodyMedium, color = when (type) { "discount" -> AppColors.Pickup; "surge" -> WarningAmberDark; else -> AppColors.TextPrimary })
+            style = MaterialTheme.typography.bodyMedium, color = when (type) { "discount" -> AppColors.Pickup; "surge" -> AppColors.WarningAmberDark; else -> AppColors.TextPrimary })
     }
 }
 
@@ -267,7 +264,7 @@ private fun FareRow(label: String, amount: Int, isBold: Boolean = false, isDisco
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = AppColors.TextPrimary)
         Text(if (amount < 0) "-₹${-amount}" else "₹$amount", style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = when { isDiscount -> AppColors.Pickup; isSurge -> WarningAmberDark; isTotal -> AppColors.Primary; else -> AppColors.TextPrimary })
+            color = when { isDiscount -> AppColors.Pickup; isSurge -> AppColors.WarningAmberDark; isTotal -> AppColors.Primary; else -> AppColors.TextPrimary })
     }
 }
 
@@ -313,7 +310,7 @@ private fun GoodsDescriptionCard(selectedGoodsType: GoodsTypeResponse?, onSelect
         }
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF9E6), RoundedCornerShape(8.dp)).clickable(onClick = onViewRestrictions).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Warning, null, tint = WarningAmber, modifier = Modifier.size(20.dp)); Text(stringResource(R.string.do_not_send_restricted), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = AppColors.TextPrimary) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Warning, null, tint = AppColors.WarningAmber, modifier = Modifier.size(20.dp)); Text(stringResource(R.string.do_not_send_restricted), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = AppColors.TextPrimary) }
             TextButton(onClick = onViewRestrictions, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.view_label), color = AppColors.Primary, fontWeight = FontWeight.Bold) }
         }
     }

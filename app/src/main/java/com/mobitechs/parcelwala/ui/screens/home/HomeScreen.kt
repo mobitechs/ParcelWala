@@ -99,9 +99,8 @@ import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
-import com.mobitechs.parcelwala.ui.theme.WarningAmber
-import com.mobitechs.parcelwala.ui.theme.WarningAmberBg
-import com.mobitechs.parcelwala.ui.theme.WarningAmberDark
+import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberBg
+import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberDark
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -345,7 +344,7 @@ private fun ActiveBookingBlockingBanner(
             Icon(
                 imageVector = Icons.Default.Block,
                 contentDescription = null,
-                tint = WarningAmber,
+                tint = AppColors.WarningAmber,
                 modifier = Modifier.size(20.dp)
             )
             Text(
@@ -358,7 +357,7 @@ private fun ActiveBookingBlockingBanner(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = WarningAmber,
+                tint = AppColors.WarningAmber,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -423,7 +422,7 @@ private fun ActiveBookingCard(
 
     // Card colors based on state
     val headerGradient = if (isTimedOut && isSearching) {
-        listOf(WarningAmber, WarningAmber.copy(alpha = 0.85f))
+        listOf(AppColors.WarningAmber, AppColors.WarningAmber.copy(alpha = 0.85f))
     } else {
         listOf(AppColors.Primary, AppColors.Primary.copy(alpha = 0.9f))
     }
@@ -436,7 +435,7 @@ private fun ActiveBookingCard(
                 elevation = 6.dp,
                 shape = RoundedCornerShape(20.dp),
                 spotColor = if (isTimedOut && isSearching)
-                    WarningAmber.copy(alpha = 0.25f)
+                    AppColors.WarningAmber.copy(alpha = 0.25f)
                 else
                     AppColors.Primary.copy(alpha = 0.25f)
             )
@@ -490,7 +489,7 @@ private fun ActiveBookingCard(
                                         else -> Icons.Default.LocalShipping
                                     },
                                     contentDescription = null,
-                                    tint = if (isTimedOut) WarningAmber else AppColors.Primary,
+                                    tint = if (isTimedOut) AppColors.WarningAmber else AppColors.Primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -504,7 +503,7 @@ private fun ActiveBookingCard(
                                 Icon(
                                     imageVector = Icons.Default.SearchOff,
                                     contentDescription = null,
-                                    tint = WarningAmber,
+                                    tint = AppColors.WarningAmber,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -607,7 +606,7 @@ private fun ActiveBookingCard(
                                 .clip(RoundedCornerShape(3.dp)),
                             color = when {
                                 elapsedProgress > 0.66f -> AppColors.Drop
-                                elapsedProgress > 0.33f -> WarningAmber
+                                elapsedProgress > 0.33f -> AppColors.WarningAmber
                                 else -> AppColors.Primary
                             },
                             trackColor = AppColors.Border,
@@ -1028,7 +1027,7 @@ private fun AnnouncementsSection() {
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = null,
-                        tint = WarningAmber,
+                        tint = AppColors.WarningAmber,
                         modifier = Modifier.size(28.dp)
                     )
                 }

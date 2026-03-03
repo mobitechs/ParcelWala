@@ -23,8 +23,6 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
-import com.mobitechs.parcelwala.ui.theme.StarYellow
-import com.mobitechs.parcelwala.ui.theme.WarningAmber
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 
 /**
@@ -228,7 +226,7 @@ private fun getStatusColor(status: String): Color {
         "Completed" -> AppColors.Pickup
         "Cancelled" -> AppColors.Drop
         "In Progress" -> AppColors.Primary
-        "Searching" -> WarningAmber
+        "Searching" -> AppColors.WarningAmber
         "Assigned" -> AppColors.Primary
         "Arriving" -> AppColors.Primary
         "Picked Up" -> AppColors.Pickup
@@ -545,7 +543,7 @@ private fun DriverInfoCard(
                             Icon(
                                 imageVector = Icons.Default.Star,
                                 contentDescription = stringResource(R.string.rating_label),
-                                tint = StarYellow,
+                                tint = AppColors.StarYellow,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
@@ -983,7 +981,7 @@ private fun RatingCard(order: OrderResponse) {
                                 ?: 0)
                         ) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
-                        tint = StarYellow,
+                        tint = AppColors.StarYellow,
                         modifier = Modifier.size(28.dp)
                     )
                 }

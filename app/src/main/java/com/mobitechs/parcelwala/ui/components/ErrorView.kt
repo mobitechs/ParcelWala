@@ -15,8 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.mobitechs.parcelwala.R
-import com.mobitechs.parcelwala.ui.theme.Blue500
-import com.mobitechs.parcelwala.ui.theme.Red500
+import com.mobitechs.parcelwala.ui.theme.AppColors
 
 @Composable
 fun ErrorView(
@@ -38,7 +37,7 @@ fun ErrorView(
                 imageVector = icon,
                 contentDescription = stringResource(R.string.error_content_description),
                 modifier = Modifier.size(64.dp),
-                tint = Red500
+                tint = AppColors.Error
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -64,7 +63,7 @@ fun ErrorView(
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Blue500
+                    containerColor = AppColors.Blue
                 )
             ) {
                 Text(stringResource(R.string.retry))
