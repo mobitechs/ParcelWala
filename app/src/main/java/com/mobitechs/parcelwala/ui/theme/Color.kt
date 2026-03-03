@@ -44,7 +44,8 @@ object AppColors {
     val Gray900 = Color(0xFF212121)
 
     // ── Surface / Background ──
-    val Background = Color(0xFFF0FDFA)
+//    val Background = Color(0xFFF0FDFA)
+    val Background = Color(0xFFFFFFFF)
     val Surface = Color(0xFFFFFFFF)
     val White = Color(0xFFFFFFFF)
     val Black = Color(0xFF000000)

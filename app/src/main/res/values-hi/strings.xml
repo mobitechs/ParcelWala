@@ -725,4 +725,9 @@
     <string name="label_wallet_for_booking">बुकिंग #%s के लिए वॉलेट</string>
     <string name="label_payment_for_booking">बुकिंग #%s के लिए भुगतान</string>
 
+    <string name="see_all">सभी देखें</string>
+    <string name="show_less">कम दिखाएं</string>
+    <string name="active_booking_banner_title">बुकिंग जारी है</string>
+    <string name="active_booking_banner_subtitle">नई राइड बुक करने के लिए मौजूदा बुकिंग पूरी या रद्द करें</string>
+
 </resources>

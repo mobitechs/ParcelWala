@@ -30,6 +30,9 @@ import com.razorpay.PaymentResultWithDataListener
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
@@ -58,6 +61,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
         // Handle notification tap data
         handleNotificationIntent()
+
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            )
+        )
 
         setContent {
 

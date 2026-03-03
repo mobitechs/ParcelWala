@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +41,8 @@ import androidx.compose.material.icons.filled.CurrencyRupee
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
@@ -104,6 +107,10 @@ import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberDark
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
+
 
 /**
  * Home Screen
@@ -126,7 +133,6 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // ✅ Determine if new booking should be blocked
     val hasActiveBooking = activeBooking != null
 
     val activeBookingSnackbar = stringResource(R.string.active_booking_snackbar)
@@ -135,44 +141,7 @@ fun HomeScreen(
     Scaffold(
         containerColor = AppColors.Background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.app_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = AppColors.TextPrimary
-                        )
-                        Text(
-                            text = stringResource(R.string.app_subtitle),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextSecondary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO: Notifications */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = stringResource(R.string.notifications),
-                            tint = AppColors.Primary
-                        )
-                    }
-                    IconButton(onClick = { /* TODO: Profile */ }) {
-                        Icon(
-                            imageVector = Icons.Default.AccountCircle,
-                            contentDescription = stringResource(R.string.profile_content_description),
-                            tint = AppColors.Primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
-            )
-        }
+        contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -190,27 +159,10 @@ fun HomeScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // ✅ Active Booking Card (shows when there's an active booking)
-                    AnimatedVisibility(
-                        visible = hasActiveBooking,
-                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
-                    ) {
-                        activeBooking?.let { booking ->
-                            ActiveBookingCard(
-                                activeBooking = booking,
-                                onClick = { onNavigateToActiveBooking(booking) },
-                                onRetry = { viewModel.retrySearch() }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // ✅ Pickup Location - Blocked when active booking exists
-                    PickupLocationCard(
-                        location = uiState.pickupLocation,
-                        onClick = {
+                    // ═══ CUSTOM HEADER WITH PICKUP SEARCH ═══
+                    HomeHeader(
+                        pickupLocation = uiState.pickupLocation,
+                        onPickupClick = {
                             if (hasActiveBooking) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
@@ -225,16 +177,22 @@ fun HomeScreen(
                         isDisabled = hasActiveBooking
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Section Header
-                    Text(
-                        text = stringResource(R.string.select_vehicle_type),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (hasActiveBooking) AppColors.TextHint else AppColors.TextPrimary,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
+                    // ✅ Active Booking Card
+                    AnimatedVisibility(
+                        visible = hasActiveBooking,
+                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                    ) {
+                        activeBooking?.let { booking ->
+                            ActiveBookingCard(
+                                activeBooking = booking,
+                                onClick = { onNavigateToActiveBooking(booking) },
+                                onRetry = { viewModel.retrySearch() }
+                            )
+                        }
+                    }
 
                     // ✅ Active booking blocking banner
                     if (hasActiveBooking) {
@@ -243,11 +201,10 @@ fun HomeScreen(
                                 activeBooking?.let { onNavigateToActiveBooking(it) }
                             }
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // ✅ Vehicles Grid - Disabled when active booking exists
+                    // ✅ Vehicles Grid (header + See All inside)
                     if (uiState.vehicleTypes.isNotEmpty()) {
                         VehicleTypesGrid(
                             vehicleTypes = uiState.vehicleTypes,
@@ -308,8 +265,137 @@ fun HomeScreen(
                             Text(stringResource(R.string.ok), color = AppColors.Primary)
                         }
                     },
-                    containerColor = Color.White
+                    containerColor = AppColors.White
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeHeader(
+    pickupLocation: String,
+    onPickupClick: () -> Unit,
+    isDisabled: Boolean = false
+) {
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(AppColors.PrimaryDeep, AppColors.Primary)
+                ),
+                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+            )
+            .padding(top = statusBarHeight + 12.dp, bottom = 20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+        ) {
+            // ═══ Title Row: App Name + Notification Bell ═══
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.app_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = AppColors.White,
+                        fontSize = 24.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.app_subtitle),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.White.copy(alpha = 0.65f),
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Notification Bell
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = AppColors.White.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { /* TODO: Navigate to notifications */ },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = stringResource(R.string.notifications),
+                        tint = AppColors.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ═══ Pickup Search Bar (embedded in header) ═══
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isDisabled, onClick = onPickupClick),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = AppColors.White.copy(alpha = 0.13f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Green pickup dot
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(
+                                color = AppColors.Pickup,
+                                shape = CircleShape
+                            )
+                    )
+
+                    // Pickup text
+                    Text(
+                        text = if (pickupLocation.isNotBlank() &&
+                            pickupLocation != stringResource(R.string.pick_up_from))
+                            pickupLocation
+                        else
+                            stringResource(R.string.pick_up_from),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (pickupLocation.isNotBlank() &&
+                            pickupLocation != stringResource(R.string.pick_up_from))
+                            AppColors.White
+                        else
+                            AppColors.White.copy(alpha = 0.55f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // Location pin icon
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = AppColors.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
@@ -323,43 +409,109 @@ fun HomeScreen(
 private fun ActiveBookingBlockingBanner(
     onViewBooking: () -> Unit
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "bannerPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
             .clickable(onClick = onViewBooking),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = WarningAmberBg
+            containerColor = AppColors.Primary.copy(alpha = 0.08f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = AppColors.Primary.copy(alpha = 0.2f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Block,
-                contentDescription = null,
-                tint = AppColors.WarningAmber,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = stringResource(R.string.active_booking_banner_text),
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = WarningAmberDark,
+            // Animated pulse dot + icon container
+            Box(
+                modifier = Modifier.size(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Pulse ring
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            color = AppColors.Primary.copy(alpha = 0.1f * pulseAlpha),
+                            shape = CircleShape
+                        )
+                )
+                // Icon circle
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(
+                            color = AppColors.Primary.copy(alpha = 0.15f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // Text content
+            Column(
                 modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = AppColors.WarningAmber,
-                modifier = Modifier.size(18.dp)
-            )
+            ) {
+                Text(
+                    text = stringResource(R.string.active_booking_banner_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.active_booking_banner_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+
+            // CTA arrow
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(
+                        color = AppColors.Primary,
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = stringResource(R.string.view_details),
+                    tint = AppColors.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
@@ -859,29 +1011,82 @@ private fun VehicleTypesGrid(
     onVehicleSelected: (VehicleTypeResponse) -> Unit,
     isDisabled: Boolean = false
 ) {
+    var showAll by remember { mutableStateOf(false) }
+    val displayedVehicles = if (showAll) vehicleTypes else vehicleTypes.take(3)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
     ) {
-        vehicleTypes.chunked(3).forEach { rowVehicles ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                rowVehicles.forEach { vehicle ->
-                    VehicleCard(
-                        vehicle = vehicle,
-                        onClick = onVehicleSelected,
-                        modifier = Modifier.weight(1f),
-                        isDisabled = isDisabled
+        // Section Header with "See All" button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.select_vehicle_type),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary
+            )
+
+            if (vehicleTypes.size > 3) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showAll = !showAll }
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = if (showAll) stringResource(R.string.show_less)
+                        else stringResource(R.string.see_all),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Primary
+                    )
+                    Icon(
+                        imageVector = if (showAll) Icons.Default.KeyboardArrowUp
+                        else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-                repeat(3 - rowVehicles.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+
+        // Animated Vehicle Grid
+        displayedVehicles.chunked(3).forEachIndexed { rowIndex, rowVehicles ->
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(300, delayMillis = rowIndex * 80)) +
+                        slideInVertically(tween(300, delayMillis = rowIndex * 80)) { it / 3 }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    rowVehicles.forEach { vehicle ->
+                        VehicleCard(
+                            vehicle = vehicle,
+                            onClick = onVehicleSelected,
+                            modifier = Modifier.weight(1f),
+                            isDisabled = isDisabled
+                        )
+                    }
+                    // Fill empty slots in last row
+                    repeat(3 - rowVehicles.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
@@ -898,13 +1103,20 @@ private fun VehicleCard(
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(0.9f)
-            .clickable { onClick(vehicle) },
+            .aspectRatio(0.85f)
+            .clickable(enabled = !isDisabled) { onClick(vehicle) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = AppColors.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDisabled) 0.dp else 2.dp)
+        border = BorderStroke(
+            width = 1.5.dp,
+            color = if (isDisabled) AppColors.Border.copy(alpha = 0.3f)
+            else AppColors.DividerLight
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDisabled) 0.dp else 1.dp
+        )
     ) {
         Column(
             modifier = Modifier
@@ -913,38 +1125,48 @@ private fun VehicleCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // ── Vehicle Emoji in tinted container ──
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(
-                        if (isDisabled) AppColors.Border.copy(alpha = 0.2f)
-                        else AppColors.Primary.copy(alpha = 0.08f)
+                        if (isDisabled) AppColors.Border.copy(alpha = 0.15f)
+                        else AppColors.Primary.copy(alpha = 0.06f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = vehicle.icon,
-                    style = MaterialTheme.typography.displayMedium,
-                    modifier = Modifier.padding(4.dp)
+                    fontSize = 26.sp
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // ── Vehicle Name ──
             Text(
                 text = vehicle.name,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 16.sp
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // ── Capacity ──
+            Text(
+                text = vehicle.capacity ?: "",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextHint,
+                fontSize = 10.sp,
+                maxLines = 1
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            // ── Price ──
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -953,18 +1175,13 @@ private fun VehicleCard(
                     imageVector = Icons.Default.CurrencyRupee,
                     contentDescription = null,
                     tint = if (isDisabled) AppColors.TextHint else AppColors.Primary,
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Text(
                     text = "${vehicle.basePrice}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
                     color = if (isDisabled) AppColors.TextHint else AppColors.Primary
-                )
-                Text(
-                    text = stringResource(R.string.onwards),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isDisabled) AppColors.TextHint else AppColors.TextSecondary
                 )
             }
         }

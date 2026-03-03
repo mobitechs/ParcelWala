@@ -724,4 +724,9 @@
     <string name="label_rider_marker">Rider</string>
     <string name="label_wallet_for_booking">Wallet for booking #%s</string>
     <string name="label_payment_for_booking">Payment for booking #%s</string>
+
+    <string name="see_all">See All</string>
+    <string name="show_less">Show Less</string>
+    <string name="active_booking_banner_title">Booking in progress</string>
+    <string name="active_booking_banner_subtitle">Complete or cancel current booking to book a new ride</string>
 </resources>
