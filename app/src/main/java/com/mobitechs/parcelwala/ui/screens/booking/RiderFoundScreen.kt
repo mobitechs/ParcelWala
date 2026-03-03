@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -270,7 +271,7 @@ fun RiderFoundScreen(
     }
 
     if (paymentState.isVerifyingPayment) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { /* non-dismissable */ }) {
+        Dialog(onDismissRequest = { /* non-dismissable */ }) {
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),

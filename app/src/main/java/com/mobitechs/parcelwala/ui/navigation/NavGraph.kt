@@ -7,6 +7,8 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +62,37 @@ import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingNavigationEvent
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import com.mobitechs.parcelwala.utils.Constants
 
+// ═══════════════════════════════════════════════════════════════════════════
+// POST-DELIVERY PAYMENT ROUTE — shared by booking_flow & active_booking_flow
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Consistent route pattern for PostDeliveryPayment screen */
+private const val PAYMENT_ROUTE_PATTERN =
+    "{bookingId}/{roundedFare}/{waitingCharge}/{discount}/{driverName}/{paymentMethod}"
+
+/** Nav arguments shared by both payment routes */
+private val paymentNavArguments = listOf(
+    navArgument("bookingId") { type = NavType.StringType },
+    navArgument("roundedFare") { type = NavType.StringType },
+    navArgument("waitingCharge") { type = NavType.StringType },
+    navArgument("discount") { type = NavType.StringType },
+    navArgument("driverName") { type = NavType.StringType },
+    navArgument("paymentMethod") { type = NavType.StringType }
+)
+
+/** Build navigation path for payment screen */
+private fun buildPaymentRoute(
+    prefix: String,
+    bookingId: String,
+    roundedFare: Double,
+    waitingCharge: Double,
+    discount: Double,
+    driverName: String,
+    paymentMethod: String
+): String {
+    return "$prefix/$bookingId/$roundedFare/$waitingCharge/$discount/${Uri.encode(driverName)}/$paymentMethod"
+}
+
 @SuppressLint("UnrememberedGetBackStackEntry")
 @Composable
 fun NavGraph(
@@ -68,6 +101,7 @@ fun NavGraph(
 ) {
     val isLoggedIn = preferencesManager.isLoggedIn()
     val context = LocalContext.current
+    val activity = context as? MainActivity
 
     var selectedOrder by remember { mutableStateOf<OrderResponse?>(null) }
     var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
@@ -685,14 +719,8 @@ fun NavGraph(
                                     popUpTo("searching_rider/{bookingId}") { inclusive = true }
                                 }
                             }
-                            is RiderTrackingNavigationEvent.NoRiderAvailable -> {
-                                // Stay on this screen - UI will show retry option
-                            }
-                            is RiderTrackingNavigationEvent.NavigateToHome -> {
-                                navController.navigate(Screen.Main.route) {
-                                    popUpTo("booking_flow") { inclusive = true }
-                                }
-                            }
+                            is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */ }
+                            is RiderTrackingNavigationEvent.NavigateToHome,
                             is RiderTrackingNavigationEvent.BookingCancelled -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
@@ -725,15 +753,11 @@ fun NavGraph(
                         fare = uiState.finalFare,
                         onRiderFound = { },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:+919876543210")
-                            }
+                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
-                        onCancelBooking = { reason ->
-                            riderTrackingViewModel.cancelBooking(reason)
-                        },
+                        onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         bookingViewModel = bookingViewModel,
                         riderTrackingViewModel = riderTrackingViewModel
                     )
@@ -755,28 +779,23 @@ fun NavGraph(
                 val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
-
                 val uiState by bookingViewModel.uiState.collectAsState()
 
+                // ✅ Common navigation handler for RiderFound → Payment
                 LaunchedEffect(Unit) {
                     riderTrackingViewModel.navigationEvent.collect { event ->
                         when (event) {
-                            is RiderTrackingNavigationEvent.RiderArrived -> {
-                                // Stay on RiderFoundScreen - UI updates via state
-                            }
-                            is RiderTrackingNavigationEvent.ParcelPickedUp -> {
-                                // Stay on RiderFoundScreen - map switches to delivery route
-                            }
-                            is RiderTrackingNavigationEvent.Delivered -> {
-                                // Rating dialog shown in RiderFoundScreen (for cash)
-                                // or payment screen navigated to (for online)
-                            }
                             is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
-                                val roundedFare = event.roundedFare.toString()
-                                val waitingChargeStr = event.waitingCharge.toString()
-                                val discount = event.discount.toString()
                                 navController.navigate(
-                                    "post_delivery_payment/${event.bookingId}/$roundedFare/$waitingChargeStr/$discount/${event.driverName}/${event.paymentMethod}"
+                                    buildPaymentRoute(
+                                        prefix = "post_delivery_payment",
+                                        bookingId = event.bookingId,
+                                        roundedFare = event.roundedFare,
+                                        waitingCharge = event.waitingCharge,
+                                        discount = event.discount,
+                                        driverName = event.driverName,
+                                        paymentMethod = event.paymentMethod
+                                    )
                                 )
                             }
                             is RiderTrackingNavigationEvent.NavigateToHome -> {
@@ -790,10 +809,11 @@ fun NavGraph(
                                 }
                             }
                             is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
-                                navController.navigate("searching_rider/${bookingId}") {
+                                navController.navigate("searching_rider/$bookingId") {
                                     popUpTo("rider_found/{bookingId}") { inclusive = true }
                                 }
                             }
+                            // RiderArrived, ParcelPickedUp, RiderEnroute, Delivered — all handled within RiderFoundScreen UI
                             else -> {}
                         }
                     }
@@ -812,9 +832,7 @@ fun NavGraph(
                     }
                 }
 
-                DisposableEffect(Unit) {
-                    onDispose { }
-                }
+                DisposableEffect(Unit) { onDispose { } }
 
                 if (uiState.pickupAddress != null && uiState.dropAddress != null) {
                     RiderFoundScreen(
@@ -822,13 +840,9 @@ fun NavGraph(
                         pickupAddress = uiState.pickupAddress!!,
                         dropAddress = uiState.dropAddress!!,
                         fare = uiState.finalFare,
-                        onCancelBooking = { reason ->
-                            riderTrackingViewModel.cancelBooking(reason)
-                        },
+                        onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:+919876543210")
-                            }
+                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
                             context.startActivity(intent)
                         },
                         viewModel = riderTrackingViewModel
@@ -840,35 +854,69 @@ fun NavGraph(
 
             // ════════════════════════════════════════════════════════════════
             // POST-DELIVERY PAYMENT SCREEN (booking_flow)
+            // ✅ FIXED: Now properly wired to RiderTrackingViewModel + MainActivity PaymentViewModel
             // ════════════════════════════════════════════════════════════════
             composable(
-                route = "post_delivery_payment/{bookingId}/{roundedFare}/{waitingCharge}/{discount}/{driverName}/{paymentMethod}",
-                arguments = listOf(
-                    navArgument("bookingId") { type = NavType.StringType },
-                    navArgument("roundedFare") { type = NavType.StringType },          // ✅ StringType for Double
-                    navArgument("waitingCharge") { type = NavType.StringType },     // ✅ StringType for Double
-                    navArgument("discount") { type = NavType.StringType },     // ✅ StringType for Double
-                    navArgument("driverName") { type = NavType.StringType },
-                    navArgument("paymentMethod") { type = NavType.StringType }
-                )
+                route = "post_delivery_payment/$PAYMENT_ROUTE_PATTERN",
+                arguments = paymentNavArguments
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
                 val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
                 val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
                 val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
-                val driverName = backStackEntry.arguments?.getString("driverName") ?: ""
+                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
 
-                PostDeliveryPaymentScreen(
-                    bookingId = bookingId,
-                    roundedFare = roundedFare,
-                    waitingCharge = waitingCharge,
-                    discount = discount,
-                    driverName = driverName,
-                    paymentMethod = paymentMethod,
-                    onPaymentComplete = { /* navigate to completion */ },
-                    onPaymentSkipped = { /* handle cash flow */ }
-                )
+                val parentEntry = remember(navController) {
+                    navController.getBackStackEntry("booking_flow")
+                }
+                val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
+
+                // ✅ Auto-dismiss when driver confirms payment server-side
+                val paymentState by riderTrackingViewModel.paymentState.collectAsState()
+                val ratingState by riderTrackingViewModel.ratingState.collectAsState()
+                LaunchedEffect(paymentState.isPaymentCompleted, ratingState.showRatingDialog) {
+                    if (ratingState.showRatingDialog) {
+                        navController.popBackStack()
+                    }
+                }
+
+                // ✅ Listen for NavigateToHome (after rating completes)
+                LaunchedEffect(Unit) {
+                    riderTrackingViewModel.navigationEvent.collect { event ->
+                        when (event) {
+                            is RiderTrackingNavigationEvent.NavigateToHome -> {
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") { inclusive = true }
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                // ✅ FIXED: Use MainActivity's PaymentViewModel so Razorpay callbacks work
+                activity?.let {
+                    PostDeliveryPaymentScreen(
+                        bookingId = bookingId,
+                        roundedFare = roundedFare,
+                        waitingCharge = waitingCharge,
+                        discount = discount,
+                        driverName = driverName,
+                        paymentMethod = paymentMethod,
+                        onPaymentComplete = {
+                            // ✅ FIXED: Send payment_success to SignalR
+                            riderTrackingViewModel.onPaymentCompleted()
+                            navController.popBackStack() // Back to RiderFoundScreen where rating shows
+                        },
+                        onPaymentSkipped = {
+                            // ✅ FIXED: Send payment_success to SignalR for cash
+                            riderTrackingViewModel.onCashPaymentConfirmed()
+                            navController.popBackStack()
+                        },
+                        paymentViewModel = it.paymentViewModel // ✅ FIXED: Shared instance
+                    )
+                }
             }
         } // ✅ CLOSES booking_flow navigation block
 
@@ -897,22 +945,14 @@ fun NavGraph(
                                         popUpTo("active_searching_rider") { inclusive = true }
                                     }
                                 }
-                                is RiderTrackingNavigationEvent.NoRiderAvailable -> {
-                                    // Stay on searching screen — UI shows retry
-                                }
-                                is RiderTrackingNavigationEvent.BookingCancelled -> {
-                                    navController.navigate(Screen.Main.route) {
-                                        popUpTo("active_booking_flow") { inclusive = true }
-                                    }
-                                }
-                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
-                                    // Stay on searching screen — auto retry
-                                }
+                                is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */ }
+                                is RiderTrackingNavigationEvent.BookingCancelled,
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
+                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> { /* Stay — auto retry */ }
                                 else -> {}
                             }
                         }
@@ -939,15 +979,11 @@ fun NavGraph(
                         fare = activeBooking.fare,
                         onRiderFound = { },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:+919876543210")
-                            }
+                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
-                        onCancelBooking = { reason ->
-                            riderTrackingViewModel.cancelBooking(reason)
-                        },
+                        onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         bookingViewModel = bookingViewModel,
                         riderTrackingViewModel = riderTrackingViewModel
                     )
@@ -976,6 +1012,19 @@ fun NavGraph(
                     LaunchedEffect(Unit) {
                         riderTrackingViewModel.navigationEvent.collect { event ->
                             when (event) {
+                                is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
+                                    navController.navigate(
+                                        buildPaymentRoute(
+                                            prefix = "active_post_delivery_payment",
+                                            bookingId = event.bookingId,
+                                            roundedFare = event.roundedFare,
+                                            waitingCharge = event.waitingCharge,
+                                            discount = event.discount,
+                                            driverName = event.driverName,
+                                            paymentMethod = event.paymentMethod
+                                        )
+                                    )
+                                }
                                 is RiderTrackingNavigationEvent.BookingCancelled -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
@@ -986,28 +1035,13 @@ fun NavGraph(
                                         popUpTo("active_booking_flow") { inclusive = false }
                                     }
                                 }
-                                is RiderTrackingNavigationEvent.Delivered -> {
-                                    // Stay on screen — rating dialog will show (for cash)
-                                    // or payment screen navigated (for online)
-                                }
-                                is RiderTrackingNavigationEvent.ShowPaymentScreen -> {
-
-                                    val roundedFare = event.roundedFare.toString()           // ✅ Double → String
-                                    val waitingChargeStr = event.waitingCharge.toString() // ✅ Double → String
-                                    val discount = event.discount.toString()
-                                    navController.navigate(
-                                        "active_post_delivery_payment/${event.bookingId}/$roundedFare/$waitingChargeStr/$discount/${Uri.encode(event.driverName)}/${event.paymentMethod}"
-                                    )
-                                }
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
-                                else -> {
-                                    // RiderArrived, ParcelPickedUp, RiderEnroute
-                                    // all handled within RiderFoundScreen UI itself
-                                }
+                                // RiderArrived, ParcelPickedUp, Delivered — handled in RiderFoundScreen UI
+                                else -> {}
                             }
                         }
                     }
@@ -1030,13 +1064,9 @@ fun NavGraph(
                         pickupAddress = activeBooking.pickupAddress,
                         dropAddress = activeBooking.dropAddress,
                         fare = activeBooking.fare,
-                        onCancelBooking = { reason ->
-                            riderTrackingViewModel.cancelBooking(reason)
-                        },
+                        onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:+919876543210")
-                            }
+                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
                             context.startActivity(intent)
                         },
                         viewModel = riderTrackingViewModel
@@ -1048,22 +1078,16 @@ fun NavGraph(
 
             // ═══════════════════════════════════════════════════════════════════
             // POST-DELIVERY PAYMENT SCREEN (active_booking_flow)
+            // ✅ FIXED: Route path matches navArgument names
             // ═══════════════════════════════════════════════════════════════════
             composable(
-                route = "active_post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{discount}/{driverName}/{paymentMethod}",
-                arguments = listOf(
-                    navArgument("bookingId") { type = NavType.StringType },
-                    navArgument("roundedFare") { type = NavType.StringType },          // ✅ IntType → StringType
-                    navArgument("waitingCharge") { type = NavType.StringType },     // ✅ IntType → StringType
-                    navArgument("discount") { type = NavType.StringType },     // ✅ IntType → StringType
-                    navArgument("driverName") { type = NavType.StringType },
-                    navArgument("paymentMethod") { type = NavType.StringType }
-                )
+                route = "active_post_delivery_payment/$PAYMENT_ROUTE_PATTERN",
+                arguments = paymentNavArguments
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0         // ✅ Fixed
-                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0  // ✅ Fixed
-                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0  // ✅ Fixed
+                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
+                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
+                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
                 val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
 
@@ -1071,7 +1095,16 @@ fun NavGraph(
                     navController.getBackStackEntry("active_booking_flow")
                 }
                 val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
-                val activity = context as? MainActivity
+
+//                ✅ Auto-dismiss when driver confirms payment server-side
+                val paymentState by riderTrackingViewModel.paymentState.collectAsState()
+                val ratingState by riderTrackingViewModel.ratingState.collectAsState()
+//                paymentState.isPaymentCompleted,
+                LaunchedEffect( ratingState.showRatingDialog) {
+                    if (paymentState.isPaymentCompleted || ratingState.showRatingDialog) {
+                        navController.popBackStack()
+                    }
+                }
 
                 // Listen for NavigateToHome (after rating completes)
                 LaunchedEffect(Unit) {
@@ -1097,7 +1130,7 @@ fun NavGraph(
                         paymentMethod = paymentMethod,
                         onPaymentComplete = {
                             riderTrackingViewModel.onPaymentCompleted()
-                            navController.popBackStack() // Back to RiderFoundScreen where rating shows
+                            navController.popBackStack()
                         },
                         onPaymentSkipped = {
                             riderTrackingViewModel.onCashPaymentConfirmed()

@@ -95,6 +95,7 @@ class RiderTrackingViewModel @Inject constructor(
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
+
     // ═══════════════════════════════════════════════════════════════════════
     // INTERNAL STATE
     // ═══════════════════════════════════════════════════════════════════════
@@ -645,12 +646,20 @@ class RiderTrackingViewModel @Inject constructor(
 
         showNotification(update.bookingId, "💳 Payment Successful!", "Payment confirmed. Waiting for delivery confirmation...")
         _toastMessage.emit("Payment confirmed!")
+
+        _navigationEvent.emit(RiderTrackingNavigationEvent.PaymentConfirmed(update.bookingId.toString()))
     }
 
     private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.DELIVERED)
         stopWaitingTimer()
-        _paymentState.update { it.copy(isVerifyingPayment = false) }
+        _paymentState.update {
+            it.copy(
+                showPaymentScreen = false,
+                isVerifyingPayment = false,
+                isPaymentCompleted = true
+            )
+        }
 
         val fare = extractFareFromUpdate(update)
         val totalFare = fare.totalFare.takeIf { it > 0 } ?: _paymentState.value.totalFare
@@ -1099,5 +1108,6 @@ sealed class RiderTrackingNavigationEvent {
         val driverName: String,
         val paymentMethod: String
     ) : RiderTrackingNavigationEvent()
+    data class PaymentConfirmed(val bookingId: String) : RiderTrackingNavigationEvent()
     object NavigateToHome : RiderTrackingNavigationEvent()
 }

@@ -1,7 +1,4 @@
-// data/repository/RealTimeRepository.kt
-// ✅ PRODUCTION-GRADE: Infinite reconnection, network monitoring, auto re-join
-// ✅ FIXED: parseRiderLocationUpdate extracts distanceToPickup/distanceToDrop
-// ✅ FIXED: parseBookingStatusUpdate extracts additionalData nested object
+
 package com.mobitechs.parcelwala.data.repository
 
 import android.content.Context
@@ -191,7 +188,8 @@ class RealTimeRepository @Inject constructor(
         try {
             if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
             Log.d(TAG, "📤 UPDATE STATUS: bookingId=$bookingId | status=$status")
-            hubConnection?.invoke(Constants.SignalREvents.BOOKING_STATUS_UPDATE, bookingId, status)?.blockingAwait()
+
+            hubConnection?.invoke(Constants.SignalREvents.UPDATE_BOOKING_STATUS, bookingId, status,null as String?)?.blockingAwait()
             Log.d(TAG, "✅ Status update sent: $status")
             Result.success(true)
         } catch (e: Exception) {
