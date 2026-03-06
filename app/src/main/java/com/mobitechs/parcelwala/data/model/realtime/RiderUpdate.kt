@@ -1,16 +1,13 @@
-
 package com.mobitechs.parcelwala.data.model.realtime
-
-import com.google.gson.annotations.SerializedName
 
 data class BookingStatusUpdate(
     val bookingId: Int,
     val bookingNumber: String? = null,
     val status: String? = null,
     val statusMessage: String? = null,
-        val messageAlt: String? = null,
+    val messageAlt: String? = null,
     val timestamp: String? = null,
-        val driverId: Int? = null,
+    val driverId: Int? = null,
     val driverName: String? = null,
     val driverPhone: String? = null,
     val driverRating: Double? = null,
@@ -79,7 +76,9 @@ data class BookingStatusUpdate(
             val now = System.currentTimeMillis()
             val diffMinutes = ((arrivalTime - now) / 60000).toInt()
             if (diffMinutes > 0) diffMinutes else 1
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun getStatusType(): BookingStatusType {
@@ -188,6 +187,7 @@ sealed class RealTimeConnectionState {
     object Connected : RealTimeConnectionState()
     object Reconnecting : RealTimeConnectionState()
     data class Error(val message: String) : RealTimeConnectionState()
+
     val isConnected: Boolean get() = this is Connected
 }
 

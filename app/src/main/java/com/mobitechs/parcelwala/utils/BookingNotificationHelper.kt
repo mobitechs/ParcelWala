@@ -56,7 +56,8 @@ class BookingNotificationHelper @Inject constructor(
         const val NOTIFICATION_TRACKING_PROGRESS = 2007
     }
 
-    private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     init {
         createNotificationChannels()
@@ -285,7 +286,8 @@ class BookingNotificationHelper @Inject constructor(
     private fun vibrate(pattern: LongArray) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                val vibratorManager =
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
                 val vibrator = vibratorManager.defaultVibrator
                 vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
             } else {

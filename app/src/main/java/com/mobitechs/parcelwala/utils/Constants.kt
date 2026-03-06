@@ -33,6 +33,7 @@ object Constants {
         const val JOINED_BOOKING_CHANNEL = "JoinedBookingChannel"
         const val LEFT_BOOKING_CHANNEL = "LeftBookingChannel"
         const val ERROR = "Error"
+
         // Booking Events
         const val BOOKING_STATUS_UPDATE = "BookingStatusUpdate"
         const val UPDATE_BOOKING_STATUS = "UpdateBookingStatus"
@@ -41,7 +42,6 @@ object Constants {
         const val BOOKING_CHANNEL_INFO = "BookingChannelInfo"
         const val STATUS_PAYMENT_SUCCESS = "payment_success"
     }
-
 
 
     const val TIMEOUT_SECONDS = 30L

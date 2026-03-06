@@ -3,14 +3,11 @@ package com.mobitechs.parcelwala.data.repository
 
 import android.util.Log
 import com.mobitechs.parcelwala.data.api.ApiService
-import com.mobitechs.parcelwala.data.mock.MockOrdersData
 import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.data.repository.BookingRepository.Companion.TAG
-import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
@@ -78,27 +75,16 @@ class OrdersRepository @Inject constructor(
         emit(NetworkResult.Loading())
 
         try {
-            if (USE_MOCK_DATA) {
-                delay(500) // Simulate network delay
-                val order = MockOrdersData.getMockOrderById(bookingId)
-                if (order != null) {
-                    emit(NetworkResult.Success(order))
-                } else {
-                    emit(NetworkResult.Error("Order not found"))
-                }
+            val response = apiService.getOrderDetails(bookingId)
+            if (response.success && response.data != null) {
+                emit(NetworkResult.Success(response.data))
             } else {
-                val response = apiService.getOrderDetails(bookingId)
-                if (response.success && response.data != null) {
-                    emit(NetworkResult.Success(response.data))
-                } else {
-                    emit(NetworkResult.Error(response.message ?: "Failed to load order details"))
-                }
+                emit(NetworkResult.Error(response.message ?: "Failed to load order details"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))
         }
     }
-
 
 
     /**
@@ -108,7 +94,6 @@ class OrdersRepository @Inject constructor(
         if (status.isNullOrEmpty()) return orders
         return orders.filter { it.status == status }
     }
-
 
 
     suspend fun submitRating(

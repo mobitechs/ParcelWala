@@ -14,26 +14,27 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
@@ -59,7 +60,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -68,8 +68,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -103,13 +101,9 @@ import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberBg
-import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberDark
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.asPaddingValues
 
 
 /**
@@ -373,13 +367,15 @@ private fun HomeHeader(
                     // Pickup text
                     Text(
                         text = if (pickupLocation.isNotBlank() &&
-                            pickupLocation != stringResource(R.string.pick_up_from))
+                            pickupLocation != stringResource(R.string.pick_up_from)
+                        )
                             pickupLocation
                         else
                             stringResource(R.string.pick_up_from),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (pickupLocation.isNotBlank() &&
-                            pickupLocation != stringResource(R.string.pick_up_from))
+                            pickupLocation != stringResource(R.string.pick_up_from)
+                        )
                             AppColors.White
                         else
                             AppColors.White.copy(alpha = 0.55f),
@@ -681,11 +677,26 @@ private fun ActiveBookingCard(
                             Text(
                                 text = when {
                                     isTimedOut && isSearching -> stringResource(R.string.no_riders_available)
-                                    activeBooking.status == BookingStatus.SEARCHING -> stringResource(R.string.finding_rider)
-                                    activeBooking.status == BookingStatus.RIDER_ASSIGNED -> stringResource(R.string.rider_assigned)
-                                    activeBooking.status == BookingStatus.RIDER_EN_ROUTE -> stringResource(R.string.rider_on_the_way)
-                                    activeBooking.status == BookingStatus.PICKED_UP -> stringResource(R.string.goods_picked_up)
-                                    activeBooking.status == BookingStatus.IN_TRANSIT -> stringResource(R.string.on_the_way_to_drop)
+                                    activeBooking.status == BookingStatus.SEARCHING -> stringResource(
+                                        R.string.finding_rider
+                                    )
+
+                                    activeBooking.status == BookingStatus.RIDER_ASSIGNED -> stringResource(
+                                        R.string.rider_assigned
+                                    )
+
+                                    activeBooking.status == BookingStatus.RIDER_EN_ROUTE -> stringResource(
+                                        R.string.rider_on_the_way
+                                    )
+
+                                    activeBooking.status == BookingStatus.PICKED_UP -> stringResource(
+                                        R.string.goods_picked_up
+                                    )
+
+                                    activeBooking.status == BookingStatus.IN_TRANSIT -> stringResource(
+                                        R.string.on_the_way_to_drop
+                                    )
+
                                     else -> stringResource(R.string.booking_in_progress)
                                 },
                                 style = MaterialTheme.typography.titleSmall,
@@ -696,7 +707,11 @@ private fun ActiveBookingCard(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (isSearching) {
-                                stringResource(R.string.trip_format, activeBooking.bookingId, activeBooking.searchAttempts)
+                                stringResource(
+                                    R.string.trip_format,
+                                    activeBooking.bookingId,
+                                    activeBooking.searchAttempts
+                                )
                             } else {
                                 stringResource(R.string.trip_id_format, activeBooking.bookingId)
                             },
@@ -715,7 +730,9 @@ private fun ActiveBookingCard(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isTimedOut) stringResource(R.string.timed_out) else stringResource(R.string.remaining),
+                                text = if (isTimedOut) stringResource(R.string.timed_out) else stringResource(
+                                    R.string.remaining
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 9.sp
@@ -748,7 +765,8 @@ private fun ActiveBookingCard(
                 ) {
                     if (!isTimedOut) {
                         val elapsedMs = (totalTimeMs - remainingTimeMs).coerceIn(0L, totalTimeMs)
-                        val elapsedProgress = (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
+                        val elapsedProgress =
+                            (elapsedMs.toFloat() / totalTimeMs.toFloat()).coerceIn(0f, 1f)
 
                         LinearProgressIndicator(
                             progress = { elapsedProgress },
@@ -802,7 +820,11 @@ private fun ActiveBookingCard(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = stringResource(R.string.retry_search), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                text = stringResource(R.string.retry_search),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }
@@ -856,7 +878,8 @@ private fun ActiveBookingCard(
                     }
                     Column {
                         Text(
-                            text = activeBooking.fareDetails.vehicleTypeName ?: stringResource(R.string.vehicle_fallback),
+                            text = activeBooking.fareDetails.vehicleTypeName
+                                ?: stringResource(R.string.vehicle_fallback),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = AppColors.TextPrimary

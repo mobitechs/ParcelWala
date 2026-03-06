@@ -38,7 +38,6 @@ android {
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
 
 
-
     }
 
     buildTypes {
@@ -112,7 +111,6 @@ dependencies {
 
     // Image Loading - Coil
     implementation("io.coil-kt:coil-compose:2.5.0")
-
 
 
     // DataStore

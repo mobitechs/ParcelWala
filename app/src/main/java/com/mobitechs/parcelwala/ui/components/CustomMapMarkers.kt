@@ -1,12 +1,9 @@
 package com.mobitechs.parcelwala.ui.components
 
 
-
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory

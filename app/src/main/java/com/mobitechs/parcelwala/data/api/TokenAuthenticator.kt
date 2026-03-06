@@ -4,12 +4,12 @@ import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.utils.Constants
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.Route
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton

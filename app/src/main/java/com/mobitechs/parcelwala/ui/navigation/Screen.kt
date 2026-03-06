@@ -15,6 +15,7 @@ sealed class Screen(val route: String) {
     object Otp : Screen("otp/{phoneNumber}") {
         fun createRoute(phoneNumber: String) = "otp/$phoneNumber"
     }
+
     object CompleteProfile : Screen("complete_profile")
 
     // ============ MAIN SCREEN ============
@@ -44,7 +45,8 @@ sealed class Screen(val route: String) {
     }
 
     // ✅ NEW: Post-delivery payment screen
-    object PostDeliveryPayment : Screen("post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}") {
+    object PostDeliveryPayment :
+        Screen("post_delivery_payment/{bookingId}/{baseFare}/{waitingCharge}/{driverName}/{paymentMethod}") {
         fun createRoute(
             bookingId: String,
             baseFare: Int,
@@ -62,6 +64,7 @@ sealed class Screen(val route: String) {
     object AddressMapPicker : Screen("address_map_picker/{lat}/{lng}") {
         fun createRoute(lat: Double, lng: Double) = "address_map_picker/$lat/$lng"
     }
+
     object AddressConfirmSave : Screen("address_confirm")
     object ProfileDetails : Screen("profile_details")
 

@@ -1,7 +1,6 @@
 package com.mobitechs.parcelwala.data.remote.firebase
 
 
-
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.mobitechs.parcelwala.data.local.PreferencesManager

@@ -1,19 +1,7 @@
 // data/repository/RealTimeRepository.kt
 package com.mobitechs.parcelwala.data.repository
 
-import android.util.Log
-import com.google.gson.Gson
-import com.microsoft.signalr.HubConnection
-import com.microsoft.signalr.HubConnectionBuilder
-import com.microsoft.signalr.HubConnectionState
 import com.mobitechs.parcelwala.data.local.PreferencesManager
-import com.mobitechs.parcelwala.data.mock.MockRealTimeData
-//import com.mobitechs.parcelwala.data.mock.MockRealTimeData
-import com.mobitechs.parcelwala.data.model.realtime.*
-import com.mobitechs.parcelwala.utils.Constants
-import io.reactivex.rxjava3.core.Single
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 

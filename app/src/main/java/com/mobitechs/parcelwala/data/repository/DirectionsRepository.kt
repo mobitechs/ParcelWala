@@ -3,10 +3,9 @@
 package com.mobitechs.parcelwala.data.repository
 
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.PolyUtil  // ✅ Correct import
+import com.google.maps.android.PolyUtil
 import com.mobitechs.parcelwala.BuildConfig
 import com.mobitechs.parcelwala.data.api.ApiService
-import com.mobitechs.parcelwala.data.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject

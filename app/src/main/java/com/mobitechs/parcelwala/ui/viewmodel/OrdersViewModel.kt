@@ -8,7 +8,13 @@ import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.data.repository.OrdersRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -67,6 +73,7 @@ class OrdersViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         allOrders = result.data ?: emptyList()
                         _uiState.update {
@@ -77,6 +84,7 @@ class OrdersViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -111,18 +119,22 @@ class OrdersViewModel @Inject constructor(
             "searching" -> orders.filter {
                 it.status.lowercase() == "searching"
             }
+
             "active" -> orders.filter {
                 it.status.lowercase() in listOf(
                     "in_progress", "in progress", "assigned",
                     "arriving", "driver_arriving", "picked_up"
                 )
             }
+
             "completed" -> orders.filter {
                 it.status.lowercase() in listOf("delivery_completed", "completed")
             }
+
             "cancelled" -> orders.filter {
                 it.status.lowercase() == "cancelled"
             }
+
             else -> orders
         }
     }
@@ -156,7 +168,8 @@ class OrdersViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
                     }
-                    _ratingSubmitState.value = RatingSubmitState.Success("Rating submitted successfully!")
+                    _ratingSubmitState.value =
+                        RatingSubmitState.Success("Rating submitted successfully!")
                 }.onFailure { e ->
                     if (e.message?.contains("already rated", ignoreCase = true) == true) {
                         // Already rated — still update local state to hide the Rate button
@@ -169,7 +182,8 @@ class OrdersViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(orders = applyFilter(updatedOrders, _selectedFilter.value))
                         }
-                        _ratingSubmitState.value = RatingSubmitState.Success("Rating already submitted")
+                        _ratingSubmitState.value =
+                            RatingSubmitState.Success("Rating already submitted")
                     } else {
                         _ratingSubmitState.value = RatingSubmitState.Error(
                             e.message ?: "Failed to submit rating"

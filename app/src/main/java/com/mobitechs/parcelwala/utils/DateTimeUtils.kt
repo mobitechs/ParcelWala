@@ -2,7 +2,9 @@
 package com.mobitechs.parcelwala.utils
 
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Date and Time Formatting Utilities
@@ -98,6 +100,7 @@ object DateTimeUtils {
                 val hours = (diff / (60 * 60 * 1000)).toInt()
                 "$hours ${if (hours == 1) "hour" else "hours"} ago"
             }
+
             diff < 2 * 24 * 60 * 60 * 1000 -> "Yesterday"
             diff < 3 * 24 * 60 * 60 * 1000 -> "2 days ago"
             else -> {

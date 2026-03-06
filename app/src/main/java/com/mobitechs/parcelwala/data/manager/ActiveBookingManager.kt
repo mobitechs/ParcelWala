@@ -79,7 +79,10 @@ class ActiveBookingManager @Inject constructor(
 
             // Restore the booking
             _activeBooking.value = booking
-            Log.d(TAG, "✅ RESTORED booking: #${booking.bookingId} | Status: ${booking.status} | Age: ${age / 60000}min")
+            Log.d(
+                TAG,
+                "✅ RESTORED booking: #${booking.bookingId} | Status: ${booking.status} | Age: ${age / 60000}min"
+            )
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to restore active booking: ${e.message}", e)
@@ -140,7 +143,10 @@ class ActiveBookingManager @Inject constructor(
             freeWaitingTimeMins = fareDetails.resolvedFreeWaitingMins
         )
         updateAndPersist(booking)
-        Log.d(TAG, "📦 Active booking SET: #$bookingId | waitCharge/min=₹${booking.waitingChargePerMin} | freeWait=${booking.freeWaitingTimeMins}min")
+        Log.d(
+            TAG,
+            "📦 Active booking SET: #$bookingId | waitCharge/min=₹${booking.waitingChargePerMin} | freeWait=${booking.freeWaitingTimeMins}min"
+        )
     }
 
     fun updateStatus(status: BookingStatus) {

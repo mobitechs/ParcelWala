@@ -5,19 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.RazorpayManager
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
-import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
 import com.mobitechs.parcelwala.data.model.request.TransactionResponse
-import com.mobitechs.parcelwala.data.model.request.VerifyPaymentRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
-import com.mobitechs.parcelwala.data.model.request.WalletTopupOrderRequest
-import com.mobitechs.parcelwala.data.model.request.WalletTopupVerifyRequest
 import com.mobitechs.parcelwala.data.repository.PaymentRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -120,6 +116,7 @@ class PaymentViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         result.data?.let { orderResponse ->
                             _uiState.update {
@@ -133,6 +130,7 @@ class PaymentViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, error = result.message)
@@ -182,6 +180,7 @@ class PaymentViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -194,6 +193,7 @@ class PaymentViewModel @Inject constructor(
                             _paymentEvent.emit(PaymentEvent.PaymentSuccess(it))
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, error = result.message)
@@ -244,6 +244,7 @@ class PaymentViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         result.data?.let { orderResponse ->
                             _uiState.update {
@@ -260,6 +261,7 @@ class PaymentViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, error = result.message)
@@ -312,6 +314,7 @@ class PaymentViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(isLoading = false, error = result.message)
@@ -340,7 +343,9 @@ class PaymentViewModel @Inject constructor(
                             it.copy(walletBalance = result.data?.balance ?: 0.0)
                         }
                     }
-                    else -> { /* silently fail for balance */ }
+
+                    else -> { /* silently fail for balance */
+                    }
                 }
             }
         }
@@ -353,6 +358,7 @@ class PaymentViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isTransactionsLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -361,6 +367,7 @@ class PaymentViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(isTransactionsLoading = false, error = result.message)

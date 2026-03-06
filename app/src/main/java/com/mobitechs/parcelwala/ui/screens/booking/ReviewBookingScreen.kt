@@ -3,14 +3,60 @@ package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Money
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Wallet
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +69,10 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.components.InfoCard
+import com.mobitechs.parcelwala.ui.components.LoadingIndicator
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
+import com.mobitechs.parcelwala.ui.components.SectionHeader
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
@@ -53,198 +102,654 @@ fun ReviewBookingScreen(
     val goodsTypes by viewModel.goodsTypes.collectAsState()
     val selectedGoodsType = goodsTypes.find { it.goodsTypeId == uiState.selectedGoodsTypeId }
 
-    val displayDistanceText = viewModel.getDistanceText() ?: String.format("%.1f km", selectedFareDetails.distanceKm)
-    val displayDurationText = viewModel.getDurationText() ?: "${selectedFareDetails.estimatedDurationMinutes} mins"
+    val displayDistanceText =
+        viewModel.getDistanceText() ?: String.format("%.1f km", selectedFareDetails.distanceKm)
+    val displayDurationText =
+        viewModel.getDurationText() ?: "${selectedFareDetails.estimatedDurationMinutes} mins"
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.review_booking), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, stringResource(R.string.back), tint = AppColors.TextPrimary) } },
+                title = {
+                    Text(
+                        stringResource(R.string.review_booking),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            stringResource(R.string.back),
+                            tint = AppColors.TextPrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = AppColors.Background
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)) {
             if (uiState.isLoading) {
-                LoadingIndicator(message = stringResource(R.string.creating_booking), modifier = Modifier.fillMaxSize().padding(32.dp))
+                LoadingIndicator(
+                    message = stringResource(R.string.creating_booking),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp)
+                )
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                        VehicleTripInfoCard(fareDetails = selectedFareDetails, displayDistanceText = displayDistanceText, displayDurationText = displayDurationText, onViewAddressDetails = onViewAddressDetails, modifier = Modifier.fillMaxWidth().padding(16.dp))
+                    Column(modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())) {
+                        VehicleTripInfoCard(
+                            fareDetails = selectedFareDetails,
+                            displayDistanceText = displayDistanceText,
+                            displayDurationText = displayDurationText,
+                            onViewAddressDetails = onViewAddressDetails,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        )
 
-                        SectionHeader(text = stringResource(R.string.offers_and_discounts), modifier = Modifier.padding(horizontal = 16.dp))
+                        SectionHeader(
+                            text = stringResource(R.string.offers_and_discounts),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        ApplyCouponCard(appliedCoupon = appliedCoupon, onApplyCoupon = onApplyCoupon, onRemoveCoupon = { viewModel.removeCoupon() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        ApplyCouponCard(
+                            appliedCoupon = appliedCoupon,
+                            onApplyCoupon = onApplyCoupon,
+                            onRemoveCoupon = { viewModel.removeCoupon() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        SectionHeader(text = stringResource(R.string.fare_summary), modifier = Modifier.padding(horizontal = 16.dp))
+                        SectionHeader(
+                            text = stringResource(R.string.fare_summary),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        FareSummaryCard(fareDetails = selectedFareDetails, couponDiscount = couponDiscount, appliedCouponCode = appliedCoupon, finalFare = finalFare, onViewBreakdown = { showFareBreakdown = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        FareSummaryCard(
+                            fareDetails = selectedFareDetails,
+                            couponDiscount = couponDiscount,
+                            appliedCouponCode = appliedCoupon,
+                            finalFare = finalFare,
+                            onViewBreakdown = { showFareBreakdown = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        SectionHeader(text = stringResource(R.string.gst_details), modifier = Modifier.padding(horizontal = 16.dp))
+                        SectionHeader(
+                            text = stringResource(R.string.gst_details),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        GSTCard(gstin = uiState.gstin, onAddGSTIN = onAddGSTIN, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        GSTCard(
+                            gstin = uiState.gstin,
+                            onAddGSTIN = onAddGSTIN,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        SectionHeader(text = stringResource(R.string.goods_description), modifier = Modifier.padding(horizontal = 16.dp))
+                        SectionHeader(
+                            text = stringResource(R.string.goods_description),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        GoodsDescriptionCard(selectedGoodsType = selectedGoodsType, onSelectGoodsType = onSelectGoodsType, onViewRestrictions = onViewRestrictions, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                        GoodsDescriptionCard(
+                            selectedGoodsType = selectedGoodsType,
+                            onSelectGoodsType = onSelectGoodsType,
+                            onViewRestrictions = onViewRestrictions,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        SectionHeader(text = stringResource(R.string.read_before_booking), modifier = Modifier.padding(horizontal = 16.dp))
+                        SectionHeader(
+                            text = stringResource(R.string.read_before_booking),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
-                        InfoCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { BookingTermsList(freeLoadingMins = selectedFareDetails.freeLoadingTimeMins ?: 25) }
+                        InfoCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            BookingTermsList(
+                                freeLoadingMins = selectedFareDetails.freeLoadingTimeMins ?: 25
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.Center) {
-                            Text(stringResource(R.string.by_booking_agree), style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary)
-                            Text(stringResource(R.string.terms_of_service), style = MaterialTheme.typography.bodySmall, color = AppColors.Primary, textDecoration = TextDecoration.Underline, modifier = Modifier.clickable { })
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                stringResource(R.string.by_booking_agree),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
+                            )
+                            Text(
+                                stringResource(R.string.terms_of_service),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.Primary,
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier.clickable { })
                         }
                         Spacer(modifier = Modifier.height(100.dp))
                     }
 
                     Surface(color = Color.White, shadowElevation = 8.dp) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth().clickable { showPaymentSheet = true }.padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(Icons.Default.Wallet, stringResource(R.string.payment_method), tint = AppColors.Pickup, modifier = Modifier.size(32.dp))
+                        Column(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showPaymentSheet = true }
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Wallet,
+                                        stringResource(R.string.payment_method),
+                                        tint = AppColors.Pickup,
+                                        modifier = Modifier.size(32.dp)
+                                    )
                                     Column {
-                                        Text(stringResource(R.string.payment_method), style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary)
+                                        Text(
+                                            stringResource(R.string.payment_method),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = AppColors.TextSecondary
+                                        )
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(selectedPaymentMethod, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-                                            Icon(Icons.Default.ArrowDropDown, null, tint = AppColors.TextSecondary)
+                                            Text(
+                                                selectedPaymentMethod,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AppColors.TextPrimary
+                                            )
+                                            Icon(
+                                                Icons.Default.ArrowDropDown,
+                                                null,
+                                                tint = AppColors.TextSecondary
+                                            )
                                         }
                                     }
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(stringResource(R.string.fare_format, finalFare), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppColors.Primary)
-                                    if (couponDiscount > 0) { Text(stringResource(R.string.you_save_format, couponDiscount), style = MaterialTheme.typography.labelSmall, color = AppColors.Pickup) }
+                                    Text(
+                                        stringResource(R.string.fare_format, finalFare),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AppColors.Primary
+                                    )
+                                    if (couponDiscount > 0) {
+                                        Text(
+                                            stringResource(
+                                                R.string.you_save_format,
+                                                couponDiscount
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = AppColors.Pickup
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(16.dp))
-                            PrimaryButton(text = stringResource(R.string.book_vehicle_format, selectedFareDetails.vehicleTypeName), onClick = onConfirmBooking, icon = Icons.Default.Check, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isLoading)
+                            PrimaryButton(
+                                text = stringResource(
+                                    R.string.book_vehicle_format,
+                                    selectedFareDetails.vehicleTypeName
+                                ),
+                                onClick = onConfirmBooking,
+                                icon = Icons.Default.Check,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !uiState.isLoading
+                            )
                         }
                     }
                 }
             }
 
             uiState.error?.let { error ->
-                Snackbar(modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).padding(bottom = 80.dp), action = { TextButton(onClick = { viewModel.clearError() }) { Text(stringResource(R.string.dismiss)) } }) { Text(error) }
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                        .padding(bottom = 80.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text(stringResource(R.string.dismiss))
+                        }
+                    }) { Text(error) }
             }
         }
     }
 
     if (showFareBreakdown) {
-        ModalBottomSheet(onDismissRequest = { showFareBreakdown = false }, containerColor = Color.White) {
-            FareBreakdownBottomSheet(fareDetails = selectedFareDetails, couponDiscount = couponDiscount, appliedCouponCode = appliedCoupon, displayDistanceText = displayDistanceText, displayDurationText = displayDurationText, onDismiss = { showFareBreakdown = false })
+        ModalBottomSheet(
+            onDismissRequest = { showFareBreakdown = false },
+            containerColor = Color.White
+        ) {
+            FareBreakdownBottomSheet(
+                fareDetails = selectedFareDetails,
+                couponDiscount = couponDiscount,
+                appliedCouponCode = appliedCoupon,
+                displayDistanceText = displayDistanceText,
+                displayDurationText = displayDurationText,
+                onDismiss = { showFareBreakdown = false })
         }
     }
 
     if (showPaymentSheet) {
-        PaymentMethodBottomSheet(selectedMethod = selectedPaymentMethod, onMethodSelected = { viewModel.setPaymentMethod(it); showPaymentSheet = false }, onDismiss = { showPaymentSheet = false })
+        PaymentMethodBottomSheet(
+            selectedMethod = selectedPaymentMethod,
+            onMethodSelected = { viewModel.setPaymentMethod(it); showPaymentSheet = false },
+            onDismiss = { showPaymentSheet = false })
     }
 }
 
 @Composable
-private fun VehicleTripInfoCard(fareDetails: FareDetails, displayDistanceText: String, displayDurationText: String, onViewAddressDetails: () -> Unit, modifier: Modifier = Modifier) {
+private fun VehicleTripInfoCard(
+    fareDetails: FareDetails,
+    displayDistanceText: String,
+    displayDurationText: String,
+    onViewAddressDetails: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     InfoCard(modifier = modifier, elevation = 4.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(modifier = Modifier.size(60.dp).background(AppColors.Primary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.displaySmall) }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(
+                            AppColors.Primary.copy(alpha = 0.1f),
+                            RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        fareDetails.vehicleTypeIcon,
+                        style = MaterialTheme.typography.displaySmall
+                    )
+                }
                 Column {
-                    Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-                    TextButton(onClick = onViewAddressDetails, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.view_trip_details), style = MaterialTheme.typography.bodyMedium, color = AppColors.Primary) }
+                    Text(
+                        fareDetails.vehicleTypeName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextPrimary
+                    )
+                    TextButton(
+                        onClick = onViewAddressDetails,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.view_trip_details),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AppColors.Primary
+                        )
+                    }
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { Icon(Icons.Default.Route, null, tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp)); Text(displayDistanceText, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary) }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { Icon(Icons.Default.Timer, null, tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp)); Text(displayDurationText, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Route,
+                        null,
+                        tint = AppColors.TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    ); Text(
+                    displayDistanceText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary
+                )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Timer,
+                        null,
+                        tint = AppColors.TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    ); Text(
+                    displayDurationText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary
+                )
+                }
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth().background(AppColors.Primary.copy(alpha = 0.05f), RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Timer, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
-            Text(stringResource(R.string.free_loading_format, fareDetails.freeLoadingTimeMins ?: 25), style = MaterialTheme.typography.bodySmall, color = AppColors.TextPrimary)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AppColors.Primary.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                Icons.Default.Timer,
+                null,
+                tint = AppColors.Primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                stringResource(
+                    R.string.free_loading_format,
+                    fareDetails.freeLoadingTimeMins ?: 25
+                ), style = MaterialTheme.typography.bodySmall, color = AppColors.TextPrimary
+            )
         }
         if (fareDetails.hasSurgePricing()) {
             Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth().background(AppColors.WarningAmberBg, RoundedCornerShape(8.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.TrendingUp, null, tint = AppColors.WarningAmberDark, modifier = Modifier.size(20.dp))
-                Text(stringResource(R.string.surge_pricing_format, fareDetails.getSurgePercentage()), style = MaterialTheme.typography.bodySmall, color = AppColors.WarningAmberDark)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AppColors.WarningAmberBg, RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.TrendingUp,
+                    null,
+                    tint = AppColors.WarningAmberDark,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    stringResource(
+                        R.string.surge_pricing_format,
+                        fareDetails.getSurgePercentage()
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.WarningAmberDark
+                )
             }
         }
     }
 }
 
 @Composable
-private fun FareSummaryCard(fareDetails: FareDetails, couponDiscount: Double, appliedCouponCode: String?, finalFare: Double, onViewBreakdown: () -> Unit, modifier: Modifier = Modifier) {
+private fun FareSummaryCard(
+    fareDetails: FareDetails,
+    couponDiscount: Double,
+    appliedCouponCode: String?,
+    finalFare: Double,
+    onViewBreakdown: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     InfoCard(modifier = modifier) {
         if (fareDetails.fareBreakdown.isNotEmpty()) {
             fareDetails.fareBreakdown.forEachIndexed { index, item ->
-                if (item.type != "tax") { FareRow(item.label, item.value.toInt()); Spacer(Modifier.height(8.dp)) }
+                if (item.type != "tax") {
+                    FareRow(item.label, item.value.toInt()); Spacer(Modifier.height(8.dp))
+                }
             }
             HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp))
-            FareRow(stringResource(R.string.subtotal), fareDetails.subTotal.toInt()); Spacer(Modifier.height(8.dp))
-            fareDetails.fareBreakdown.find { it.type == "tax" }?.let { taxItem -> FareRow(taxItem.label, taxItem.value.toInt()); Spacer(Modifier.height(8.dp)) }
+            FareRow(stringResource(R.string.subtotal), fareDetails.subTotal.toInt()); Spacer(
+                Modifier.height(8.dp)
+            )
+            fareDetails.fareBreakdown.find { it.type == "tax" }?.let { taxItem ->
+                FareRow(
+                    taxItem.label,
+                    taxItem.value.toInt()
+                ); Spacer(Modifier.height(8.dp))
+            }
         } else {
-            FareRow(stringResource(R.string.base_fare_incl_format, fareDetails.freeDistanceKm.toInt()), fareDetails.baseFare.toInt())
-            if (fareDetails.distanceFare > 0) { Spacer(Modifier.height(8.dp)); FareRow(stringResource(R.string.distance_charge_format, String.format("%.1f", fareDetails.chargeableDistanceKm)), fareDetails.distanceFare.toInt()) }
-            if (fareDetails.platformFee > 0) { Spacer(Modifier.height(8.dp)); FareRow(stringResource(R.string.platform_fee), fareDetails.platformFee.toInt()) }
-            if (fareDetails.surgeAmount > 0) { Spacer(Modifier.height(8.dp)); FareRow(stringResource(R.string.surge_format, fareDetails.getSurgePercentage()), fareDetails.surgeAmount.toInt(), isSurge = true) }
-            Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp))
-            FareRow(stringResource(R.string.subtotal), fareDetails.subTotal.toInt()); Spacer(Modifier.height(8.dp))
-            FareRow(stringResource(R.string.gst_format, fareDetails.gstPercentage.toInt()), fareDetails.gstAmount.toInt())
+            FareRow(
+                stringResource(
+                    R.string.base_fare_incl_format,
+                    fareDetails.freeDistanceKm.toInt()
+                ), fareDetails.baseFare.toInt()
+            )
+            if (fareDetails.distanceFare > 0) {
+                Spacer(Modifier.height(8.dp)); FareRow(
+                    stringResource(
+                        R.string.distance_charge_format,
+                        String.format("%.1f", fareDetails.chargeableDistanceKm)
+                    ), fareDetails.distanceFare.toInt()
+                )
+            }
+            if (fareDetails.platformFee > 0) {
+                Spacer(Modifier.height(8.dp)); FareRow(
+                    stringResource(R.string.platform_fee),
+                    fareDetails.platformFee.toInt()
+                )
+            }
+            if (fareDetails.surgeAmount > 0) {
+                Spacer(Modifier.height(8.dp)); FareRow(
+                    stringResource(
+                        R.string.surge_format,
+                        fareDetails.getSurgePercentage()
+                    ), fareDetails.surgeAmount.toInt(), isSurge = true
+                )
+            }
+            Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider); Spacer(
+                Modifier.height(8.dp)
+            )
+            FareRow(stringResource(R.string.subtotal), fareDetails.subTotal.toInt()); Spacer(
+                Modifier.height(8.dp)
+            )
+            FareRow(
+                stringResource(R.string.gst_format, fareDetails.gstPercentage.toInt()),
+                fareDetails.gstAmount.toInt()
+            )
         }
-        if (fareDetails.discount > 0) { Spacer(Modifier.height(8.dp)); FareRow(stringResource(R.string.discount_label), -fareDetails.discount.toInt(), isDiscount = true) }
+        if (fareDetails.discount > 0) {
+            Spacer(Modifier.height(8.dp)); FareRow(
+                stringResource(R.string.discount_label),
+                -fareDetails.discount.toInt(),
+                isDiscount = true
+            )
+        }
         if (couponDiscount > 0) {
             Spacer(Modifier.height(8.dp))
-            FareRow(label = if (appliedCouponCode != null) stringResource(R.string.coupon_format, appliedCouponCode) else stringResource(R.string.coupon_discount), amount = couponDiscount.toInt(), isDiscount = true)
+            FareRow(
+                label = if (appliedCouponCode != null) stringResource(
+                    R.string.coupon_format,
+                    appliedCouponCode
+                ) else stringResource(R.string.coupon_discount),
+                amount = couponDiscount.toInt(),
+                isDiscount = true
+            )
         }
-        Spacer(Modifier.height(8.dp)); HorizontalDivider(color = AppColors.Divider, thickness = 2.dp); Spacer(Modifier.height(8.dp))
-        FareRow(stringResource(R.string.amount_payable), finalFare.toInt(), isBold = true, isTotal = true)
+        Spacer(Modifier.height(8.dp)); HorizontalDivider(
+        color = AppColors.Divider,
+        thickness = 2.dp
+    ); Spacer(Modifier.height(8.dp))
+        FareRow(
+            stringResource(R.string.amount_payable),
+            finalFare.toInt(),
+            isBold = true,
+            isTotal = true
+        )
         Spacer(Modifier.height(12.dp))
         TextButton(onClick = onViewBreakdown, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.view_detailed_breakdown), color = AppColors.Primary, fontWeight = FontWeight.Medium)
-            Icon(Icons.Default.ChevronRight, null, tint = AppColors.Primary, modifier = Modifier.size(20.dp))
+            Text(
+                stringResource(R.string.view_detailed_breakdown),
+                color = AppColors.Primary,
+                fontWeight = FontWeight.Medium
+            )
+            Icon(
+                Icons.Default.ChevronRight,
+                null,
+                tint = AppColors.Primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun FareBreakdownBottomSheet(fareDetails: FareDetails, couponDiscount: Double, appliedCouponCode: String?, displayDistanceText: String, displayDurationText: String, onDismiss: () -> Unit) {
+private fun FareBreakdownBottomSheet(
+    fareDetails: FareDetails,
+    couponDiscount: Double,
+    appliedCouponCode: String?,
+    displayDistanceText: String,
+    displayDurationText: String,
+    onDismiss: () -> Unit
+) {
     val finalAmount = fareDetails.roundedFare - couponDiscount
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.fare_breakdown), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.close), tint = AppColors.TextSecondary) }
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                stringResource(R.string.fare_breakdown),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    Icons.Default.Close,
+                    stringResource(R.string.close),
+                    tint = AppColors.TextSecondary
+                )
+            }
         }
         Spacer(Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth().background(AppColors.Background, RoundedCornerShape(8.dp)).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column { Text(fareDetails.vehicleTypeName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold); Text("$displayDistanceText • $displayDurationText", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AppColors.Background, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    fareDetails.vehicleTypeName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                ); Text(
+                "$displayDistanceText • $displayDurationText",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+            }
             Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.headlineMedium)
         }
         Spacer(Modifier.height(16.dp))
         if (fareDetails.fareBreakdown.isNotEmpty()) {
-            fareDetails.fareBreakdown.forEach { item -> BreakdownRow(label = item.label, amount = item.value, type = item.type); Spacer(Modifier.height(8.dp)) }
+            fareDetails.fareBreakdown.forEach { item ->
+                BreakdownRow(
+                    label = item.label,
+                    amount = item.value,
+                    type = item.type
+                ); Spacer(Modifier.height(8.dp))
+            }
         } else {
-            BreakdownRow(stringResource(R.string.base_fare_incl_format, fareDetails.freeDistanceKm.toInt()), fareDetails.baseFare); Spacer(Modifier.height(8.dp))
-            if (fareDetails.distanceFare > 0) { BreakdownRow(stringResource(R.string.distance_charge_format, String.format("%.1f", fareDetails.chargeableDistanceKm)), fareDetails.distanceFare); Spacer(Modifier.height(8.dp)) }
-            if (fareDetails.platformFee > 0) { BreakdownRow(stringResource(R.string.platform_fee), fareDetails.platformFee); Spacer(Modifier.height(8.dp)) }
-            if (fareDetails.surgeAmount > 0) { BreakdownRow(stringResource(R.string.surge_format, fareDetails.getSurgePercentage()), fareDetails.surgeAmount, "surge"); Spacer(Modifier.height(8.dp)) }
-            BreakdownRow(stringResource(R.string.gst_format, fareDetails.gstPercentage.toInt()), fareDetails.gstAmount, "tax"); Spacer(Modifier.height(8.dp))
+            BreakdownRow(
+                stringResource(
+                    R.string.base_fare_incl_format,
+                    fareDetails.freeDistanceKm.toInt()
+                ), fareDetails.baseFare
+            ); Spacer(Modifier.height(8.dp))
+            if (fareDetails.distanceFare > 0) {
+                BreakdownRow(
+                    stringResource(
+                        R.string.distance_charge_format,
+                        String.format("%.1f", fareDetails.chargeableDistanceKm)
+                    ), fareDetails.distanceFare
+                ); Spacer(Modifier.height(8.dp))
+            }
+            if (fareDetails.platformFee > 0) {
+                BreakdownRow(
+                    stringResource(R.string.platform_fee),
+                    fareDetails.platformFee
+                ); Spacer(Modifier.height(8.dp))
+            }
+            if (fareDetails.surgeAmount > 0) {
+                BreakdownRow(
+                    stringResource(
+                        R.string.surge_format,
+                        fareDetails.getSurgePercentage()
+                    ), fareDetails.surgeAmount, "surge"
+                ); Spacer(Modifier.height(8.dp))
+            }
+            BreakdownRow(
+                stringResource(R.string.gst_format, fareDetails.gstPercentage.toInt()),
+                fareDetails.gstAmount,
+                "tax"
+            ); Spacer(Modifier.height(8.dp))
         }
-        if (fareDetails.discount > 0) { HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp)); BreakdownRow(stringResource(R.string.discount_label), -fareDetails.discount, "discount"); Spacer(Modifier.height(8.dp)) }
+        if (fareDetails.discount > 0) {
+            HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp)); BreakdownRow(
+                stringResource(R.string.discount_label),
+                -fareDetails.discount,
+                "discount"
+            ); Spacer(Modifier.height(8.dp))
+        }
         if (couponDiscount > 0) {
-            if (fareDetails.discount <= 0) { HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp)) }
-            BreakdownRow(label = if (appliedCouponCode != null) stringResource(R.string.coupon_format, appliedCouponCode) else stringResource(R.string.coupon_discount), amount = -couponDiscount.toDouble(), type = "discount"); Spacer(Modifier.height(8.dp))
+            if (fareDetails.discount <= 0) {
+                HorizontalDivider(color = AppColors.Divider); Spacer(Modifier.height(8.dp))
+            }
+            BreakdownRow(
+                label = if (appliedCouponCode != null) stringResource(
+                    R.string.coupon_format,
+                    appliedCouponCode
+                ) else stringResource(R.string.coupon_discount),
+                amount = -couponDiscount.toDouble(),
+                type = "discount"
+            ); Spacer(Modifier.height(8.dp))
         }
-        HorizontalDivider(color = AppColors.Primary, thickness = 2.dp); Spacer(Modifier.height(12.dp))
+        HorizontalDivider(
+            color = AppColors.Primary,
+            thickness = 2.dp
+        ); Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.total_amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-            Text(stringResource(R.string.fare_format, finalAmount), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+            Text(
+                stringResource(R.string.total_amount),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
+            )
+            Text(
+                stringResource(R.string.fare_format, finalAmount),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Primary
+            )
         }
         Spacer(Modifier.height(32.dp))
     }
@@ -254,30 +759,100 @@ private fun FareBreakdownBottomSheet(fareDetails: FareDetails, couponDiscount: D
 private fun BreakdownRow(label: String, amount: Double, type: String = "charge") {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary)
-        Text(when { type == "discount" && amount < 0 -> "-₹${(-amount).toInt()}"; type == "discount" && amount > 0 -> "-₹${amount.toInt()}"; else -> "₹${amount.toInt()}" },
-            style = MaterialTheme.typography.bodyMedium, color = when (type) { "discount" -> AppColors.Pickup; "surge" -> AppColors.WarningAmberDark; else -> AppColors.TextPrimary })
-    }
-}
-
-@Composable
-private fun FareRow(label: String, amount: Int, isBold: Boolean = false, isDiscount: Boolean = false, isSurge: Boolean = false, isTotal: Boolean = false) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = AppColors.TextPrimary)
-        Text(if (amount < 0) "-₹${-amount}" else "₹$amount", style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = when { isDiscount -> AppColors.Pickup; isSurge -> AppColors.WarningAmberDark; isTotal -> AppColors.Primary; else -> AppColors.TextPrimary })
-    }
-}
-
-@Composable
-private fun ApplyCouponCard(appliedCoupon: String?, onApplyCoupon: () -> Unit, onRemoveCoupon: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.clickable(enabled = appliedCoupon == null, onClick = onApplyCoupon), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Default.LocalOffer, null, tint = if (appliedCoupon != null) AppColors.Pickup else AppColors.Primary, modifier = Modifier.size(24.dp))
-                if (appliedCoupon != null) { Column { Text(appliedCoupon, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.Pickup); Text(stringResource(R.string.coupon_applied), style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary) } }
-                else Text(stringResource(R.string.apply_coupon), style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary)
+        Text(
+            when {
+                type == "discount" && amount < 0 -> "-₹${(-amount).toInt()}"; type == "discount" && amount > 0 -> "-₹${amount.toInt()}"; else -> "₹${amount.toInt()}"
+            },
+            style = MaterialTheme.typography.bodyMedium, color = when (type) {
+                "discount" -> AppColors.Pickup; "surge" -> AppColors.WarningAmberDark; else -> AppColors.TextPrimary
             }
-            if (appliedCoupon != null) IconButton(onClick = onRemoveCoupon) { Icon(Icons.Default.Close, stringResource(R.string.remove), tint = AppColors.Drop) }
+        )
+    }
+}
+
+@Composable
+private fun FareRow(
+    label: String,
+    amount: Int,
+    isBold: Boolean = false,
+    isDiscount: Boolean = false,
+    isSurge: Boolean = false,
+    isTotal: Boolean = false
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            label,
+            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = AppColors.TextPrimary
+        )
+        Text(
+            if (amount < 0) "-₹${-amount}" else "₹$amount",
+            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = when {
+                isDiscount -> AppColors.Pickup; isSurge -> AppColors.WarningAmberDark; isTotal -> AppColors.Primary; else -> AppColors.TextPrimary
+            }
+        )
+    }
+}
+
+@Composable
+private fun ApplyCouponCard(
+    appliedCoupon: String?,
+    onApplyCoupon: () -> Unit,
+    onRemoveCoupon: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable(enabled = appliedCoupon == null, onClick = onApplyCoupon),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.LocalOffer,
+                    null,
+                    tint = if (appliedCoupon != null) AppColors.Pickup else AppColors.Primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                if (appliedCoupon != null) {
+                    Column {
+                        Text(
+                            appliedCoupon,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.Pickup
+                        ); Text(
+                        stringResource(R.string.coupon_applied),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppColors.TextSecondary
+                    )
+                    }
+                } else Text(
+                    stringResource(R.string.apply_coupon),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppColors.TextPrimary
+                )
+            }
+            if (appliedCoupon != null) IconButton(onClick = onRemoveCoupon) {
+                Icon(
+                    Icons.Default.Close,
+                    stringResource(R.string.remove),
+                    tint = AppColors.Drop
+                )
+            }
             else Icon(Icons.Default.ChevronRight, null, tint = AppColors.TextSecondary)
         }
     }
@@ -286,32 +861,143 @@ private fun ApplyCouponCard(appliedCoupon: String?, onApplyCoupon: () -> Unit, o
 @Composable
 private fun GSTCard(gstin: String?, onAddGSTIN: () -> Unit, modifier: Modifier = Modifier) {
     InfoCard(modifier = modifier) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Default.Receipt, null, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
-                if (gstin != null) Column { Text(stringResource(R.string.gstin_added), style = MaterialTheme.typography.labelMedium, color = AppColors.TextSecondary); Text(gstin, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary) }
-                else Text(stringResource(R.string.have_gst_number), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Receipt,
+                    null,
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                if (gstin != null) Column {
+                    Text(
+                        stringResource(R.string.gstin_added),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AppColors.TextSecondary
+                    ); Text(
+                    gstin,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+                }
+                else Text(
+                    stringResource(R.string.have_gst_number),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
             }
-            TextButton(onClick = onAddGSTIN) { Text(if (gstin != null) stringResource(R.string.change) else stringResource(R.string.add_gstin), color = AppColors.Primary, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onAddGSTIN) {
+                Text(
+                    if (gstin != null) stringResource(R.string.change) else stringResource(
+                        R.string.add_gstin
+                    ), color = AppColors.Primary, fontWeight = FontWeight.Bold
+                )
+            }
         }
-        if (gstin == null) { Spacer(Modifier.height(8.dp)); Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Info, null, tint = AppColors.Primary, modifier = Modifier.size(16.dp)); Text(stringResource(R.string.gstin_itc_info), style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) } }
+        if (gstin == null) {
+            Spacer(Modifier.height(8.dp)); Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    null,
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(16.dp)
+                ); Text(
+                stringResource(R.string.gstin_itc_info),
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+            }
+        }
     }
 }
 
 @Composable
-private fun GoodsDescriptionCard(selectedGoodsType: GoodsTypeResponse?, onSelectGoodsType: () -> Unit, onViewRestrictions: () -> Unit, modifier: Modifier = Modifier) {
+private fun GoodsDescriptionCard(
+    selectedGoodsType: GoodsTypeResponse?,
+    onSelectGoodsType: () -> Unit,
+    onViewRestrictions: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     InfoCard(modifier = modifier) {
-        Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onSelectGoodsType), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onSelectGoodsType),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(selectedGoodsType?.name ?: stringResource(R.string.select_goods_type), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
-                selectedGoodsType?.let { Spacer(Modifier.height(4.dp)); Text("${it.defaultWeight} Kg • ${it.defaultPackages.toString().padStart(2, '0')} Package • ₹${it.defaultValue} ${stringResource(R.string.default_suffix)}", style = MaterialTheme.typography.bodySmall, color = AppColors.TextSecondary) }
+                Text(
+                    selectedGoodsType?.name ?: stringResource(R.string.select_goods_type),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.TextPrimary
+                )
+                selectedGoodsType?.let {
+                    Spacer(Modifier.height(4.dp)); Text(
+                    "${it.defaultWeight} Kg • ${
+                        it.defaultPackages.toString().padStart(2, '0')
+                    } Package • ₹${it.defaultValue} ${stringResource(R.string.default_suffix)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary
+                )
+                }
             }
-            TextButton(onClick = onSelectGoodsType) { Text(if (selectedGoodsType != null) stringResource(R.string.change) else stringResource(R.string.select_label), color = AppColors.Primary, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onSelectGoodsType) {
+                Text(
+                    if (selectedGoodsType != null) stringResource(
+                        R.string.change
+                    ) else stringResource(R.string.select_label),
+                    color = AppColors.Primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFFFF9E6), RoundedCornerShape(8.dp)).clickable(onClick = onViewRestrictions).padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(Icons.Default.Warning, null, tint = AppColors.WarningAmber, modifier = Modifier.size(20.dp)); Text(stringResource(R.string.do_not_send_restricted), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = AppColors.TextPrimary) }
-            TextButton(onClick = onViewRestrictions, contentPadding = PaddingValues(0.dp)) { Text(stringResource(R.string.view_label), color = AppColors.Primary, fontWeight = FontWeight.Bold) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFFFF9E6), RoundedCornerShape(8.dp))
+                .clickable(onClick = onViewRestrictions)
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    null,
+                    tint = AppColors.WarningAmber,
+                    modifier = Modifier.size(20.dp)
+                ); Text(
+                stringResource(R.string.do_not_send_restricted),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = AppColors.TextPrimary
+            )
+            }
+            TextButton(onClick = onViewRestrictions, contentPadding = PaddingValues(0.dp)) {
+                Text(
+                    stringResource(R.string.view_label),
+                    color = AppColors.Primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -326,24 +1012,76 @@ private fun BookingTermsList(freeLoadingMins: Int = 25) {
         stringResource(R.string.toll_included),
         stringResource(R.string.no_overloading)
     )
-    Column { terms.forEach { Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text("•", style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary, modifier = Modifier.padding(end = 8.dp)); Text(it, style = MaterialTheme.typography.bodyMedium, color = AppColors.TextSecondary) } } }
+    Column {
+        terms.forEach {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                Text(
+                    "•",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier.padding(end = 8.dp)
+                ); Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.TextSecondary
+            )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaymentMethodBottomSheet(selectedMethod: String, onMethodSelected: (String) -> Unit, onDismiss: () -> Unit) {
+private fun PaymentMethodBottomSheet(
+    selectedMethod: String,
+    onMethodSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
     val methods = listOf("Cash", "Card", "UPI", "Wallet")
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text(stringResource(R.string.choose_payment_method), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = AppColors.TextPrimary)
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)) {
+            Text(
+                stringResource(R.string.choose_payment_method),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.TextPrimary
+            )
             Spacer(Modifier.height(24.dp))
             methods.forEach { method ->
-                Row(modifier = Modifier.fillMaxWidth().clickable { onMethodSelected(method) }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(when (method) { "Cash" -> Icons.Default.Money; "Card" -> Icons.Default.CreditCard; "UPI" -> Icons.Default.Payment; else -> Icons.Default.Wallet }, method, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
-                        Text(method, style = MaterialTheme.typography.titleMedium, color = AppColors.TextPrimary)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onMethodSelected(method) }
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            when (method) {
+                                "Cash" -> Icons.Default.Money; "Card" -> Icons.Default.CreditCard; "UPI" -> Icons.Default.Payment; else -> Icons.Default.Wallet
+                            }, method, tint = AppColors.Primary, modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            method,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = AppColors.TextPrimary
+                        )
                     }
-                    if (selectedMethod == method) Icon(Icons.Default.CheckCircle, stringResource(R.string.selected_label), tint = AppColors.Primary)
+                    if (selectedMethod == method) Icon(
+                        Icons.Default.CheckCircle,
+                        stringResource(R.string.selected_label),
+                        tint = AppColors.Primary
+                    )
                 }
                 if (method != methods.last()) HorizontalDivider(color = AppColors.Divider)
             }

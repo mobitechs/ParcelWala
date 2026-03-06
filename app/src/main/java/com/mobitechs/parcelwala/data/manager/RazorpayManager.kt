@@ -1,7 +1,7 @@
 package com.mobitechs.parcelwala.data.manager
 
 import android.app.Activity
-import com.mobitechs.parcelwala.data.model.request.*
+import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
 import com.razorpay.Checkout
 import org.json.JSONObject
 import javax.inject.Inject

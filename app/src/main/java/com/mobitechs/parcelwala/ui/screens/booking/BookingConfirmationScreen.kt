@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,7 +29,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Speed
@@ -70,9 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -160,7 +155,11 @@ fun BookingConfirmationScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, stringResource(R.string.content_desc_back), tint = AppColors.TextPrimary)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            stringResource(R.string.content_desc_back),
+                            tint = AppColors.TextPrimary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Surface)
@@ -217,14 +216,20 @@ fun BookingConfirmationScreen(
                                 color = AppColors.TextPrimary
                             )
                             Text(
-                                if (preSelectedVehicleId != null) stringResource(R.string.label_pre_selected_hint) else stringResource(R.string.label_select_vehicle_hint),
+                                if (preSelectedVehicleId != null) stringResource(R.string.label_pre_selected_hint) else stringResource(
+                                    R.string.label_select_vehicle_hint
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppColors.TextSecondary
                             )
                         }
                         if (!isFareLoading) {
                             IconButton(onClick = { viewModel.calculateFaresForAllVehicles() }) {
-                                Icon(Icons.Default.Refresh, stringResource(R.string.content_desc_refresh), tint = AppColors.Primary)
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    stringResource(R.string.content_desc_refresh),
+                                    tint = AppColors.Primary
+                                )
                             }
                         }
                     }
@@ -324,7 +329,13 @@ fun BookingConfirmationScreen(
                         .align(Alignment.BottomCenter)
                         .padding(16.dp)
                         .padding(bottom = 80.dp),
-                    action = { TextButton(onClick = { viewModel.clearError() }) { Text(stringResource(R.string.label_dismiss)) } }
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text(
+                                stringResource(R.string.label_dismiss)
+                            )
+                        }
+                    }
                 ) { Text(error) }
             }
         }
@@ -578,10 +589,16 @@ private fun BottomFareActionBar(
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        stringResource(R.string.label_discount_off, fare.discount.toInt()),
+                                        stringResource(
+                                            R.string.label_discount_off,
+                                            fare.discount.toInt()
+                                        ),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = AppColors.Pickup,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(
+                                            horizontal = 6.dp,
+                                            vertical = 2.dp
+                                        )
                                     )
                                 }
                             }
@@ -597,7 +614,9 @@ private fun BottomFareActionBar(
                 }
             } ?: run {
                 Text(
-                    if (isLoading) stringResource(R.string.label_calculating_fares) else stringResource(R.string.label_select_vehicle_to_proceed),
+                    if (isLoading) stringResource(R.string.label_calculating_fares) else stringResource(
+                        R.string.label_select_vehicle_to_proceed
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextHint,
                     modifier = Modifier.fillMaxWidth()
@@ -703,7 +722,11 @@ private fun LocationDetailsBottomSheet(
                             stringResource(R.string.label_est_time)
                         )
                     }
-                    InfoStatItem(Icons.Default.Speed, stringResource(R.string.label_fastest), stringResource(R.string.label_route))
+                    InfoStatItem(
+                        Icons.Default.Speed,
+                        stringResource(R.string.label_fastest),
+                        stringResource(R.string.label_route)
+                    )
                 }
             }
         }

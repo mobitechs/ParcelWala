@@ -7,7 +7,6 @@ import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
-import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequestBuilder
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.CouponResponse
@@ -133,7 +132,8 @@ class BookingViewModel @Inject constructor(
 
                 // Step 2: Calculate fares with road distance & ETA
                 val roadDistanceKm = routeInfo.distanceMeters / 1000.0
-                val roadDurationMinutes = (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
+                val roadDurationMinutes =
+                    (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
                 calculateFaresForAllVehicles(
                     roadDistanceKm = roadDistanceKm,
                     roadDurationMinutes = roadDurationMinutes
@@ -185,13 +185,30 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Success -> {
                         _vehicleFares.value = result.data ?: emptyList()
                         _isFareLoading.value = false
-                        _uiState.update { it.copy(isLoading = false, error = null, hasFaresLoaded = true) }
-                        _uiState.value.preferredVehicleTypeId?.let { prefId -> selectFareDetailsById(prefId) }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = null,
+                                hasFaresLoaded = true
+                            )
+                        }
+                        _uiState.value.preferredVehicleTypeId?.let { prefId ->
+                            selectFareDetailsById(
+                                prefId
+                            )
+                        }
                     }
+
                     is NetworkResult.Error -> {
                         _isFareLoading.value = false
                         _vehicleFares.value = emptyList()
-                        _uiState.update { it.copy(isLoading = false, error = result.message, hasFaresLoaded = false) }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = result.message,
+                                hasFaresLoaded = false
+                            )
+                        }
                     }
                 }
             }
@@ -210,7 +227,8 @@ class BookingViewModel @Inject constructor(
     }
 
     private fun selectFareDetailsById(vehicleTypeId: Int) {
-        _vehicleFares.value.find { it.vehicleTypeId == vehicleTypeId }?.let { selectFareDetails(it) }
+        _vehicleFares.value.find { it.vehicleTypeId == vehicleTypeId }
+            ?.let { selectFareDetails(it) }
     }
 
     fun clearVehicleFares() {
@@ -309,7 +327,13 @@ class BookingViewModel @Inject constructor(
                         _vehicleTypes.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -324,7 +348,13 @@ class BookingViewModel @Inject constructor(
                         _goodsTypes.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -339,7 +369,13 @@ class BookingViewModel @Inject constructor(
                         _restrictedItems.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -354,7 +390,13 @@ class BookingViewModel @Inject constructor(
                         _availableCoupons.value = result.data ?: emptyList()
                         _uiState.update { it.copy(isLoading = false, error = null) }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -412,7 +454,10 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         result.data?.let { coupon ->
-                            val discount = calculateDiscount(coupon, orderValue) // ✅ Fixed: was 'discountAmount'
+                            val discount = calculateDiscount(
+                                coupon,
+                                orderValue
+                            ) // ✅ Fixed: was 'discountAmount'
                             _uiState.update {
                                 it.copy(
                                     appliedCoupon = coupon.code,
@@ -427,7 +472,13 @@ class BookingViewModel @Inject constructor(
                             }
                         }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -462,9 +513,11 @@ class BookingViewModel @Inject constructor(
                 val maxDiscount = coupon.maxDiscount?.toDouble() ?: Double.MAX_VALUE
                 minOf(raw, maxDiscount)
             }
+
             "flat", "fixed" -> {
                 discountValue
             }
+
             else -> 0.0
         }
         return minOf(discount, orderValue)
@@ -539,10 +592,20 @@ class BookingViewModel @Inject constructor(
                                 paymentMethod = state.paymentMethod
                             )
 
-                            _navigationEvent.emit(BookingNavigationEvent.NavigateToSearchingRider(booking.bookingId.toString()))
+                            _navigationEvent.emit(
+                                BookingNavigationEvent.NavigateToSearchingRider(
+                                    booking.bookingId.toString()
+                                )
+                            )
                         }
                     }
-                    is NetworkResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+
+                    is NetworkResult.Error -> _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
                 }
             }
         }
@@ -562,7 +625,8 @@ class BookingViewModel @Inject constructor(
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
             val bookingId = _uiState.value.currentBookingId
-                ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }?.toIntOrNull()
+                ?: activeBookingManager.activeBooking.value?.bookingId?.filter { it.isDigit() }
+                    ?.toIntOrNull()
                 ?: 0
 
             if (bookingId == 0) {
@@ -576,9 +640,16 @@ class BookingViewModel @Inject constructor(
                     is NetworkResult.Loading -> _uiState.update { it.copy(isLoading = true) }
                     is NetworkResult.Success -> {
                         activeBookingManager.clearActiveBooking()
-                        _uiState.update { it.copy(isLoading = false, error = null, currentBookingId = null) }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = null,
+                                currentBookingId = null
+                            )
+                        }
                         _navigationEvent.emit(BookingNavigationEvent.NavigateToHome)
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update { it.copy(isLoading = false, error = result.message) }
                         activeBookingManager.clearActiveBooking()

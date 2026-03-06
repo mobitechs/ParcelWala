@@ -8,7 +8,10 @@ import com.mobitechs.parcelwala.data.model.response.OtpData
 import com.mobitechs.parcelwala.data.repository.AuthRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,7 +41,9 @@ class AuthViewModel @Inject constructor(
 
     private var currentPhoneNumber: String
         get() = savedStateHandle[KEY_PHONE_NUMBER] ?: ""
-        set(value) { savedStateHandle[KEY_PHONE_NUMBER] = value }
+        set(value) {
+            savedStateHandle[KEY_PHONE_NUMBER] = value
+        }
 
     fun sendOtp(phoneNumber: String) {
         if (!isValidPhoneNumber(phoneNumber)) {
@@ -54,6 +59,7 @@ class AuthViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -64,6 +70,7 @@ class AuthViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -99,6 +106,7 @@ class AuthViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         val isNewUser = result.data?.user?.isNewUser ?: false
                         _uiState.update {
@@ -111,6 +119,7 @@ class AuthViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -145,6 +154,7 @@ class AuthViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -154,6 +164,7 @@ class AuthViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(

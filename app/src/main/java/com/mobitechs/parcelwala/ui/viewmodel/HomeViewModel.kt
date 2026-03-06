@@ -64,6 +64,7 @@ class HomeViewModel @Inject constructor(
                         activeBookingManager.clearActiveBooking()
                         null
                     }
+
                     else -> booking
                 }
             }
@@ -80,6 +81,7 @@ class HomeViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -89,6 +91,7 @@ class HomeViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(

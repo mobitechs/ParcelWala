@@ -3,8 +3,6 @@ package com.mobitechs.parcelwala.data.model
 import com.google.gson.annotations.SerializedName
 
 
-
-
 data class GenericResponse(
     @SerializedName("success")
     val success: Boolean,
@@ -13,7 +11,6 @@ data class GenericResponse(
     @SerializedName("data")
     val data: Any?
 )
-
 
 
 data class Pagination(

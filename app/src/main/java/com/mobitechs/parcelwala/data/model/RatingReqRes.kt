@@ -1,7 +1,6 @@
 package com.mobitechs.parcelwala.data.model
 
 
-
 data class SubmitRatingRequest(
     val rating: Int,      // 1-5
     val feedback: String? = null

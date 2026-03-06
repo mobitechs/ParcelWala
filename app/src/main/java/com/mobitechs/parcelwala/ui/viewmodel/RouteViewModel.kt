@@ -1,7 +1,6 @@
 package com.mobitechs.parcelwala.ui.viewmodel
 
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng

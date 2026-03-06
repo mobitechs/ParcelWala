@@ -4,7 +4,6 @@ import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
 import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
 import com.mobitechs.parcelwala.data.model.request.TransactionListResponse
-import com.mobitechs.parcelwala.data.model.request.TransactionResponse
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
 import com.mobitechs.parcelwala.data.model.request.WalletBalanceResponse

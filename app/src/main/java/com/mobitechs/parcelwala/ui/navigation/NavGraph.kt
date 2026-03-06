@@ -7,8 +7,6 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.google.android.gms.maps.model.LatLng
+import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -53,7 +52,6 @@ import com.mobitechs.parcelwala.ui.screens.main.MainScreen
 import com.mobitechs.parcelwala.ui.screens.orders.OrderDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.payments.PostDeliveryPaymentScreen
 import com.mobitechs.parcelwala.ui.screens.splash.SplashScreen
-import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.BookingNavigationEvent
@@ -449,16 +447,20 @@ fun NavGraph(
             composable(
                 route = "location_search/{locationType}?isChange={isChange}",
                 arguments = listOf(
-                    navArgument("locationType") { type = NavType.StringType; defaultValue = "pickup" },
+                    navArgument("locationType") {
+                        type = NavType.StringType; defaultValue = "pickup"
+                    },
                     navArgument("isChange") { type = NavType.BoolType; defaultValue = false }
                 )
             ) { backStackEntry ->
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress =
+                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 LocationSearchScreen(
                     locationType = locationType,
@@ -481,7 +483,11 @@ fun NavGraph(
                     onBack = {
                         if (isChange) navController.popBackStack()
                         else if (locationType == "pickup") {
-                            navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
+                            navController.navigate(Screen.Main.route) {
+                                popUpTo("booking_flow") {
+                                    inclusive = true
+                                }
+                            }
                         } else navController.popBackStack()
                     }
                 )
@@ -501,10 +507,12 @@ fun NavGraph(
                 val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 72.8777
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
-                val existingAddress = if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
+                val existingAddress =
+                    if (locationType == "pickup") uiState.pickupAddress else uiState.dropAddress
 
                 MapPickerScreen(
                     initialLocation = LatLng(lat, lng),
@@ -520,7 +528,9 @@ fun NavGraph(
                         } else address
                         viewModel.setPendingAddress(mergedAddress)
                         navController.navigate("address_confirm/$locationType?isChange=$isChange") {
-                            popUpTo("map_picker/{lat}/{lng}/{locationType}?isChange={isChange}") { inclusive = true }
+                            popUpTo("map_picker/{lat}/{lng}/{locationType}?isChange={isChange}") {
+                                inclusive = true
+                            }
                         }
                     },
                     onBack = { navController.popBackStack() }
@@ -539,7 +549,8 @@ fun NavGraph(
                 val locationType = backStackEntry.arguments?.getString("locationType") ?: "pickup"
                 val isEdit = backStackEntry.arguments?.getBoolean("isEdit") ?: false
                 val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
-                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 AddressConfirmationScreen(
@@ -553,11 +564,23 @@ fun NavGraph(
                         viewModel.clearPendingAddress()
 
                         if (isEdit || isChange) {
-                            navController.navigate("booking_confirm") { popUpTo("booking_confirm") { inclusive = true } }
+                            navController.navigate("booking_confirm") {
+                                popUpTo("booking_confirm") {
+                                    inclusive = true
+                                }
+                            }
                         } else if (locationType == "pickup") {
-                            navController.navigate("location_search/drop") { popUpTo("location_search/pickup") { inclusive = false } }
+                            navController.navigate("location_search/drop") {
+                                popUpTo("location_search/pickup") {
+                                    inclusive = false
+                                }
+                            }
                         } else {
-                            navController.navigate("booking_confirm") { popUpTo("location_search/pickup") { inclusive = false } }
+                            navController.navigate("booking_confirm") {
+                                popUpTo("location_search/pickup") {
+                                    inclusive = false
+                                }
+                            }
                         }
                     },
                     onChangeLocation = {
@@ -573,7 +596,8 @@ fun NavGraph(
 
             // Booking Confirm
             composable("booking_confirm") {
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
 
@@ -604,7 +628,11 @@ fun NavGraph(
                     },
                     onBack = {
                         if (uiState.isBookAgain) {
-                            navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
+                            navController.navigate(Screen.Main.route) {
+                                popUpTo("booking_flow") {
+                                    inclusive = true
+                                }
+                            }
                         } else navController.popBackStack()
                     },
                     viewModel = viewModel
@@ -613,7 +641,8 @@ fun NavGraph(
 
             // Review Booking
             composable("review_booking") {
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val uiState by viewModel.uiState.collectAsState()
                 val selectedFareDetails by viewModel.selectedFareDetails.collectAsState()
@@ -628,8 +657,13 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = false }
                                 }
                             }
+
                             BookingNavigationEvent.NavigateToHome -> {
-                                navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo("booking_flow") {
+                                        inclusive = true
+                                    }
+                                }
                             }
                         }
                     }
@@ -669,7 +703,8 @@ fun NavGraph(
 
             // Coupons
             composable("coupons") {
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 CouponScreen(
@@ -684,7 +719,8 @@ fun NavGraph(
 
             // Add GSTIN
             composable("add_gstin") {
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
                 AddGSTINScreen(
@@ -704,7 +740,8 @@ fun NavGraph(
                 arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
 
@@ -719,13 +756,17 @@ fun NavGraph(
                                     popUpTo("searching_rider/{bookingId}") { inclusive = true }
                                 }
                             }
-                            is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */ }
+
+                            is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */
+                            }
+
                             is RiderTrackingNavigationEvent.NavigateToHome,
                             is RiderTrackingNavigationEvent.BookingCancelled -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }
@@ -739,6 +780,7 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }
@@ -753,7 +795,9 @@ fun NavGraph(
                         fare = uiState.finalFare,
                         onRiderFound = { },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
@@ -776,7 +820,8 @@ fun NavGraph(
                 arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val parentEntry = remember(navController) { navController.getBackStackEntry("booking_flow") }
+                val parentEntry =
+                    remember(navController) { navController.getBackStackEntry("booking_flow") }
                 val bookingViewModel: BookingViewModel = hiltViewModel(parentEntry)
                 val riderTrackingViewModel: RiderTrackingViewModel = hiltViewModel(parentEntry)
                 val uiState by bookingViewModel.uiState.collectAsState()
@@ -798,16 +843,19 @@ fun NavGraph(
                                     )
                                 )
                             }
+
                             is RiderTrackingNavigationEvent.NavigateToHome -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             is RiderTrackingNavigationEvent.BookingCancelled -> {
                                 navController.navigate(Screen.Main.route) {
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
                                 navController.navigate("searching_rider/$bookingId") {
                                     popUpTo("rider_found/{bookingId}") { inclusive = true }
@@ -827,6 +875,7 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }
@@ -842,7 +891,9 @@ fun NavGraph(
                         fare = uiState.finalFare,
                         onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
                             context.startActivity(intent)
                         },
                         viewModel = riderTrackingViewModel
@@ -861,10 +912,14 @@ fun NavGraph(
                 arguments = paymentNavArguments
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
-                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
-                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
-                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
+                val roundedFare =
+                    backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
+                val waitingCharge =
+                    backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
+                val discount =
+                    backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
+                val driverName =
+                    Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
 
                 val parentEntry = remember(navController) {
@@ -890,6 +945,7 @@ fun NavGraph(
                                     popUpTo("booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }
@@ -945,14 +1001,20 @@ fun NavGraph(
                                         popUpTo("active_searching_rider") { inclusive = true }
                                     }
                                 }
-                                is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */ }
+
+                                is RiderTrackingNavigationEvent.NoRiderAvailable -> { /* Stay — UI shows retry */
+                                }
+
                                 is RiderTrackingNavigationEvent.BookingCancelled,
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
-                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> { /* Stay — auto retry */ }
+
+                                is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> { /* Stay — auto retry */
+                                }
+
                                 else -> {}
                             }
                         }
@@ -966,6 +1028,7 @@ fun NavGraph(
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
+
                                 else -> {}
                             }
                         }
@@ -979,7 +1042,9 @@ fun NavGraph(
                         fare = activeBooking.fare,
                         onRiderFound = { },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
                             context.startActivity(intent)
                         },
                         onViewDetails = { },
@@ -1025,16 +1090,19 @@ fun NavGraph(
                                         )
                                     )
                                 }
+
                                 is RiderTrackingNavigationEvent.BookingCancelled -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
+
                                 is RiderTrackingNavigationEvent.DriverCancelledRetrySearch -> {
                                     navController.navigate("active_searching_rider") {
                                         popUpTo("active_booking_flow") { inclusive = false }
                                     }
                                 }
+
                                 is RiderTrackingNavigationEvent.NavigateToHome -> {
                                     navController.navigate(Screen.Main.route) {
                                         popUpTo("active_booking_flow") { inclusive = true }
@@ -1054,6 +1122,7 @@ fun NavGraph(
                                         popUpTo("active_booking_flow") { inclusive = true }
                                     }
                                 }
+
                                 else -> {}
                             }
                         }
@@ -1066,7 +1135,9 @@ fun NavGraph(
                         fare = activeBooking.fare,
                         onCancelBooking = { reason -> riderTrackingViewModel.cancelBooking(reason) },
                         onContactSupport = {
-                            val intent = Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:+919876543210") }
+                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:+919876543210")
+                            }
                             context.startActivity(intent)
                         },
                         viewModel = riderTrackingViewModel
@@ -1085,10 +1156,14 @@ fun NavGraph(
                 arguments = paymentNavArguments
             ) { backStackEntry ->
                 val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-                val roundedFare = backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
-                val waitingCharge = backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
-                val discount = backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
-                val driverName = Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
+                val roundedFare =
+                    backStackEntry.arguments?.getString("roundedFare")?.toDoubleOrNull() ?: 0.0
+                val waitingCharge =
+                    backStackEntry.arguments?.getString("waitingCharge")?.toDoubleOrNull() ?: 0.0
+                val discount =
+                    backStackEntry.arguments?.getString("discount")?.toDoubleOrNull() ?: 0.0
+                val driverName =
+                    Uri.decode(backStackEntry.arguments?.getString("driverName") ?: "Driver")
                 val paymentMethod = backStackEntry.arguments?.getString("paymentMethod") ?: "cash"
 
                 val parentEntry = remember(navController) {
@@ -1100,7 +1175,7 @@ fun NavGraph(
                 val paymentState by riderTrackingViewModel.paymentState.collectAsState()
                 val ratingState by riderTrackingViewModel.ratingState.collectAsState()
 //                paymentState.isPaymentCompleted,
-                LaunchedEffect( ratingState.showRatingDialog) {
+                LaunchedEffect(ratingState.showRatingDialog) {
                     if (paymentState.isPaymentCompleted || ratingState.showRatingDialog) {
                         navController.popBackStack()
                     }
@@ -1115,6 +1190,7 @@ fun NavGraph(
                                     popUpTo("active_booking_flow") { inclusive = true }
                                 }
                             }
+
                             else -> {}
                         }
                     }

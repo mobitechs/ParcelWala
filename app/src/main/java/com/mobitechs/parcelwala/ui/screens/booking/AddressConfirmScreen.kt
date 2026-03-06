@@ -8,16 +8,64 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.EditLocation
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Label
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PinDrop
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.TripOrigin
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -31,10 +79,15 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
-import com.mobitechs.parcelwala.ui.components.*
+import com.mobitechs.parcelwala.ui.components.EmptyState
+import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
@@ -66,18 +119,25 @@ fun AddressConfirmationScreen(
         viewModel != null && uiState?.pendingAddress != null -> {
             uiState.pendingAddress
         }
+
         viewModel != null && isEditMode -> {
             if (locationType == "pickup") uiState?.pickupAddress else uiState?.dropAddress
         }
+
         else -> address
     }
 
     // ============ FORM STATE ============
-    val addressKey = "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
+    val addressKey =
+        "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
 
     var contactName by remember(addressKey) { mutableStateOf(actualAddress?.contactName ?: "") }
     var contactPhone by remember(addressKey) { mutableStateOf(actualAddress?.contactPhone ?: "") }
-    var buildingDetails by remember(addressKey) { mutableStateOf(actualAddress?.buildingDetails ?: "") }
+    var buildingDetails by remember(addressKey) {
+        mutableStateOf(
+            actualAddress?.buildingDetails ?: ""
+        )
+    }
     var landmark by remember(addressKey) { mutableStateOf(actualAddress?.landmark ?: "") }
     var pincode by remember(addressKey) { mutableStateOf(actualAddress?.pincode ?: "") }
 
@@ -96,10 +156,15 @@ fun AddressConfirmationScreen(
             if (actualAddress?.addressType?.equals("other", ignoreCase = true) == true) {
                 val label = actualAddress.label
                 if (!label.equals("other", ignoreCase = true) &&
-                    !label.equals("selected location", ignoreCase = true)) {
+                    !label.equals("selected location", ignoreCase = true)
+                ) {
                     label
-                } else { "" }
-            } else { "" }
+                } else {
+                    ""
+                }
+            } else {
+                ""
+            }
         )
     }
 
@@ -119,7 +184,9 @@ fun AddressConfirmationScreen(
             actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0
     val defaultLat = actualAddress?.latitude ?: 19.0760
     val defaultLng = actualAddress?.longitude ?: 72.8777
-    val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${actualAddress?.longitude?.toString()?.take(8)}"
+    val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${
+        actualAddress?.longitude?.toString()?.take(8)
+    }"
 
     val cameraPositionState = rememberCameraPositionState(key = mapKey) {
         position = CameraPosition.fromLatLngZoom(LatLng(defaultLat, defaultLng), 16f)
@@ -127,9 +194,13 @@ fun AddressConfirmationScreen(
 
     LaunchedEffect(actualAddress?.latitude, actualAddress?.longitude) {
         if (actualAddress?.latitude != null && actualAddress.longitude != null &&
-            actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0) {
+            actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0
+        ) {
             val newPosition = LatLng(actualAddress.latitude, actualAddress.longitude)
-            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(newPosition, 16f), durationMs = 300)
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(newPosition, 16f),
+                durationMs = 300
+            )
         }
     }
 
@@ -141,7 +212,9 @@ fun AddressConfirmationScreen(
             subtitle = stringResource(R.string.select_location_first),
             actionText = stringResource(R.string.go_back),
             onAction = onBack,
-            modifier = Modifier.fillMaxSize().padding(32.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp)
         )
         return
     }
@@ -150,7 +223,10 @@ fun AddressConfirmationScreen(
     val screenTitle = when {
         isSaveAddressMode && isEditMode -> stringResource(R.string.edit_address_title)
         isSaveAddressMode -> stringResource(R.string.add_new_address_title)
-        isEditMode -> if (locationType == "pickup") stringResource(R.string.edit_pickup_details) else stringResource(R.string.edit_drop_details)
+        isEditMode -> if (locationType == "pickup") stringResource(R.string.edit_pickup_details) else stringResource(
+            R.string.edit_drop_details
+        )
+
         locationType == "pickup" -> stringResource(R.string.confirm_pickup_location)
         else -> stringResource(R.string.confirm_drop_location)
     }
@@ -243,9 +319,14 @@ fun AddressConfirmationScreen(
                         ) {
                             Marker(
                                 state = MarkerState(
-                                    position = LatLng(actualAddress.latitude, actualAddress.longitude)
+                                    position = LatLng(
+                                        actualAddress.latitude,
+                                        actualAddress.longitude
+                                    )
                                 ),
-                                title = if (locationType == "pickup") stringResource(R.string.pickup_fallback) else stringResource(R.string.drop_fallback)
+                                title = if (locationType == "pickup") stringResource(R.string.pickup_fallback) else stringResource(
+                                    R.string.drop_fallback
+                                )
                             )
                         }
                     } else {
@@ -371,7 +452,12 @@ fun AddressConfirmationScreen(
                             if (hasCoordinates) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "📍 ${String.format("%.6f", actualAddress.latitude)}, ${String.format("%.6f", actualAddress.longitude)}",
+                                    text = "📍 ${
+                                        String.format(
+                                            "%.6f",
+                                            actualAddress.latitude
+                                        )
+                                    }, ${String.format("%.6f", actualAddress.longitude)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AppColors.TextHint
                                 )
@@ -400,15 +486,35 @@ fun AddressConfirmationScreen(
                     label = { Text(nameFieldLabel) },
                     placeholder = { Text(stringResource(R.string.enter_contact_name)) },
                     leadingIcon = {
-                        Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = AppColors.Primary)
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = AppColors.Primary
+                        )
                     },
                     isError = nameError != null,
-                    supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                    supportingText = nameError?.let {
+                        {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    ),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                    keyboardActions = KeyboardActions(onNext = {
+                        focusManager.moveFocus(
+                            FocusDirection.Down
+                        )
+                    })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -417,33 +523,63 @@ fun AddressConfirmationScreen(
                 OutlinedTextField(
                     value = contactPhone,
                     onValueChange = {
-                        if (it.length <= 10 && it.all { char -> char.isDigit() }) { contactPhone = it; phoneError = null }
+                        if (it.length <= 10 && it.all { char -> char.isDigit() }) {
+                            contactPhone = it; phoneError = null
+                        }
                     },
                     label = { Text(stringResource(R.string.contact_phone_required)) },
                     placeholder = { Text(stringResource(R.string.enter_10_digit_mobile)) },
                     leadingIcon = {
-                        Icon(imageVector = Icons.Default.Phone, contentDescription = null, tint = AppColors.Primary)
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = AppColors.Primary
+                        )
                     },
                     prefix = { Text(stringResource(R.string.phone_prefix)) },
                     isError = phoneError != null,
-                    supportingText = phoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                    supportingText = phoneError?.let {
+                        {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    ),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(onNext = {
+                        focusManager.moveFocus(
+                            FocusDirection.Down
+                        )
+                    })
                 )
 
                 // "Use my mobile number" checkbox
                 if (isSaveAddressMode && userPhoneNumber != null) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = useMyNumber,
                             onCheckedChange = { useMyNumber = it },
-                            colors = CheckboxDefaults.colors(checkedColor = AppColors.Primary, checkmarkColor = Color.White)
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = AppColors.Primary,
+                                checkmarkColor = Color.White
+                            )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -473,12 +609,27 @@ fun AddressConfirmationScreen(
                     onValueChange = { buildingDetails = it },
                     label = { Text(stringResource(R.string.building_details_label)) },
                     placeholder = { Text(stringResource(R.string.building_details_placeholder)) },
-                    leadingIcon = { Icon(imageVector = Icons.Default.Apartment, contentDescription = null, tint = AppColors.Primary) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Apartment,
+                            contentDescription = null,
+                            tint = AppColors.Primary
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    ),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                    keyboardActions = KeyboardActions(onNext = {
+                        focusManager.moveFocus(
+                            FocusDirection.Down
+                        )
+                    })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -489,12 +640,27 @@ fun AddressConfirmationScreen(
                     onValueChange = { landmark = it },
                     label = { Text(stringResource(R.string.landmark_label)) },
                     placeholder = { Text(stringResource(R.string.landmark_placeholder)) },
-                    leadingIcon = { Icon(imageVector = Icons.Default.Place, contentDescription = null, tint = AppColors.Primary) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = AppColors.Primary
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    ),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                    keyboardActions = KeyboardActions(onNext = {
+                        focusManager.moveFocus(
+                            FocusDirection.Down
+                        )
+                    })
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -502,14 +668,32 @@ fun AddressConfirmationScreen(
                 // Pincode
                 OutlinedTextField(
                     value = pincode,
-                    onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) { pincode = it } },
+                    onValueChange = {
+                        if (it.length <= 6 && it.all { char -> char.isDigit() }) {
+                            pincode = it
+                        }
+                    },
                     label = { Text(stringResource(R.string.pincode_label)) },
                     placeholder = { Text(stringResource(R.string.pincode_placeholder)) },
-                    leadingIcon = { Icon(imageVector = Icons.Default.PinDrop, contentDescription = null, tint = AppColors.Primary) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.PinDrop,
+                            contentDescription = null,
+                            tint = AppColors.Primary
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.Primary,
+                        unfocusedBorderColor = AppColors.Border
+                    ),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
                     keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                 )
 
@@ -529,7 +713,9 @@ fun AddressConfirmationScreen(
 
                     // Address Type Selector
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         AddressTypeChip(
@@ -545,7 +731,8 @@ fun AddressConfirmationScreen(
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
-                            text = stringResource(R.string.other_type), icon = Icons.Default.MoreHoriz,
+                            text = stringResource(R.string.other_type),
+                            icon = Icons.Default.MoreHoriz,
                             isSelected = selectedType == "Other",
                             onClick = { selectedType = "Other" },
                             modifier = Modifier.weight(1f)
@@ -564,9 +751,20 @@ fun AddressConfirmationScreen(
                                 onValueChange = { customLabel = it },
                                 label = { Text(stringResource(R.string.label_name_optional)) },
                                 placeholder = { Text(stringResource(R.string.label_placeholder)) },
-                                leadingIcon = { Icon(imageVector = Icons.Default.Label, contentDescription = null, tint = AppColors.Primary) },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AppColors.Primary, unfocusedBorderColor = AppColors.Border),
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Label,
+                                        contentDescription = null,
+                                        tint = AppColors.Primary
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AppColors.Primary,
+                                    unfocusedBorderColor = AppColors.Border
+                                ),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
@@ -587,8 +785,12 @@ fun AddressConfirmationScreen(
                     text = buttonText,
                     onClick = {
                         var isValid = true
-                        if (contactName.isBlank()) { nameError = enterContactNameError; isValid = false }
-                        if (contactPhone.length != 10) { phoneError = enterValidPhoneError; isValid = false }
+                        if (contactName.isBlank()) {
+                            nameError = enterContactNameError; isValid = false
+                        }
+                        if (contactPhone.length != 10) {
+                            phoneError = enterValidPhoneError; isValid = false
+                        }
 
                         if (isValid) {
                             val finalLabel = when (selectedType) {
@@ -618,7 +820,9 @@ fun AddressConfirmationScreen(
                         isEditMode -> Icons.Default.Check
                         else -> Icons.Default.ArrowForward
                     },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
                 )
             }
         }
@@ -647,7 +851,9 @@ private fun AddressTypeChip(
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(

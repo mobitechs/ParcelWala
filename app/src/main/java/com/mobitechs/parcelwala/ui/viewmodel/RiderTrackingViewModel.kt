@@ -149,13 +149,21 @@ class RiderTrackingViewModel @Inject constructor(
         collectFlow { realTimeRepository.riderLocationUpdates.collect { handleRiderLocationUpdate(it) } }
         collectFlow {
             realTimeRepository.bookingCancelled.collect { notification ->
-                Log.d(TAG, "📥 BOOKING_CANCELLED: cancelledBy=${notification.cancelledBy} | reason=${notification.reason}")
+                Log.d(
+                    TAG,
+                    "📥 BOOKING_CANCELLED: cancelledBy=${notification.cancelledBy} | reason=${notification.reason}"
+                )
             }
         }
         collectFlow {
             realTimeRepository.connectionState.collect { state ->
                 when (state) {
-                    is RealTimeConnectionState.Connected -> _uiState.update { it.copy(connectionError = null) }
+                    is RealTimeConnectionState.Connected -> _uiState.update {
+                        it.copy(
+                            connectionError = null
+                        )
+                    }
+
                     is RealTimeConnectionState.Error -> _uiState.update { it.copy(connectionError = state.message) }
                     else -> {}
                 }
@@ -191,7 +199,7 @@ class RiderTrackingViewModel @Inject constructor(
 
         return FareBreakdown(
             baseFare = update.baseFare ?: 0.0,
-            waitingCharge = update.waitingCharges?: 0.0,
+            waitingCharge = update.waitingCharges ?: 0.0,
             platformFee = update.platformFee ?: 0.0,
             gst = update.gstAmount ?: 0.0,
             discount = update.couponDiscount ?: 0.0,
@@ -224,7 +232,10 @@ class RiderTrackingViewModel @Inject constructor(
 
     private fun startWaitingTimer() {
         if (waitingTimerJob?.isActive == true) return
-        Log.d(TAG, "⏱️ Starting waiting timer | Free: ${freeWaitingSeconds}s | Charge: ₹$chargePerMinute/min")
+        Log.d(
+            TAG,
+            "⏱️ Starting waiting timer | Free: ${freeWaitingSeconds}s | Charge: ₹$chargePerMinute/min"
+        )
 
         _waitingState.value = WaitingTimerState(
             isActive = true,
@@ -261,7 +272,10 @@ class RiderTrackingViewModel @Inject constructor(
     private fun stopWaitingTimer() {
         val finalState = _waitingState.value
         if (finalState.isActive) {
-            Log.d(TAG, "⏱️ Timer stopped — Total: ${finalState.totalWaitingSeconds}s | Charge: ₹${finalState.waitingCharge}")
+            Log.d(
+                TAG,
+                "⏱️ Timer stopped — Total: ${finalState.totalWaitingSeconds}s | Charge: ₹${finalState.waitingCharge}"
+            )
         }
         waitingTimerJob?.cancel()
         waitingTimerJob = null
@@ -293,11 +307,18 @@ class RiderTrackingViewModel @Inject constructor(
             Log.d(TAG, "$tag payment confirmed for booking $bookingId")
 
             _paymentState.update {
-                it.copy(showPaymentScreen = false, isPaymentCompleted = true, isVerifyingPayment = true)
+                it.copy(
+                    showPaymentScreen = false,
+                    isPaymentCompleted = true,
+                    isVerifyingPayment = true
+                )
             }
 
             val bookingIdInt = bookingId.toIntOrNull() ?: return@launch
-            realTimeRepository.updateBookingStatus(bookingIdInt, Constants.SignalREvents.STATUS_PAYMENT_SUCCESS)
+            realTimeRepository.updateBookingStatus(
+                bookingIdInt,
+                Constants.SignalREvents.STATUS_PAYMENT_SUCCESS
+            )
                 .onSuccess { Log.d(TAG, "$tag SignalR: payment_success sent") }
                 .onFailure { e ->
                     Log.e(TAG, "$tag SignalR: Failed to send payment_success: ${e.message}")
@@ -335,9 +356,17 @@ class RiderTrackingViewModel @Inject constructor(
         }
     }
 
-    fun skipRating() { viewModelScope.launch { navigateHomeAfterCompletion() } }
-    fun dismissRating() { _ratingState.value = RatingUiState() }
-    fun onRatingCompleted() { viewModelScope.launch { navigateHomeAfterCompletion() } }
+    fun skipRating() {
+        viewModelScope.launch { navigateHomeAfterCompletion() }
+    }
+
+    fun dismissRating() {
+        _ratingState.value = RatingUiState()
+    }
+
+    fun onRatingCompleted() {
+        viewModelScope.launch { navigateHomeAfterCompletion() }
+    }
 
     private suspend fun navigateHomeAfterCompletion() {
         _ratingState.value = RatingUiState()
@@ -363,7 +392,10 @@ class RiderTrackingViewModel @Inject constructor(
             // ✅ NEW: Load dynamic waiting timer config from ActiveBooking
             freeWaitingSeconds = booking.freeWaitingSeconds
             chargePerMinute = booking.waitingChargePerMin
-            Log.d(TAG, "⏱️ Waiting config: free=${booking.freeWaitingTimeMins}min | charge=₹${booking.waitingChargePerMin}/min")
+            Log.d(
+                TAG,
+                "⏱️ Waiting config: free=${booking.freeWaitingTimeMins}min | charge=₹${booking.waitingChargePerMin}/min"
+            )
         }
 
         realTimeRepository.connectAndSubscribe(
@@ -386,10 +418,17 @@ class RiderTrackingViewModel @Inject constructor(
         Log.d(TAG, "🔄 Retrying search...")
 
         _uiState.update {
-            it.copy(currentStatus = BookingStatusType.SEARCHING, statusMessage = "Looking for nearby riders...", isNoRiderAvailable = false)
+            it.copy(
+                currentStatus = BookingStatusType.SEARCHING,
+                statusMessage = "Looking for nearby riders...",
+                isNoRiderAvailable = false
+            )
         }
         realTimeRepository.connectAndSubscribe(
-            bookingId = bookingId, pickupLatitude= activeBooking.pickupAddress.latitude, pickupLongitude= activeBooking.pickupAddress.longitude)
+            bookingId = bookingId,
+            pickupLatitude = activeBooking.pickupAddress.latitude,
+            pickupLongitude = activeBooking.pickupAddress.longitude
+        )
         activeBookingManager.retrySearch()
     }
 
@@ -488,14 +527,21 @@ class RiderTrackingViewModel @Inject constructor(
             val distMeters = haversineDistance(driverLat, driverLng, pickup.first, pickup.second)
             _distanceKm.value = distMeters / 1000.0
             initialDistanceMeters = distMeters
-            _etaMinutes.value = update.etaMinutes ?: rider.etaMinutes ?: estimateEtaFromDistance(distMeters)
+            _etaMinutes.value =
+                update.etaMinutes ?: rider.etaMinutes ?: estimateEtaFromDistance(distMeters)
             fetchRoute(driverLat, driverLng, pickup.first, pickup.second, isDriverToPickup = true)
         } else {
             _etaMinutes.value = update.etaMinutes ?: rider.etaMinutes
         }
 
         if (isValidLatLng(pickup) && isValidLatLng(drop)) {
-            fetchRoute(pickup.first, pickup.second, drop.first, drop.second, isDriverToPickup = false)
+            fetchRoute(
+                pickup.first,
+                pickup.second,
+                drop.first,
+                drop.second,
+                isDriverToPickup = false
+            )
         }
 
         activeBookingManager.updateStatus(BookingStatus.RIDER_ASSIGNED)
@@ -513,7 +559,11 @@ class RiderTrackingViewModel @Inject constructor(
         )
 
         _navigationEvent.emit(
-            RiderTrackingNavigationEvent.RiderAssigned(update.bookingId.toString(), rider, update.pickupOtp)
+            RiderTrackingNavigationEvent.RiderAssigned(
+                update.bookingId.toString(),
+                rider,
+                update.pickupOtp
+            )
         )
     }
 
@@ -544,7 +594,10 @@ class RiderTrackingViewModel @Inject constructor(
         )
         _toastMessage.emit(update.message ?: "Rider has arrived at pickup!")
         _navigationEvent.emit(
-            RiderTrackingNavigationEvent.RiderArrived(update.bookingId.toString(), update.message ?: "Rider has arrived!")
+            RiderTrackingNavigationEvent.RiderArrived(
+                update.bookingId.toString(),
+                update.message ?: "Rider has arrived!"
+            )
         )
     }
 
@@ -565,7 +618,13 @@ class RiderTrackingViewModel @Inject constructor(
             _distanceKm.value = distMeters / 1000.0
             _etaMinutes.value = estimateEtaFromDistance(distMeters)
             initialDistanceMeters = distMeters
-            fetchRoute(pickup.first, pickup.second, drop.first, drop.second, isDriverToPickup = false)
+            fetchRoute(
+                pickup.first,
+                pickup.second,
+                drop.first,
+                drop.second,
+                isDriverToPickup = false
+            )
         } else {
             _etaMinutes.value = null
             _distanceKm.value = null
@@ -586,7 +645,11 @@ class RiderTrackingViewModel @Inject constructor(
 
     private suspend fun handleInTransit(update: BookingStatusUpdate) {
         activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
-        showNotification(update.bookingId, "Parcel in transit", "Your parcel is on the way to delivery")
+        showNotification(
+            update.bookingId,
+            "Parcel in transit",
+            "Your parcel is on the way to delivery"
+        )
     }
 
     private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
@@ -644,7 +707,11 @@ class RiderTrackingViewModel @Inject constructor(
             it.copy(showPaymentScreen = false, isPaymentCompleted = true, isVerifyingPayment = true)
         }
 
-        showNotification(update.bookingId, "💳 Payment Successful!", "Payment confirmed. Waiting for delivery confirmation...")
+        showNotification(
+            update.bookingId,
+            "💳 Payment Successful!",
+            "Payment confirmed. Waiting for delivery confirmation..."
+        )
         _toastMessage.emit("Payment confirmed!")
 
         _navigationEvent.emit(RiderTrackingNavigationEvent.PaymentConfirmed(update.bookingId.toString()))
@@ -663,7 +730,8 @@ class RiderTrackingViewModel @Inject constructor(
 
         val fare = extractFareFromUpdate(update)
         val totalFare = fare.totalFare.takeIf { it > 0 } ?: _paymentState.value.totalFare
-        val waitingCharge = fare.waitingCharge.takeIf { fare.totalFare > 0 } ?: _paymentState.value.waitingCharge
+        val waitingCharge =
+            fare.waitingCharge.takeIf { fare.totalFare > 0 } ?: _paymentState.value.waitingCharge
 
         showNotification(
             update.bookingId, "✅ Delivery Completed!",
@@ -699,7 +767,10 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private suspend fun handleCancelled(update: BookingStatusUpdate) {
-        Log.d(TAG, "🚫 handleCancelled: cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
+        Log.d(
+            TAG,
+            "🚫 handleCancelled: cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}"
+        )
         stopWaitingTimer()
 
         if (update.cancelledBy?.lowercase() == "driver") {
@@ -716,7 +787,8 @@ class RiderTrackingViewModel @Inject constructor(
             update.bookingId, "Driver Cancelled",
             buildString {
                 append("Driver cancelled the booking")
-                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
+                update.cancellationReason?.takeIf { it.isNotBlank() }
+                    ?.let { append("\nReason: $it") }
                 append("\nSearching for another driver...")
             }
         )
@@ -733,7 +805,10 @@ class RiderTrackingViewModel @Inject constructor(
         hasServerEta = false
 
         _uiState.update {
-            it.copy(currentStatus = BookingStatusType.SEARCHING, statusMessage = "Driver cancelled. Searching for another driver...")
+            it.copy(
+                currentStatus = BookingStatusType.SEARCHING,
+                statusMessage = "Driver cancelled. Searching for another driver..."
+            )
         }
         activeBookingManager.retrySearch()
 
@@ -755,7 +830,8 @@ class RiderTrackingViewModel @Inject constructor(
             update.bookingId, "❌ Booking Cancelled",
             buildString {
                 append(cancelLabel)
-                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
+                update.cancellationReason?.takeIf { it.isNotBlank() }
+                    ?.let { append("\nReason: $it") }
             },
             isFinal = true
         )
@@ -775,7 +851,10 @@ class RiderTrackingViewModel @Inject constructor(
 
     private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
         val isPrePickup = isPrePickupPhase
-        Log.d(TAG, "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}")
+        Log.d(
+            TAG,
+            "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}"
+        )
 
         _riderLocation.value = location
 
@@ -784,7 +863,12 @@ class RiderTrackingViewModel @Inject constructor(
 
         // Calculate distance
         val calcDistKm = if (isValidLatLng(target)) {
-            haversineDistance(location.latitude, location.longitude, target.first, target.second) / 1000.0
+            haversineDistance(
+                location.latitude,
+                location.longitude,
+                target.first,
+                target.second
+            ) / 1000.0
         } else null
 
         val distanceKmValue = if (serverDistMeters != null && serverDistMeters > 0) {
@@ -793,7 +877,8 @@ class RiderTrackingViewModel @Inject constructor(
 
         distanceKmValue?.let {
             _distanceKm.value = it
-            if (initialDistanceMeters == null) initialDistanceMeters = (it * 1000.0).coerceAtLeast(1000.0)
+            if (initialDistanceMeters == null) initialDistanceMeters =
+                (it * 1000.0).coerceAtLeast(1000.0)
         }
 
         // Calculate ETA
@@ -807,7 +892,13 @@ class RiderTrackingViewModel @Inject constructor(
                 else -> false
             }
             if (shouldFetchRoute) {
-                fetchRouteThrottled(location.latitude, location.longitude, target.first, target.second, isDriverToPickup = isPrePickup)
+                fetchRouteThrottled(
+                    location.latitude,
+                    location.longitude,
+                    target.first,
+                    target.second,
+                    isDriverToPickup = isPrePickup
+                )
             }
         }
 
@@ -841,7 +932,8 @@ class RiderTrackingViewModel @Inject constructor(
 
         if (serverEta != null && serverEta > 0) {
             val actualDistKm = _distanceKm.value ?: distanceKmValue
-            val minReasonableEta = actualDistKm?.let { ((it / 40.0) * 60.0).toInt().coerceAtLeast(1) }
+            val minReasonableEta =
+                actualDistKm?.let { ((it / 40.0) * 60.0).toInt().coerceAtLeast(1) }
 
             if (minReasonableEta == null || serverEta >= minReasonableEta) {
                 _etaMinutes.value = serverEta
@@ -860,7 +952,13 @@ class RiderTrackingViewModel @Inject constructor(
     // ROUTE FETCHING
     // ═══════════════════════════════════════════════════════════════════════
 
-    private fun fetchRoute(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double, isDriverToPickup: Boolean) {
+    private fun fetchRoute(
+        fromLat: Double,
+        fromLng: Double,
+        toLat: Double,
+        toLng: Double,
+        isDriverToPickup: Boolean
+    ) {
         routeFetchJob?.cancel()
         routeFetchJob = viewModelScope.launch {
             try {
@@ -871,7 +969,8 @@ class RiderTrackingViewModel @Inject constructor(
 
                         if (!hasServerEta) {
                             _distanceKm.value = routeInfo.distanceMeters / 1000.0
-                            _etaMinutes.value = (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
+                            _etaMinutes.value =
+                                (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
                         }
                     }
                     .onFailure { e -> Log.w(TAG, "⚠️ Route fetch failed: ${e.message}") }
@@ -881,7 +980,13 @@ class RiderTrackingViewModel @Inject constructor(
         }
     }
 
-    private fun fetchRouteThrottled(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double, isDriverToPickup: Boolean) {
+    private fun fetchRouteThrottled(
+        fromLat: Double,
+        fromLng: Double,
+        toLat: Double,
+        toLng: Double,
+        isDriverToPickup: Boolean
+    ) {
         val now = System.currentTimeMillis()
         if (now - lastRouteFetchTime > ROUTE_FETCH_INTERVAL_MS) {
             lastRouteFetchTime = now
@@ -912,7 +1017,8 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private fun isValidLatLng(lat: Double, lng: Double): Boolean = lat != 0.0 && lng != 0.0
-    private fun isValidLatLng(pair: Pair<Double, Double>): Boolean = pair.first != 0.0 && pair.second != 0.0
+    private fun isValidLatLng(pair: Pair<Double, Double>): Boolean =
+        pair.first != 0.0 && pair.second != 0.0
 
     private fun estimateEtaFromDistance(distMeters: Double): Int =
         ((distMeters / 1000.0) / ASSUMED_SPEED_KMH * 60.0).toInt().coerceAtLeast(1)
@@ -967,8 +1073,14 @@ class RiderTrackingViewModel @Inject constructor(
 
     private fun logStatusUpdate(update: BookingStatusUpdate, status: BookingStatusType) {
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        Log.d(TAG, "📥 STATUS: $status | Driver: ${update.driverName} | ETA: ${update.etaMinutes}min")
-        Log.d(TAG, "  Fare: total=${update.totalFare} | rounded=${update.roundedFare} | base=${update.baseFare} | waiting=${update.waitingCharges}")
+        Log.d(
+            TAG,
+            "📥 STATUS: $status | Driver: ${update.driverName} | ETA: ${update.etaMinutes}min"
+        )
+        Log.d(
+            TAG,
+            "  Fare: total=${update.totalFare} | rounded=${update.roundedFare} | base=${update.baseFare} | waiting=${update.waitingCharges}"
+        )
         Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
 
@@ -1035,7 +1147,9 @@ data class FareBreakdown(
     val gst: Double = 0.0,
     val discount: Double = 0.0,
     val totalFare: Double = 0.0
-)data class WaitingTimerState(
+)
+
+data class WaitingTimerState(
     val isActive: Boolean = false,
     val totalWaitingSeconds: Int = 0,
     val freeSecondsRemaining: Int = FareDetails.DEFAULT_FREE_WAITING_MINS * 60,
@@ -1092,9 +1206,13 @@ data class RiderTrackingUiState(
 )
 
 sealed class RiderTrackingNavigationEvent {
-    data class RiderAssigned(val bookingId: String, val rider: RiderInfo, val otp: String?) : RiderTrackingNavigationEvent()
+    data class RiderAssigned(val bookingId: String, val rider: RiderInfo, val otp: String?) :
+        RiderTrackingNavigationEvent()
+
     data class RiderEnroute(val bookingId: String) : RiderTrackingNavigationEvent()
-    data class RiderArrived(val bookingId: String, val message: String) : RiderTrackingNavigationEvent()
+    data class RiderArrived(val bookingId: String, val message: String) :
+        RiderTrackingNavigationEvent()
+
     data class ParcelPickedUp(val bookingId: String) : RiderTrackingNavigationEvent()
     data class Delivered(val bookingId: String) : RiderTrackingNavigationEvent()
     data class NoRiderAvailable(val message: String) : RiderTrackingNavigationEvent()
@@ -1108,6 +1226,7 @@ sealed class RiderTrackingNavigationEvent {
         val driverName: String,
         val paymentMethod: String
     ) : RiderTrackingNavigationEvent()
+
     data class PaymentConfirmed(val bookingId: String) : RiderTrackingNavigationEvent()
     object NavigateToHome : RiderTrackingNavigationEvent()
 }

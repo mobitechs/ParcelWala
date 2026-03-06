@@ -3,8 +3,6 @@ package com.mobitechs.parcelwala.data.repository
 
 import android.util.Log
 import com.mobitechs.parcelwala.data.api.ApiService
-import com.mobitechs.parcelwala.data.mock.MockAccountData
-import com.mobitechs.parcelwala.data.mock.MockBookingData
 import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
@@ -16,10 +14,8 @@ import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
 import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
-import com.mobitechs.parcelwala.utils.Constants.USE_MOCK_DATA
 import com.mobitechs.parcelwala.utils.NetworkResult
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext

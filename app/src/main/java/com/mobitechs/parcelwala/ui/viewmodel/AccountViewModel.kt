@@ -1,7 +1,6 @@
 // ui/viewmodel/AccountViewModel.kt
 package com.mobitechs.parcelwala.ui.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.local.PreferencesManager
@@ -106,6 +105,7 @@ class AccountViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoadingAddresses = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _savedAddresses.value = result.data ?: emptyList()
                         _uiState.update {
@@ -115,6 +115,7 @@ class AccountViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -138,6 +139,7 @@ class AccountViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isSavingAddress = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -149,6 +151,7 @@ class AccountViewModel @Inject constructor(
                         // ✅ FIX 3: Reload addresses after save
                         loadSavedAddresses()
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -172,6 +175,7 @@ class AccountViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isSavingAddress = true) }
                     }
+
                     is NetworkResult.Success -> {
                         _uiState.update {
                             it.copy(
@@ -183,6 +187,7 @@ class AccountViewModel @Inject constructor(
                         // ✅ FIX 3: Reload addresses after update
                         loadSavedAddresses()
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(
@@ -206,6 +211,7 @@ class AccountViewModel @Inject constructor(
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isDeletingAddress = true) }
                     }
+
                     is NetworkResult.Success -> {
                         // Remove from local list immediately
                         _savedAddresses.update { currentList ->
@@ -219,6 +225,7 @@ class AccountViewModel @Inject constructor(
                             )
                         }
                     }
+
                     is NetworkResult.Error -> {
                         _uiState.update {
                             it.copy(

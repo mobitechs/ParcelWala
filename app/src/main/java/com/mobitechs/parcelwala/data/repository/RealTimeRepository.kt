@@ -1,4 +1,3 @@
-
 package com.mobitechs.parcelwala.data.repository
 
 import android.content.Context
@@ -8,17 +7,34 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.microsoft.signalr.HubConnectionState
 import com.mobitechs.parcelwala.data.local.PreferencesManager
-import com.mobitechs.parcelwala.data.model.realtime.*
+import com.mobitechs.parcelwala.data.model.realtime.AdditionalBookingData
+import com.mobitechs.parcelwala.data.model.realtime.BookingCancelledNotification
+import com.mobitechs.parcelwala.data.model.realtime.BookingStatusUpdate
+import com.mobitechs.parcelwala.data.model.realtime.RealTimeConnectionState
+import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
+import com.mobitechs.parcelwala.data.model.realtime.SignalRError
 import com.mobitechs.parcelwala.utils.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.core.Single
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -59,17 +75,22 @@ class RealTimeRepository @Inject constructor(
     // PUBLIC FLOWS
     // ═══════════════════════════════════════════════════════════════════════
 
-    private val _connectionState = MutableStateFlow<RealTimeConnectionState>(RealTimeConnectionState.Disconnected)
+    private val _connectionState =
+        MutableStateFlow<RealTimeConnectionState>(RealTimeConnectionState.Disconnected)
     val connectionState: StateFlow<RealTimeConnectionState> = _connectionState.asStateFlow()
 
-    private val _bookingUpdates = MutableSharedFlow<BookingStatusUpdate>(replay = 1, extraBufferCapacity = 10)
+    private val _bookingUpdates =
+        MutableSharedFlow<BookingStatusUpdate>(replay = 1, extraBufferCapacity = 10)
     val bookingUpdates: SharedFlow<BookingStatusUpdate> = _bookingUpdates.asSharedFlow()
 
-    private val _riderLocationUpdates = MutableSharedFlow<RiderLocationUpdate>(replay = 1, extraBufferCapacity = 50)
+    private val _riderLocationUpdates =
+        MutableSharedFlow<RiderLocationUpdate>(replay = 1, extraBufferCapacity = 50)
     val riderLocationUpdates: SharedFlow<RiderLocationUpdate> = _riderLocationUpdates.asSharedFlow()
 
-    private val _bookingCancelled = MutableSharedFlow<BookingCancelledNotification>(replay = 0, extraBufferCapacity = 5)
-    val bookingCancelled: SharedFlow<BookingCancelledNotification> = _bookingCancelled.asSharedFlow()
+    private val _bookingCancelled =
+        MutableSharedFlow<BookingCancelledNotification>(replay = 0, extraBufferCapacity = 5)
+    val bookingCancelled: SharedFlow<BookingCancelledNotification> =
+        _bookingCancelled.asSharedFlow()
 
     private val _errors = MutableSharedFlow<SignalRError>(replay = 0, extraBufferCapacity = 10)
     val errors: SharedFlow<SignalRError> = _errors.asSharedFlow()
@@ -81,11 +102,14 @@ class RealTimeRepository @Inject constructor(
     // NETWORK MONITORING
     // ═══════════════════════════════════════════════════════════════════════
 
-    init { setupNetworkMonitoring() }
+    init {
+        setupNetworkMonitoring()
+    }
 
     private fun setupNetworkMonitoring() {
         try {
-            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val connectivityManager =
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             networkCallback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     Log.d(TAG, "📶 Network AVAILABLE")
@@ -94,6 +118,7 @@ class RealTimeRepository @Inject constructor(
                         scope.launch { delay(500); reconnectIfNeeded() }
                     }
                 }
+
                 override fun onLost(network: Network) {
                     Log.d(TAG, "📶 Network LOST")
                     isNetworkAvailable.set(false)
@@ -101,21 +126,33 @@ class RealTimeRepository @Inject constructor(
                         _connectionState.value = RealTimeConnectionState.Reconnecting
                     }
                 }
-                override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                    val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    val hasValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+
+                override fun onCapabilitiesChanged(
+                    network: Network,
+                    capabilities: NetworkCapabilities
+                ) {
+                    val hasInternet =
+                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    val hasValidated =
+                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                     if (hasInternet && hasValidated && !isNetworkAvailable.get()) {
                         isNetworkAvailable.set(true)
-                        if (shouldBeConnected.get()) { scope.launch { delay(500); reconnectIfNeeded() } }
+                        if (shouldBeConnected.get()) {
+                            scope.launch { delay(500); reconnectIfNeeded() }
+                        }
                     }
                 }
             }
-            val request = NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
+            val request =
+                NetworkRequest.Builder().addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
             connectivityManager.registerNetworkCallback(request, networkCallback!!)
             val activeNetwork = connectivityManager.activeNetwork
             val capabilities = activeNetwork?.let { connectivityManager.getNetworkCapabilities(it) }
             isNetworkAvailable.set(capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true)
-        } catch (e: Exception) { Log.e(TAG, "Failed to setup network monitoring", e) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to setup network monitoring", e)
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -143,9 +180,12 @@ class RealTimeRepository @Inject constructor(
         currentBookingId?.let { bookingId ->
             try {
                 if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
-                    hubConnection?.invoke(Constants.SignalRMethods.LEAVE_BOOKING_CHANNEL, bookingId)?.blockingAwait()
+                    hubConnection?.invoke(Constants.SignalRMethods.LEAVE_BOOKING_CHANNEL, bookingId)
+                        ?.blockingAwait()
                 }
-            } catch (e: Exception) { Log.e(TAG, "Error leaving channel: ${e.message}") }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error leaving channel: ${e.message}")
+            }
         }
         hubConnection?.stop()
         hubConnection = null
@@ -169,35 +209,60 @@ class RealTimeRepository @Inject constructor(
     // CANCEL BOOKING
     // ═══════════════════════════════════════════════════════════════════════
 
-    suspend fun cancelBooking(bookingId: Int, reason: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
-            Log.d(TAG, "❌ CANCELLING BOOKING: $bookingId | Reason: $reason")
-            hubConnection?.invoke(Constants.SignalRMethods.CANCEL_BOOKING_BY_CUSTOMER, bookingId, reason)?.blockingAwait()
-            Log.d(TAG, "✅ Cancel request sent")
-            Result.success(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Cancel failed: ${e.message}", e)
-            scope.launch { _errors.emit(SignalRError(e.message ?: "Failed to cancel", "CANCEL_FAILED")) }
-            Result.failure(e)
+    suspend fun cancelBooking(bookingId: Int, reason: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
+                Log.d(TAG, "❌ CANCELLING BOOKING: $bookingId | Reason: $reason")
+                hubConnection?.invoke(
+                    Constants.SignalRMethods.CANCEL_BOOKING_BY_CUSTOMER,
+                    bookingId,
+                    reason
+                )?.blockingAwait()
+                Log.d(TAG, "✅ Cancel request sent")
+                Result.success(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Cancel failed: ${e.message}", e)
+                scope.launch {
+                    _errors.emit(
+                        SignalRError(
+                            e.message ?: "Failed to cancel",
+                            "CANCEL_FAILED"
+                        )
+                    )
+                }
+                Result.failure(e)
+            }
         }
-    }
 
 
-    suspend fun updateBookingStatus(bookingId: Int, status: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
-            Log.d(TAG, "📤 UPDATE STATUS: bookingId=$bookingId | status=$status")
+    suspend fun updateBookingStatus(bookingId: Int, status: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                if (!ensureConnected()) return@withContext Result.failure(Exception("Not connected"))
+                Log.d(TAG, "📤 UPDATE STATUS: bookingId=$bookingId | status=$status")
 
-            hubConnection?.invoke(Constants.SignalREvents.UPDATE_BOOKING_STATUS, bookingId, status,null as String?)?.blockingAwait()
-            Log.d(TAG, "✅ Status update sent: $status")
-            Result.success(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Status update failed: ${e.message}", e)
-            scope.launch { _errors.emit(SignalRError(e.message ?: "Failed to update status", "STATUS_UPDATE_FAILED")) }
-            Result.failure(e)
+                hubConnection?.invoke(
+                    Constants.SignalREvents.UPDATE_BOOKING_STATUS,
+                    bookingId,
+                    status,
+                    null as String?
+                )?.blockingAwait()
+                Log.d(TAG, "✅ Status update sent: $status")
+                Result.success(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Status update failed: ${e.message}", e)
+                scope.launch {
+                    _errors.emit(
+                        SignalRError(
+                            e.message ?: "Failed to update status",
+                            "STATUS_UPDATE_FAILED"
+                        )
+                    )
+                }
+                Result.failure(e)
+            }
         }
-    }
 
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -205,7 +270,9 @@ class RealTimeRepository @Inject constructor(
     // ═══════════════════════════════════════════════════════════════════════
 
     private fun connectSignalR(bookingId: String) {
-        if (!isConnecting.compareAndSet(false, true)) { Log.d(TAG, "⚠️ Already connecting"); return }
+        if (!isConnecting.compareAndSet(false, true)) {
+            Log.d(TAG, "⚠️ Already connecting"); return
+        }
         scope.launch {
             try {
                 _connectionState.value = RealTimeConnectionState.Connecting
@@ -215,7 +282,8 @@ class RealTimeRepository @Inject constructor(
                 }
                 val token = preferencesManager.getAccessToken() ?: ""
                 if (token.isEmpty()) {
-                    _connectionState.value = RealTimeConnectionState.Error("Authentication token missing")
+                    _connectionState.value =
+                        RealTimeConnectionState.Error("Authentication token missing")
                     isConnecting.set(false); return@launch
                 }
                 hubConnection?.stop(); hubConnection = null
@@ -234,7 +302,9 @@ class RealTimeRepository @Inject constructor(
                 Log.e(TAG, "❌ CONNECTION FAILED: ${e.message}", e)
                 _connectionState.value = RealTimeConnectionState.Reconnecting
                 _isSignalRHealthy.value = false; scheduleReconnection()
-            } finally { isConnecting.set(false) }
+            } finally {
+                isConnecting.set(false)
+            }
         }
     }
 
@@ -270,10 +340,15 @@ class RealTimeRepository @Inject constructor(
                     Log.d(TAG, "📥 BOOKING STATUS UPDATE: $data")
                     val update = parseBookingStatusUpdate(data)
                     if (update != null) {
-                        Log.d(TAG, "📊 Status: ${update.status} | Driver: ${update.driverName} | Pickup OTP: ${update.pickupOtp}| Delivery OTP: ${update.deliveredOtp}")
+                        Log.d(
+                            TAG,
+                            "📊 Status: ${update.status} | Driver: ${update.driverName} | Pickup OTP: ${update.pickupOtp}| Delivery OTP: ${update.deliveredOtp}"
+                        )
                         _bookingUpdates.emit(update)
                     }
-                } catch (e: Exception) { Log.e(TAG, "❌ Parse error: ${e.message}", e) }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Parse error: ${e.message}", e)
+                }
             }
         }, Any::class.java)
 
@@ -283,10 +358,15 @@ class RealTimeRepository @Inject constructor(
                 try {
                     val location = parseRiderLocationUpdate(data)
                     if (location != null) {
-                        Log.d(TAG, "📍 ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}m | toPickup: ${location.distanceToPickupKm} | toDrop: ${location.distanceToDropKm}")
+                        Log.d(
+                            TAG,
+                            "📍 ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}m | toPickup: ${location.distanceToPickupKm} | toDrop: ${location.distanceToDropKm}"
+                        )
                         _riderLocationUpdates.emit(location)
                     }
-                } catch (e: Exception) { Log.e(TAG, "❌ Location parse error: ${e.message}") }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Location parse error: ${e.message}")
+                }
             }
         }, Any::class.java)
 
@@ -298,13 +378,20 @@ class RealTimeRepository @Inject constructor(
                     val notification = parseBookingCancelled(data)
                     if (notification != null) {
                         _bookingCancelled.emit(notification)
-                        _bookingUpdates.emit(BookingStatusUpdate(
-                            bookingId = notification.bookingId, status = "cancelled",
-                            statusMessage = notification.message, timestamp = notification.timestamp,
-                            cancellationReason = notification.reason, cancelledBy = notification.cancelledBy
-                        ))
+                        _bookingUpdates.emit(
+                            BookingStatusUpdate(
+                                bookingId = notification.bookingId,
+                                status = "cancelled",
+                                statusMessage = notification.message,
+                                timestamp = notification.timestamp,
+                                cancellationReason = notification.reason,
+                                cancelledBy = notification.cancelledBy
+                            )
+                        )
                     }
-                } catch (e: Exception) { Log.e(TAG, "❌ Cancelled parse error: ${e.message}") }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Cancelled parse error: ${e.message}")
+                }
             }
         }, Any::class.java)
 
@@ -328,9 +415,12 @@ class RealTimeRepository @Inject constructor(
 
     private fun joinBookingChannel(bookingId: String) {
         try {
-            hubConnection?.invoke(Constants.SignalRMethods.JOIN_BOOKING_CHANNEL, bookingId)?.blockingAwait()
+            hubConnection?.invoke(Constants.SignalRMethods.JOIN_BOOKING_CHANNEL, bookingId)
+                ?.blockingAwait()
             Log.d(TAG, "✅ Joined booking channel: $bookingId")
-        } catch (e: Exception) { Log.e(TAG, "❌ Failed to join channel: ${e.message}", e); throw e }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to join channel: ${e.message}", e); throw e
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -351,7 +441,8 @@ class RealTimeRepository @Inject constructor(
     }
 
     private fun calculateBackoffDelay(): Long {
-        lastRetryDelayMs = (lastRetryDelayMs * RETRY_MULTIPLIER).toLong().coerceAtMost(MAX_RETRY_DELAY_MS)
+        lastRetryDelayMs =
+            (lastRetryDelayMs * RETRY_MULTIPLIER).toLong().coerceAtMost(MAX_RETRY_DELAY_MS)
         return lastRetryDelayMs
     }
 
@@ -365,7 +456,9 @@ class RealTimeRepository @Inject constructor(
         if (shouldBeConnected.get() && currentBookingId != null) {
             connectSignalR(currentBookingId!!)
             var attempts = 0
-            while (!isConnected() && attempts < 5) { delay(500); attempts++ }
+            while (!isConnected() && attempts < 5) {
+                delay(500); attempts++
+            }
         }
         return isConnected()
     }
@@ -382,7 +475,8 @@ class RealTimeRepository @Inject constructor(
                 if (hubConnection?.connectionState == HubConnectionState.CONNECTED) {
                     _isSignalRHealthy.value = true
                 } else {
-                    Log.w(TAG, "💔 Heartbeat lost"); _isSignalRHealthy.value = false; reconnectIfNeeded()
+                    Log.w(TAG, "💔 Heartbeat lost"); _isSignalRHealthy.value =
+                        false; reconnectIfNeeded()
                 }
             }
         }
@@ -396,9 +490,13 @@ class RealTimeRepository @Inject constructor(
         shouldBeConnected.set(false); reconnectJob?.cancel(); heartbeatJob?.cancel()
         try {
             networkCallback?.let {
-                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(it)
+                (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).unregisterNetworkCallback(
+                    it
+                )
             }
-        } catch (e: Exception) { Log.e(TAG, "Error unregistering network callback", e) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unregistering network callback", e)
+        }
         disconnect(); scope.cancel()
     }
 
@@ -409,7 +507,7 @@ class RealTimeRepository @Inject constructor(
     private fun parseBookingStatusUpdate(data: Any): BookingStatusUpdate? {
         return try {
             val json = gson.toJson(data)
-            gson.fromJson(json,BookingStatusUpdate::class.java)
+            gson.fromJson(json, BookingStatusUpdate::class.java)
 
         } catch (e: Exception) {
             Log.e(TAG, "Parse BookingStatusUpdate error: ${e.message}", e)
@@ -421,7 +519,7 @@ class RealTimeRepository @Inject constructor(
     private fun parseRiderLocationUpdate(data: Any): RiderLocationUpdate? {
         return try {
             val json = gson.toJson(data)
-            gson.fromJson(json,RiderLocationUpdate::class.java)
+            gson.fromJson(json, RiderLocationUpdate::class.java)
 
         } catch (e: Exception) {
             Log.e(TAG, "Parse RiderLocationUpdate error: ${e.message}", e)
@@ -432,7 +530,7 @@ class RealTimeRepository @Inject constructor(
     private fun parseBookingCancelled(data: Any): BookingCancelledNotification? {
         return try {
             val json = gson.toJson(data)
-            gson.fromJson(json,BookingCancelledNotification::class.java)
+            gson.fromJson(json, BookingCancelledNotification::class.java)
         } catch (e: Exception) {
             Log.e(TAG, "Parse BookingCancelled error: ${e.message}", e)
             null
@@ -442,8 +540,10 @@ class RealTimeRepository @Inject constructor(
     private fun parseError(data: Any): SignalRError {
         return try {
             val json = gson.toJson(data)
-            gson.fromJson(json,SignalRError::class.java)
-        } catch (e: Exception) { SignalRError(message = data.toString()) }
+            gson.fromJson(json, SignalRError::class.java)
+        } catch (e: Exception) {
+            SignalRError(message = data.toString())
+        }
     }
 
     // ✅ NEW: Parse nested additionalData from booking status update
@@ -454,23 +554,35 @@ class RealTimeRepository @Inject constructor(
                 ?: (map["AdditionalData"] as? Map<String, Any>)
                 ?: return null
             AdditionalBookingData(
-                pickupAddress = additionalMap["pickupAddress"]?.toString() ?: additionalMap["PickupAddress"]?.toString(),
-                dropAddress = additionalMap["dropAddress"]?.toString() ?: additionalMap["DropAddress"]?.toString(),
-                distance = additionalMap["distance"]?.toString()?.toDoubleOrNull() ?: additionalMap["Distance"]?.toString()?.toDoubleOrNull(),
-                fare = additionalMap["fare"]?.toString()?.toDoubleOrNull() ?: additionalMap["Fare"]?.toString()?.toDoubleOrNull()
+                pickupAddress = additionalMap["pickupAddress"]?.toString()
+                    ?: additionalMap["PickupAddress"]?.toString(),
+                dropAddress = additionalMap["dropAddress"]?.toString()
+                    ?: additionalMap["DropAddress"]?.toString(),
+                distance = additionalMap["distance"]?.toString()?.toDoubleOrNull()
+                    ?: additionalMap["Distance"]?.toString()?.toDoubleOrNull(),
+                fare = additionalMap["fare"]?.toString()?.toDoubleOrNull()
+                    ?: additionalMap["Fare"]?.toString()?.toDoubleOrNull()
             )
-        } catch (e: Exception) { Log.e(TAG, "Parse additionalData error: ${e.message}"); null }
+        } catch (e: Exception) {
+            Log.e(TAG, "Parse additionalData error: ${e.message}"); null
+        }
     }
 
     private fun getStringValue(map: Map<String, Any>, vararg keys: String): String? {
-        for (key in keys) { map[key]?.toString()?.let { return it } }; return null
+        for (key in keys) {
+            map[key]?.toString()?.let { return it }
+        }; return null
     }
 
     private fun getIntValue(map: Map<String, Any>, vararg keys: String): Int? {
-        for (key in keys) { map[key]?.toString()?.toDoubleOrNull()?.toInt()?.let { return it } }; return null
+        for (key in keys) {
+            map[key]?.toString()?.toDoubleOrNull()?.toInt()?.let { return it }
+        }; return null
     }
 
     private fun getDoubleValue(map: Map<String, Any>, vararg keys: String): Double? {
-        for (key in keys) { map[key]?.toString()?.toDoubleOrNull()?.let { return it } }; return null
+        for (key in keys) {
+            map[key]?.toString()?.toDoubleOrNull()?.let { return it }
+        }; return null
     }
 }

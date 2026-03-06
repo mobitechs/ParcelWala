@@ -1,9 +1,8 @@
 // ui/components/VehicleType.kt
 package com.mobitechs.parcelwala.ui.components
 
-import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
-
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 
 /**
  * Extension function to convert VehicleTypeResponse to display model

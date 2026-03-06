@@ -2,19 +2,60 @@ package com.mobitechs.parcelwala.ui.screens.payments
 
 import android.app.Activity
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +103,7 @@ fun PaymentsScreen(
                         paymentViewModel.openRazorpayCheckout(act, event.orderResponse)
                     }
                 }
+
                 is PaymentEvent.PaymentSuccess -> {
                     paymentResultData = PaymentResultData(
                         isSuccess = true,
@@ -72,6 +114,7 @@ fun PaymentsScreen(
                     Toast.makeText(context, paymentSuccessToast, Toast.LENGTH_SHORT).show()
                     paymentViewModel.loadTransactions()
                 }
+
                 is PaymentEvent.PaymentFailure -> {
                     paymentResultData = PaymentResultData(
                         isSuccess = false,
@@ -85,6 +128,7 @@ fun PaymentsScreen(
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+
                 is PaymentEvent.WalletTopupSuccess -> {
                     showTopupSheet = false
                     topupAmount = ""
@@ -129,7 +173,9 @@ fun PaymentsScreen(
         containerColor = AppColors.Background
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -154,7 +200,9 @@ fun PaymentsScreen(
             if (uiState.isTransactionsLoading) {
                 item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(color = AppColors.Primary)
@@ -163,7 +211,9 @@ fun PaymentsScreen(
             } else if (uiState.transactions.isEmpty()) {
                 item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(48.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -218,7 +268,9 @@ fun PaymentsScreen(
 
     if (uiState.isLoading) {
         Box(
-            modifier = Modifier.fillMaxSize().background(AppColors.Black.copy(alpha = 0.3f)),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(AppColors.Black.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -231,7 +283,10 @@ fun PaymentsScreen(
                 ) {
                     CircularProgressIndicator(color = AppColors.Primary)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(stringResource(R.string.label_processing_payment), color = AppColors.TextPrimary)
+                    Text(
+                        stringResource(R.string.label_processing_payment),
+                        color = AppColors.TextPrimary
+                    )
                 }
             }
         }
@@ -352,12 +407,17 @@ private fun PaymentMethodRow(
     iconColor: Color
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.1f)),
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(iconColor.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
@@ -379,7 +439,8 @@ private fun PaymentMethodRow(
 private fun TransactionItem(transaction: TransactionResponse) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
-    val bookingLabel = stringResource(R.string.label_booking_number_prefix, transaction.bookingNumber ?: "")
+    val bookingLabel =
+        stringResource(R.string.label_booking_number_prefix, transaction.bookingNumber ?: "")
     val refundLabel = stringResource(R.string.label_refund)
     val walletTopupLabel = stringResource(R.string.label_wallet_topup)
 
@@ -404,15 +465,25 @@ private fun TransactionItem(transaction: TransactionResponse) {
         colors = CardDefaults.cardColors(containerColor = AppColors.Surface)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
-                modifier = Modifier.size(44.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.1f)),
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
 
             Column(modifier = Modifier.weight(1f)) {
@@ -439,7 +510,10 @@ private fun TransactionItem(transaction: TransactionResponse) {
                         color = AppColors.TextSecondary
                     )
                     Box(
-                        modifier = Modifier.size(4.dp).clip(CircleShape).background(AppColors.TextSecondary)
+                        modifier = Modifier
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(AppColors.TextSecondary)
                     )
                     Text(
                         transaction.status.replaceFirstChar { it.uppercase() },
@@ -451,7 +525,11 @@ private fun TransactionItem(transaction: TransactionResponse) {
             }
 
             Text(
-                text = "${if (transaction.transactionType.lowercase() == "refund") "+" else "-"} ${currencyFormat.format(transaction.amount)}",
+                text = "${if (transaction.transactionType.lowercase() == "refund") "+" else "-"} ${
+                    currencyFormat.format(
+                        transaction.amount
+                    )
+                }",
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = amountColor
@@ -492,7 +570,13 @@ private fun WalletTopupSheet(
                 }
             },
             label = { Text(stringResource(R.string.label_enter_amount)) },
-            prefix = { Text(stringResource(R.string.label_currency_prefix), fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            prefix = {
+                Text(
+                    stringResource(R.string.label_currency_prefix),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -532,7 +616,9 @@ private fun WalletTopupSheet(
         Button(
             onClick = onTopup,
             enabled = amountValue >= 10 && !isLoading,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
         ) {

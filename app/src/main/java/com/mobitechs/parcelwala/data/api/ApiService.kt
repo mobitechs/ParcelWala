@@ -8,12 +8,18 @@ import com.mobitechs.parcelwala.data.model.SubmitRatingRequest
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CompleteProfileRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
-import com.mobitechs.parcelwala.data.model.request.*
+import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
+import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.request.SendOtpRequest
+import com.mobitechs.parcelwala.data.model.request.TransactionListResponse
 import com.mobitechs.parcelwala.data.model.request.ValidateCouponRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyOtpRequest
+import com.mobitechs.parcelwala.data.model.request.VerifyPaymentRequest
+import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
+import com.mobitechs.parcelwala.data.model.request.WalletBalanceResponse
 import com.mobitechs.parcelwala.data.model.request.WalletTopupOrderRequest
+import com.mobitechs.parcelwala.data.model.request.WalletTopupResponse
 import com.mobitechs.parcelwala.data.model.request.WalletTopupVerifyRequest
 import com.mobitechs.parcelwala.data.model.response.ApiResponse
 import com.mobitechs.parcelwala.data.model.response.AuthTokens
@@ -167,7 +173,6 @@ interface ApiService {
     ): Response<RatingSubmitResponse>
 
 
-
     // ============ PAYMENT ENDPOINTS ============
 
     // Create Razorpay order for booking payment
@@ -181,7 +186,6 @@ interface ApiService {
     suspend fun verifyPayment(
         @Body request: VerifyPaymentRequest
     ): ApiResponse<VerifyPaymentResponse>
-
 
 
     // Get transaction history
@@ -209,7 +213,6 @@ interface ApiService {
     suspend fun verifyWalletTopup(
         @Body request: WalletTopupVerifyRequest
     ): ApiResponse<WalletTopupResponse>
-
 
 
 }

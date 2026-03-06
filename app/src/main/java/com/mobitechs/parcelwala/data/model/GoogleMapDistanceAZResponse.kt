@@ -1,7 +1,6 @@
 package com.mobitechs.parcelwala.data.model
 
 
-
 import com.google.gson.annotations.SerializedName
 
 // Request model for your backend

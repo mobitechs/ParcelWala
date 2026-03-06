@@ -67,12 +67,14 @@ data class SavedAddress(
             "Other", "other" -> {
                 if (label.isNotBlank() &&
                     !label.equals("other", ignoreCase = true) &&
-                    !label.equals("selected location", ignoreCase = true)) {
+                    !label.equals("selected location", ignoreCase = true)
+                ) {
                     "Other ($label)"
                 } else {
                     "Other"
                 }
             }
+
             else -> label.ifBlank { "Address" }
         }
     }
