@@ -36,7 +36,7 @@ object Constants {
 
         // Booking Events
         const val BOOKING_STATUS_UPDATE = "BookingStatusUpdate"
-        const val UPDATE_BOOKING_STATUS = "UpdateBookingStatus"
+        const val UPDATE_BOOKING_STATUS_BY_CUSTOMER = "UpdateBookingStatusByCustomer"
         const val RIDER_LOCATION_UPDATE = "RiderLocationUpdate"
         const val BOOKING_CANCELLED = "BookingCancelled"
         const val BOOKING_CHANNEL_INFO = "BookingChannelInfo"

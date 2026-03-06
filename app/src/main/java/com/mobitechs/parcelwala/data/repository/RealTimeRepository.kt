@@ -243,7 +243,7 @@ class RealTimeRepository @Inject constructor(
                 Log.d(TAG, "📤 UPDATE STATUS: bookingId=$bookingId | status=$status")
 
                 hubConnection?.invoke(
-                    Constants.SignalREvents.UPDATE_BOOKING_STATUS,
+                    Constants.SignalREvents.UPDATE_BOOKING_STATUS_BY_CUSTOMER,
                     bookingId,
                     status,
                     null as String?
