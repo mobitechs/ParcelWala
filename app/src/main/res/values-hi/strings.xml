@@ -745,4 +745,7 @@
     <string name="show_less">कम दिखाएं</string>
     <string name="active_booking_banner_title">बुकिंग जारी है</string>
     <string name="active_booking_banner_subtitle">नई राइड बुक करने के लिए मौजूदा बुकिंग पूरी या रद्द करें</string>
+
+    <!-- Hindi -->
+    <string name="book_again_available_after_delivery">डिलीवरी पूरी होने के बाद फिर से बुक करें उपलब्ध होगा</string>
 </resources>

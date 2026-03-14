@@ -745,4 +745,7 @@
     <string name="show_less">कमी दाखवा</string>
     <string name="active_booking_banner_title">बुकिंग सुरू आहे</string>
     <string name="active_booking_banner_subtitle">नवीन राइड बुक करण्यासाठी सध्याची बुकिंग पूर्ण किंवा रद्द करा</string>
+
+    <!-- Marathi -->
+    <string name="book_again_available_after_delivery">डिलिव्हरी पूर्ण झाल्यावर पुन्हा बुक करा उपलब्ध होईल</string>
 </resources>

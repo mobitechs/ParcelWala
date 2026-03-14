@@ -5,11 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,12 +28,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Schedule
@@ -42,8 +43,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -61,455 +60,528 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
-import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.theme.AppRadius
+import com.mobitechs.parcelwala.ui.theme.AppSpacing
+import com.mobitechs.parcelwala.utils.Constants
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 
-/**
- * Order Details Screen
- * Receives OrderResponse directly - no API call needed
- * Displays all order information as received
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailsScreen(
-    order: OrderResponse,  // Receive order directly
+    order: OrderResponse,
     onBack: () -> Unit,
     onBookAgain: (OrderResponse) -> Unit = {},
     onCallDriver: (String) -> Unit = {},
     onCallSupport: () -> Unit = {}
 ) {
+    val statusConfig  = getStatusConfig(order.status)
+    val headerColor   = statusConfig.color
+    val isActive      = isActiveStatus(order.status)
+    val isCompleted   = isCompletedStatus(order.status)
+    val isCancelled   = isCancelledStatus(order.status)
+    val showBookAgain = isCompleted || isCancelled   // hidden for active/searching/pending
+
+    // Tint the status bar to match the header color,
+    // and restore the default (transparent + dark icons) when this screen is disposed
+    val view = androidx.compose.ui.platform.LocalView.current
+    val headerColorArgb = headerColor.toArgb()
+    androidx.compose.runtime.DisposableEffect(headerColorArgb) {
+        val window = (view.context as? android.app.Activity)?.window
+        val controller = window?.let {
+            androidx.core.view.WindowInsetsControllerCompat(it, view)
+        }
+
+        // Apply status bar color matching the header
+        window?.statusBarColor = headerColorArgb
+        controller?.isAppearanceLightStatusBars = false   // white icons on coloured bar
+
+        onDispose {
+            // Restore transparent status bar with dark icons when navigating back
+            window?.statusBarColor = android.graphics.Color.TRANSPARENT
+            controller?.isAppearanceLightStatusBars = true
+        }
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.order_details),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "#${order.bookingNumber}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AppColors.TextSecondary
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = AppColors.TextPrimary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onCallSupport) {
-                        Icon(
-                            imageVector = Icons.Default.Support,
-                            contentDescription = stringResource(R.string.support),
-                            tint = AppColors.Primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        containerColor = AppColors.Background
+        containerColor = AppColors.LightGray50
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Scrollable Content
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Order Status Header
-                OrderStatusHeader(order = order)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Vehicle & Trip Info
-                VehicleTripCard(order = order)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // OTP Section (if available)
-                if (!order.otp.isNullOrEmpty()) {
-                    OtpCard(otp = order.otp!!)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Driver Info (if assigned)
-                if (order.driverName != null) {
-                    DriverInfoCard(
-                        order = order,
-                        onCallDriver = { order.driverPhone?.let { onCallDriver(it) } }
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Addresses Section
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    AddressesCard(
-                        order.pickupContactName,
-                        order.pickupContactPhone,
-                        order.pickupAddress,
-                        order.dropContactName,
-                        order.dropContactPhone,
-                        order.dropAddress
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Goods Information (if available)
-                if (order.goodsType != null || order.goodsWeight != null) {
-                    GoodsInfoCard(order = order)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Payment & Fare Details
-                PaymentDetailsCard(order = order)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Coupon Info (if applied)
-                if (!order.couponCode.isNullOrEmpty()) {
-                    CouponCard(order = order)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // GST Info (if available)
-                if (!order.gstin.isNullOrEmpty()) {
-                    GstInfoCard(gstin = order.gstin!!)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Cancellation Info (if cancelled)
-                if (order.status == "Cancelled" && !order.cancellationReason.isNullOrEmpty()) {
-                    CancellationInfoCard(order = order)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Rating (if completed and rated)
-                if (order.status == "Completed" && order.rating != null) {
-                    RatingCard(order = order)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                Spacer(modifier = Modifier.height(100.dp))
-            }
-
-            // Bottom Action - Book Again
-            Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
-            ) {
-                Button(
-                    onClick = { onBookAgain(order) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.book_again), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-/**
- * Get vehicle icon
- */
-private fun getVehicleIcon(vehicleType: String): String {
-    return when {
-        vehicleType.contains("2 Wheeler", ignoreCase = true) -> "🏍️"
-        vehicleType.contains("Bike", ignoreCase = true) -> "🏍️"
-        vehicleType.contains("3 Wheeler", ignoreCase = true) -> "🛺"
-        vehicleType.contains("Auto", ignoreCase = true) -> "🛺"
-        vehicleType.contains("Tata Ace", ignoreCase = true) -> "🚚"
-        vehicleType.contains("Pickup", ignoreCase = true) -> "🚙"
-        vehicleType.contains("Tempo", ignoreCase = true) -> "🚛"
-        vehicleType.contains("Hamal", ignoreCase = true) -> "🚶"
-        else -> "📦"
-    }
-}
-
-/**
- * Get status color
- */
-private fun getStatusColor(status: String): Color {
-    return when (status) {
-        "Completed" -> AppColors.Pickup
-        "Cancelled" -> AppColors.Drop
-        "In Progress" -> AppColors.Primary
-        "Searching" -> AppColors.WarningAmber
-        "Assigned" -> AppColors.Primary
-        "Arriving" -> AppColors.Primary
-        "Picked Up" -> AppColors.Pickup
-        "Pending" -> AppColors.TextSecondary
-        else -> AppColors.TextSecondary
-    }
-}
-
-/**
- * Get status icon
- */
-private fun getStatusIcon(status: String): ImageVector {
-    return when (status) {
-        "Completed" -> Icons.Default.CheckCircle
-        "Cancelled" -> Icons.Default.Cancel
-        "In Progress" -> Icons.Default.LocalShipping
-        "Searching" -> Icons.Default.Search
-        "Assigned" -> Icons.Default.Person
-        "Arriving" -> Icons.Default.DirectionsCar
-        "Picked Up" -> Icons.Default.Inventory
-        "Pending" -> Icons.Default.Schedule
-        else -> Icons.Default.Schedule
-    }
-}
-
-/**
- * Order Status Header
- */
-@Composable
-private fun OrderStatusHeader(order: OrderResponse) {
-    val color = getStatusColor(order.status)
-    val bgColor = color.copy(alpha = 0.1f)
-    val icon = getStatusIcon(order.status)
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = order.status,
-                tint = color,
-                modifier = Modifier.size(48.dp)
-            )
-            Column {
-                Text(
-                    text = order.status,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-                Text(
-                    text = DateTimeUtils.formatDateTime(order.createdAt),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Vehicle & Trip Info Card
- */
-@Composable
-private fun VehicleTripCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+                // ── Coloured header ───────────────────────────────────────
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            color = AppColors.Primary.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .background(headerColor)
                 ) {
-                    Text(
-                        text = getVehicleIcon(order.vehicleType),
-                        style = MaterialTheme.typography.displaySmall
-                    )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+
+                        // Top app bar inside the coloured header
+                        TopAppBar(
+                            title = {
+                                Column {
+                                    // Large primary title
+                                    Text(
+                                        text = stringResource(R.string.order_details),
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = AppColors.White
+                                    )
+                                    // Small status subtitle — no icon, just text
+                                    Text(
+                                        text = statusConfig.resolveLabel(),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 11.sp
+                                        ),
+                                        color = AppColors.White.copy(alpha = 0.8f)
+                                    )
+                                }
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = onBack) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(AppColors.White.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowBack,
+                                            contentDescription = stringResource(R.string.back),
+                                            tint = AppColors.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = onCallSupport) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(AppColors.White.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Support,
+                                            contentDescription = stringResource(R.string.support),
+                                            tint = AppColors.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.Transparent
+                            )
+                        )
+
+                        // Status + fare row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = AppSpacing.LG,
+                                    end = AppSpacing.LG,
+                                    bottom = AppSpacing.X3L
+                                ),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Column {
+                                // Status label — large, no icon
+                                Text(
+                                    text = statusConfig.resolveLabel(),
+                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = AppColors.White
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                // Date · vehicle type
+                                Text(
+                                    text = buildString {
+                                        append(DateTimeUtils.formatDateTime(order.createdAt))
+                                        append(" · ")
+                                        append(order.vehicleType)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                    color = AppColors.White.copy(alpha = 0.75f)
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = stringResource(R.string.fare_format, order.fare.toInt()),
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = AppColors.White
+                                )
+                                order.paymentMethod?.takeIf { it.isNotBlank() }?.let { method ->
+                                    Text(
+                                        text = method.replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                        color = AppColors.White.copy(alpha = 0.75f)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = order.vehicleType,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
-                    )
-                    order.vehicleModel?.let {
+
+                // ── Content card peels up over header ─────────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = (-AppSpacing.XL))
+                        .clip(RoundedCornerShape(topStart = AppRadius.XL, topEnd = AppRadius.XL))
+                        .background(AppColors.LightGray50)
+                        .padding(top = AppSpacing.LG)
+                ) {
+                    // ── Stats strip ───────────────────────────────────────
+                    StatsStrip(order = order, isCompleted = isCompleted, isActive = isActive)
+
+                    // ── Cancellation card (only when cancelled) ───────────
+                    if (isCancelled && !order.cancellationReason.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(AppSpacing.SM))
+                        CancellationCard(order = order)
+                    }
+
+                    // ── OTP card (only when OTP exists) ───────────────────
+                    if (!order.otp.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(AppSpacing.SM))
+                        OtpCard(otp = order.otp!!, headerColor = headerColor)
+                    }
+
+                    // ── Driver card (only when driver assigned) ───────────
+                    if (!order.driverName.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(AppSpacing.SM))
+                        DriverCard(
+                            order = order,
+                            headerColor = headerColor,
+                            onCallDriver = { order.driverPhone?.let { onCallDriver(it) } }
+                        )
+                    }
+
+                    // ── Route card ────────────────────────────────────────
+                    Spacer(modifier = Modifier.height(AppSpacing.SM))
+                    RouteCard(order = order)
+
+                    // ── Goods card (only when goods info exists) ──────────
+                    val hasGoods = order.goodsType != null
+                            || order.goodsWeight != null
+                            || order.goodsPackages != null
+                            || order.goodsValue != null
+                    if (hasGoods) {
+                        Spacer(modifier = Modifier.height(AppSpacing.SM))
+                        GoodsCard(order = order)
+                    }
+
+                    // ── Payment card ──────────────────────────────────────
+                    Spacer(modifier = Modifier.height(AppSpacing.SM))
+                    PaymentCard(order = order, statusColor = headerColor)
+
+                    // ── Rating card (only when completed + rated) ─────────
+                    if (isCompleted && (order.rating ?: 0) > 0) {
+                        Spacer(modifier = Modifier.height(AppSpacing.SM))
+                        RatingCard(order = order)
+                    }
+
+                    Spacer(modifier = Modifier.height(100.dp))
+                }
+            }
+
+            // ── Bottom bar ────────────────────────────────────────────────
+            Surface(color = AppColors.White, shadowElevation = 8.dp) {
+                if (showBookAgain) {
+                    Button(
+                        onClick = { onBookAgain(order) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(AppSpacing.LG),
+                        colors = ButtonDefaults.buttonColors(containerColor = headerColor),
+                        shape = RoundedCornerShape(AppRadius.MD),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(AppSpacing.SM))
                         Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
+                            stringResource(R.string.book_again),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else {
+                    // Active order — show informational note instead
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(AppSpacing.LG),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.book_again_available_after_delivery),
+                            style = MaterialTheme.typography.bodySmall,
                             color = AppColors.TextSecondary
                         )
                     }
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = stringResource(R.string.fare_format, order.fare),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.Primary
-                    )
-                }
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = AppColors.Divider)
-            Spacer(modifier = Modifier.height(16.dp))
+// ── Section card wrapper ──────────────────────────────────────────────────────
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                TripStatItem(
-                    icon = Icons.Default.Route,
-                    label = stringResource(R.string.distance_label),
-                    value = order.distance?.let { stringResource(R.string.distance_format, it) }
-                        ?: stringResource(R.string.na)
+@Composable
+private fun SectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.LG),
+        shape = RoundedCornerShape(AppRadius.LG),
+        color = AppColors.White,
+        shadowElevation = 1.dp,
+        tonalElevation = 0.dp
+    ) {
+        Column(modifier = Modifier.padding(AppSpacing.LG)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 10.sp,
+            letterSpacing = 0.8.sp
+        ),
+        color = AppColors.TextSecondary,
+        modifier = Modifier.padding(bottom = AppSpacing.SM)
+    )
+}
+
+// ── Stats strip ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun StatsStrip(
+    order: OrderResponse,
+    isCompleted: Boolean,
+    isActive: Boolean
+) {
+    SectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Distance
+            StatItem(
+                icon = Icons.Default.Route,
+                label = stringResource(R.string.distance_label),
+                value = order.distance
+                    ?.let { stringResource(R.string.distance_format, it) }
+                    ?: stringResource(R.string.na)
+            )
+
+            StatDivider()
+
+            // Duration or driver name for active
+            if (isActive && !order.driverName.isNullOrBlank()) {
+                StatItem(
+                    icon = Icons.Default.Person,
+                    label = stringResource(R.string.driver_fallback),
+                    value = order.driverName!!
                 )
-                TripStatItem(
+            } else {
+                StatItem(
                     icon = Icons.Default.Timer,
                     label = stringResource(R.string.duration_label),
-                    value = order.estimatedTime ?: stringResource(R.string.na)
+                    value = order.estimatedTime?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.na)
+                )
+            }
+
+            // Rating — only for completed with a rating
+            if (isCompleted && (order.rating ?: 0) > 0) {
+                StatDivider()
+                StatItem(
+                    icon = Icons.Default.Star,
+                    label = stringResource(R.string.your_rating),
+                    value = "★".repeat(order.rating ?: 0)
                 )
             }
         }
     }
 }
 
-/**
- * Trip Stat Item
- */
 @Composable
-private fun TripStatItem(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
+private fun StatItem(icon: ImageVector, label: String, value: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier.padding(vertical = AppSpacing.XS)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = AppColors.Primary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(20.dp)
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = AppColors.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = AppColors.TextSecondary
         )
     }
 }
 
-/**
- * OTP Card
- */
 @Composable
-private fun OtpCard(otp: String) {
-    Card(
+private fun StatDivider() {
+    Box(
+        modifier = Modifier
+            .height(40.dp)
+            .width(1.dp)
+            .background(AppColors.DividerLight)
+    )
+}
+
+// ── Cancellation card ─────────────────────────────────────────────────────────
+
+@Composable
+private fun CancellationCard(order: OrderResponse) {
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = AppColors.Primary.copy(alpha = 0.1f))
+            .padding(horizontal = AppSpacing.LG),
+        shape = RoundedCornerShape(AppRadius.LG),
+        color = AppColors.ErrorLight,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(AppSpacing.LG),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.MD)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(AppColors.Drop.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Cancel,
+                    contentDescription = null,
+                    tint = AppColors.Drop,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.order_cancelled),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = AppColors.Drop
+                )
+                Text(
+                    text = order.cancellationReason!!,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = AppColors.Drop.copy(alpha = 0.8f)
+                )
+                // cancelledBy — only if non-blank
+                if (!order.cancelledBy.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(R.string.cancelled_by_format, order.cancelledBy!!),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = AppColors.Drop.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── OTP card ──────────────────────────────────────────────────────────────────
+
+@Composable
+private fun OtpCard(otp: String, headerColor: Color) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AppSpacing.LG),
+        shape = RoundedCornerShape(AppRadius.LG),
+        color = headerColor.copy(alpha = 0.08f),
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(AppSpacing.LG),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
                     text = stringResource(R.string.delivery_otp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = AppColors.TextSecondary
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = AppColors.TextPrimary
                 )
                 Text(
                     text = stringResource(R.string.share_otp_with_driver),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = AppColors.TextSecondary
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.XS)) {
                 otp.forEach { digit ->
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = AppColors.Primary,
-                                shape = RoundedCornerShape(8.dp)
-                            ),
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(AppRadius.SM))
+                            .background(headerColor),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = digit.toString(),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = AppColors.White
                         )
                     }
                 }
@@ -518,539 +590,520 @@ private fun OtpCard(otp: String) {
     }
 }
 
-/**
- * Driver Info Card
- */
+// ── Driver card ───────────────────────────────────────────────────────────────
+
 @Composable
-private fun DriverInfoCard(
+private fun DriverCard(
     order: OrderResponse,
+    headerColor: Color,
     onCallDriver: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+    SectionCard {
+        SectionLabel(stringResource(R.string.driver_details).uppercase())
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.MD)
         ) {
-            Text(
-                text = stringResource(R.string.driver_details),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(AppColors.LightGray50),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(AppColors.Background),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = stringResource(R.string.driver_fallback),
-                        tint = AppColors.TextSecondary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
+                Text(text = "👤", fontSize = 22.sp)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = order.driverName ?: stringResource(R.string.driver_fallback),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = AppColors.TextPrimary
+                )
+                // Vehicle number — only if non-blank
+                if (!order.vehicleNumber.isNullOrBlank()) {
                     Text(
-                        text = order.driverName ?: stringResource(R.string.driver_fallback),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
+                        text = order.vehicleNumber!!,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = AppColors.TextSecondary
                     )
-                    order.vehicleNumber?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.TextSecondary
-                        )
-                    }
-                    order.driverRating?.let { rating ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = stringResource(R.string.rating_label),
-                                tint = AppColors.StarYellow,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "$rating",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = AppColors.TextPrimary
-                            )
-                        }
-                    }
                 }
-
-                if (!order.driverPhone.isNullOrEmpty()) {
-                    FilledIconButton(
-                        onClick = onCallDriver,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = AppColors.Pickup
-                        )
+                // Driver rating — only if > 0
+                if ((order.driverRating ?: 0.0) > 0.0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = stringResource(R.string.call_driver),
-                            tint = Color.White
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = AppColors.Warning,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "${order.driverRating}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = AppColors.TextPrimary
                         )
                     }
+                }
+            }
+            // Call button — only if phone number available
+            if (!order.driverPhone.isNullOrBlank()) {
+                FilledIconButton(
+                    onClick = onCallDriver,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = headerColor.copy(alpha = 0.12f)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Call,
+                        contentDescription = stringResource(R.string.call_driver),
+                        tint = headerColor,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
     }
 }
 
+// ── Route card ────────────────────────────────────────────────────────────────
 
-/**
- * Goods Info Card
- */
 @Composable
-private fun GoodsInfoCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
+private fun RouteCard(order: OrderResponse) {
+    SectionCard {
+        SectionLabel(stringResource(R.string.label_route).uppercase())
+
+        // Pickup row
+        RouteRow(
+            color = AppColors.Pickup,
+            contactName = order.pickupContactName,
+            contactPhone = order.pickupContactPhone,
+            address = order.pickupAddress
+        )
+
+        // Connector dots
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.padding(start = 6.dp, top = 3.dp, bottom = 3.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Text(
-                text = stringResource(R.string.goods_information),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                order.goodsType?.let {
-                    InfoItem(label = stringResource(R.string.type_label), value = it)
-                }
-                order.goodsWeight?.let {
-                    InfoItem(
-                        label = stringResource(R.string.weight_label),
-                        value = stringResource(R.string.weight_format, it)
-                    )
-                }
-                order.goodsPackages?.let {
-                    InfoItem(label = stringResource(R.string.packages_label), value = "$it")
-                }
-                order.goodsValue?.let {
-                    InfoItem(
-                        label = stringResource(R.string.value_label),
-                        value = stringResource(R.string.value_format, it)
-                    )
-                }
-            }
-
-            order.instructions?.let { instructions ->
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = AppColors.Divider)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.instructions_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = AppColors.TextSecondary
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .size(3.dp)
+                        .clip(CircleShape)
+                        .background(AppColors.DividerLight)
                 )
+            }
+        }
+
+        // Drop row
+        RouteRow(
+            color = AppColors.Drop,
+            contactName = order.dropContactName,
+            contactPhone = order.dropContactPhone,
+            address = order.dropAddress
+        )
+    }
+}
+
+@Composable
+private fun RouteRow(
+    color: Color,
+    contactName: String?,
+    contactPhone: String?,
+    address: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.SM)
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 3.dp)
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            if (!contactName.isNullOrBlank()) {
                 Text(
-                    text = instructions,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = contactName,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    ),
                     color = AppColors.TextPrimary
                 )
             }
+            Text(
+                text = address,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                ),
+                color = AppColors.TextSecondary
+            )
+            // Contact phone — only if non-blank
+            if (!contactPhone.isNullOrBlank()) {
+                Text(
+                    text = contactPhone,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = AppColors.Primary
+                )
+            }
         }
     }
 }
 
-/**
- * Info Item
- */
+// ── Goods card ────────────────────────────────────────────────────────────────
+
 @Composable
-private fun InfoItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun GoodsCard(order: OrderResponse) {
+    SectionCard {
+        SectionLabel(stringResource(R.string.goods_information).uppercase())
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            order.goodsType?.let {
+                GoodsStatItem(label = stringResource(R.string.type_label), value = it)
+            }
+            order.goodsWeight?.let {
+                if (order.goodsType != null) GoodsStatDivider()
+                GoodsStatItem(
+                    label = stringResource(R.string.weight_label),
+                    value = stringResource(R.string.weight_format, it)
+                )
+            }
+            order.goodsPackages?.let {
+                if (order.goodsType != null || order.goodsWeight != null) GoodsStatDivider()
+                GoodsStatItem(label = stringResource(R.string.packages_label), value = "$it")
+            }
+            order.goodsValue?.let {
+                if (order.goodsType != null || order.goodsWeight != null || order.goodsPackages != null)
+                    GoodsStatDivider()
+                GoodsStatItem(
+                    label = stringResource(R.string.value_label),
+                    value = stringResource(R.string.value_format, it)
+                )
+            }
+        }
+        // Instructions — only if non-blank
+        if (!order.instructions.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(AppSpacing.MD))
+            HorizontalDivider(color = AppColors.DividerLight)
+            Spacer(modifier = Modifier.height(AppSpacing.MD))
+            Text(
+                text = stringResource(R.string.instructions_label),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp
+                ),
+                color = AppColors.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = order.instructions!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextPrimary
+            )
+        }
+    }
+}
+
+@Composable
+private fun GoodsStatItem(label: String, value: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = AppColors.TextPrimary
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
             color = AppColors.TextSecondary
         )
     }
 }
 
-/**
- * Payment Details Card
- */
 @Composable
-private fun PaymentDetailsCard(order: OrderResponse) {
-    Card(
+private fun GoodsStatDivider() {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            .height(32.dp)
+            .width(1.dp)
+            .background(AppColors.DividerLight)
+    )
+}
+
+// ── Payment card ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun PaymentCard(order: OrderResponse, statusColor: Color) {
+    val hasDiscount = (order.discountAmount ?: 0.0) > 0.0
+    val hasCoupon   = !order.couponCode.isNullOrBlank()
+    val hasGstin    = !order.gstin.isNullOrBlank()
+
+    SectionCard {
+        // Header row: label + payment status badge (if non-blank)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            SectionLabel(stringResource(R.string.payment_details).uppercase())
+            if (!order.paymentStatus.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(AppRadius.Full),
+                    color = statusColor.copy(alpha = 0.1f)
+                ) {
+                    Text(
+                        text = order.paymentStatus!!,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        ),
+                        color = statusColor,
+                        modifier = Modifier.padding(horizontal = AppSpacing.SM, vertical = 3.dp)
+                    )
+                }
+            }
+        }
+
+        // Payment method row
+        PaymentRow(
+            label = stringResource(R.string.payment_method),
+            trailing = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.XS)
+                ) {
+                    Icon(
+                        imageVector = getPaymentIcon(order.paymentMethod),
+                        contentDescription = null,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = order.paymentMethod?.replaceFirstChar { it.uppercase() }
+                            ?: stringResource(R.string.na),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp
+                        ),
+                        color = AppColors.TextPrimary
+                    )
+                }
+            }
+        )
+
+        HorizontalDivider(color = AppColors.DividerLight, modifier = Modifier.padding(vertical = AppSpacing.SM))
+
+        // Base fare (if available) or trip fare
+        order.baseFare?.let { base ->
+            PaymentRow(
+                label = stringResource(R.string.base_fare),
+                value = stringResource(R.string.fare_format, base.toInt())
+            )
+        } ?: PaymentRow(
+            label = stringResource(R.string.trip_fare_label),
+            value = stringResource(R.string.fare_format, order.fare.toInt())
+        )
+
+        // Platform fee — show if base_fare exists and differs from fare
+        // (i.e. there are additional charges)
+        if (order.baseFare != null && order.baseFare < order.fare && !hasDiscount) {
+            val platformFee = order.fare - order.baseFare - (order.discountAmount ?: 0.0)
+            if (platformFee > 0) {
+                Spacer(modifier = Modifier.height(AppSpacing.XS))
+                PaymentRow(
+                    label = stringResource(R.string.platform_fee),
+                    value = stringResource(R.string.fare_format, platformFee.toInt())
+                )
+            }
+        }
+
+        // Coupon / discount row — green tinted
+        if (hasCoupon || hasDiscount) {
+            Spacer(modifier = Modifier.height(AppSpacing.XS))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.payment_details),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-                order.paymentStatus?.let { status ->
-                    Surface(
-                        color = getStatusColor(status).copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        Text(
-                            text = status,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = getStatusColor(status),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.payment_method),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary
-                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.XS)
                 ) {
-                    Icon(
-                        imageVector = when (order.paymentMethod) {
-                            "Cash" -> Icons.Default.Money
-                            "UPI" -> Icons.Default.Payment
-                            "Card" -> Icons.Default.CreditCard
-                            "Wallet" -> Icons.Default.Wallet
-                            else -> Icons.Default.Payment
-                        },
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Text(text = "🏷️", fontSize = 13.sp)
                     Text(
-                        text = order.paymentMethod ?: stringResource(R.string.na),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = AppColors.TextPrimary
+                        text = if (hasCoupon)
+                            stringResource(R.string.coupon_format, order.couponCode!!)
+                        else stringResource(R.string.coupon_discount),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = AppColors.Pickup
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = AppColors.Divider)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            order.baseFare?.let { baseFare ->
-                FareRow(
-                    label = stringResource(R.string.base_fare),
-                    amount = stringResource(R.string.fare_format, baseFare)
+                Text(
+                    text = stringResource(
+                        R.string.discount_format,
+                        (order.discountAmount ?: 0.0).toInt()
+                    ),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    ),
+                    color = AppColors.Pickup
                 )
-            } ?: FareRow(
-                label = stringResource(R.string.trip_fare_label),
-                amount = stringResource(R.string.fare_format, order.fare)
-            )
+            }
+        }
 
-            order.discountAmount?.let { discount ->
-                if (discount > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FareRow(
-                        label = stringResource(R.string.discount_label),
-                        amount = stringResource(R.string.discount_format, discount),
-                        valueColor = AppColors.Pickup
+        HorizontalDivider(color = AppColors.DividerLight, modifier = Modifier.padding(vertical = AppSpacing.SM))
+
+        // Total
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.total_amount),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = AppColors.TextPrimary
+            )
+            Text(
+                text = stringResource(R.string.fare_format, order.fare.toInt()),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = statusColor
+            )
+        }
+
+        // "You saved" banner — only if discount > 0
+        if (hasDiscount) {
+            Spacer(modifier = Modifier.height(AppSpacing.SM))
+            Surface(
+                shape = RoundedCornerShape(AppRadius.SM),
+                color = AppColors.GreenLight
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = AppSpacing.MD, vertical = AppSpacing.XS),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.XS)
+                ) {
+                    Text(text = "🎉", fontSize = 13.sp)
+                    Text(
+                        text = stringResource(
+                            R.string.you_save_format,
+                            (order.discountAmount ?: 0.0).toInt().toString()
+                        ),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp
+                        ),
+                        color = AppColors.Pickup
                     )
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = AppColors.Divider)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FareRow(
-                label = stringResource(R.string.total_amount),
-                amount = stringResource(R.string.fare_format, order.fare),
-                isBold = true,
-                valueColor = AppColors.Primary
+        // GSTIN row — only if present
+        if (hasGstin) {
+            HorizontalDivider(
+                color = AppColors.DividerLight,
+                modifier = Modifier.padding(top = AppSpacing.MD)
+            )
+            Spacer(modifier = Modifier.height(AppSpacing.SM))
+            PaymentRow(
+                label = stringResource(R.string.gstin_info_label),
+                value = order.gstin!!
             )
         }
     }
 }
 
-/**
- * Fare Row
- */
 @Composable
-private fun FareRow(
+private fun PaymentRow(
     label: String,
-    amount: String,
-    isBold: Boolean = false,
-    valueColor: Color = AppColors.TextPrimary
+    value: String? = null,
+    trailing: (@Composable () -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = AppColors.TextPrimary
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+            color = AppColors.TextSecondary
         )
-        Text(
-            text = amount,
-            style = if (isBold) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = valueColor
-        )
-    }
-}
-
-/**
- * Coupon Card
- */
-@Composable
-private fun CouponCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = AppColors.Pickup.copy(alpha = 0.1f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocalOffer,
-                contentDescription = null,
-                tint = AppColors.Pickup,
-                modifier = Modifier.size(24.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = order.couponCode!!,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Pickup
-                )
-                Text(
-                    text = stringResource(R.string.coupon_applied),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-            order.discountAmount?.let {
-                Text(
-                    text = stringResource(R.string.discount_format, it),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Pickup
-                )
-            }
-        }
-    }
-}
-
-/**
- * GST Info Card
- */
-@Composable
-private fun GstInfoCard(gstin: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Receipt,
-                contentDescription = null,
-                tint = AppColors.Primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Column {
-                Text(
-                    text = stringResource(R.string.gstin_info_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = AppColors.TextSecondary
-                )
-                Text(
-                    text = gstin,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Cancellation Info Card
- */
-@Composable
-private fun CancellationInfoCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = AppColors.Drop.copy(alpha = 0.1f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Cancel,
-                    contentDescription = stringResource(R.string.cancelled_label),
-                    tint = AppColors.Drop,
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = stringResource(R.string.order_cancelled),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Drop
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+        if (trailing != null) {
+            trailing()
+        } else if (value != null) {
             Text(
-                text = stringResource(R.string.reason_format, order.cancellationReason ?: ""),
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppColors.TextSecondary
-            )
-            order.cancelledBy?.let {
-                Text(
-                    text = stringResource(R.string.cancelled_by_format, it),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Rating Card
- */
-@Composable
-private fun RatingCard(order: OrderResponse) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.your_rating),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                text = value,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                ),
                 color = AppColors.TextPrimary
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+        }
+    }
+}
+
+// ── Rating card ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun RatingCard(order: OrderResponse) {
+    SectionCard {
+        SectionLabel(stringResource(R.string.your_rating).uppercase())
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.SM)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 repeat(5) { index ->
                     Icon(
-                        imageVector = if (index < (order.rating
-                                ?: 0)
-                        ) Icons.Default.Star else Icons.Default.StarBorder,
+                        imageVector = if (index < (order.rating ?: 0))
+                            Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
-                        tint = AppColors.StarYellow,
-                        modifier = Modifier.size(28.dp)
+                        tint = AppColors.Warning,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
-            order.review?.let { review ->
-                Spacer(modifier = Modifier.height(12.dp))
+            if (!order.review.isNullOrBlank()) {
                 Text(
-                    text = "\"$review\"",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppColors.TextSecondary
+                    text = stringResource(R.string.feedback_quote_format, order.review!!),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    ),
+                    color = AppColors.TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -748,4 +748,7 @@
     <string name="show_less">Show Less</string>
     <string name="active_booking_banner_title">Booking in progress</string>
     <string name="active_booking_banner_subtitle">Complete or cancel current booking to book a new ride</string>
+
+    <!-- OrderDetailsScreen -->
+    <string name="book_again_available_after_delivery">Book Again available after delivery is complete</string>
 </resources>
