@@ -74,7 +74,7 @@ fun MapPickerScreen(
     }
 
     val moveMapHint = stringResource(R.string.label_move_map_hint)
-    val selectedLocationLabel = stringResource(R.string.label_selected_location)
+    val selectedLocationLabel = stringResource(R.string.selected_location)
     val unknownLocationText = stringResource(R.string.label_unknown_location)
     val unableGetAddressText = stringResource(R.string.label_unable_get_address)
 
@@ -124,7 +124,7 @@ fun MapPickerScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.content_desc_back),
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }

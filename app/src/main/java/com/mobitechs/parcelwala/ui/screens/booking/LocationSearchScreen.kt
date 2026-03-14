@@ -106,7 +106,7 @@ fun LocationSearchScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.content_desc_back),
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }

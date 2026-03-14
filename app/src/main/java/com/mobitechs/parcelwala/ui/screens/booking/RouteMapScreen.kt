@@ -203,7 +203,7 @@ fun RouteInfoCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = stringResource(R.string.label_distance_label),
+                    text = stringResource(R.string.distance_label),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -223,7 +223,7 @@ fun RouteInfoCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = stringResource(R.string.label_duration_label),
+                    text = stringResource(R.string.duration_label),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

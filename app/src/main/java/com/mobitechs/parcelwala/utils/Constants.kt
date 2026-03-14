@@ -55,4 +55,51 @@ object Constants {
 
     const val GOOGLE_MAPS_API_KEY = "AIzaSyDPOIRDx-ZlXrEXaV9KFFvul7iODwNwMn4"
 
+
+
+    internal object OrderStatus {
+        const val DELIVERY_COMPLETED = "delivery_completed"
+        const val COMPLETED          = "completed"
+        const val CANCELLED          = "cancelled"
+        const val SEARCHING          = "searching"
+        const val ASSIGNED           = "assigned"
+        const val ARRIVING           = "arriving"
+        const val DRIVER_ARRIVING    = "driver_arriving"
+        const val PICKED_UP          = "picked_up"
+        const val IN_PROGRESS        = "in_progress"
+        const val IN_PROGRESS_SPACE  = "in progress"   // legacy server variant
+        const val PENDING            = "pending"
+
+        /** Statuses that are considered "done" (delivery reached destination). */
+        val COMPLETED_SET = setOf(DELIVERY_COMPLETED, COMPLETED)
+
+        /** Statuses where a rider has been assigned and the trip is moving. */
+        val ACTIVE_SET = setOf(
+            IN_PROGRESS, IN_PROGRESS_SPACE,
+            ASSIGNED, ARRIVING, DRIVER_ARRIVING, PICKED_UP
+        )
+    }
+
+    // ── Filter keys used by the Orders screen chip row ────────────────────────
+    object FilterKey {
+        const val SEARCHING  = "searching"
+        const val ACTIVE     = "active"
+        const val COMPLETED  = "completed"
+        const val CANCELLED  = "cancelled"
+    }
+
+    // ── Vehicle type name fragments (matched via contains()) ──────────────────
+    object VehicleType {
+        const val TWO_WHEELER   = "2 Wheeler"
+        const val BIKE          = "Bike"
+        const val THREE_WHEELER = "3 Wheeler"
+        const val AUTO          = "Auto"
+        const val TATA_ACE      = "Tata Ace"
+        const val PICKUP        = "Pickup"
+        const val TEMPO         = "Tempo"
+        const val HAMAL         = "Hamal"
+        const val MINI_TRUCK    = "Mini Truck"
+    }
+
+
 }

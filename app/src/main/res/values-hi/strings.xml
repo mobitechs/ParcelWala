@@ -28,25 +28,29 @@
     <!-- ErrorView -->
     <string name="error_content_description">त्रुटि</string>
     <string name="error_title">उफ़!</string>
+    <!-- "त्रुटि" label — canonical key used app-wide -->
+    <string name="label_error">त्रुटि</string>
     <string name="retry">पुनः प्रयास</string>
 
     <!-- Location Components -->
     <string name="content_desc_edit">संपादित करें</string>
-    <string name="label_edit">संपादित करें</string>
+    <!-- "संपादित करें" — canonical key used app-wide -->
+    <string name="edit">संपादित करें</string>
     <string name="label_pickup_location">पिकअप स्थान</string>
     <string name="label_drop_location">ड्रॉप स्थान</string>
     <string name="label_estimated_time">अनुमानित: 15-20 मिनट</string>
+    <!-- Canonical location type keys used app-wide -->
     <string name="label_home">घर</string>
     <string name="label_shop">दुकान</string>
     <string name="label_other">अन्य</string>
 
     <!-- OTP Dialog -->
-    <string name="label_pickup_otp">पिकअप OTP</string>
     <string name="otp_share_message">पिकअप की पुष्टि के लिए ड्राइवर को यह OTP बताएं</string>
     <string name="label_got_it">समझ गया</string>
     <string name="label_enter_pickup_otp">पिकअप OTP दर्ज करें</string>
     <string name="otp_ask_customer_message">ग्राहक से OTP पूछें</string>
-    <string name="label_cancel">रद्द करें</string>
+    <!-- "रद्द करें" — canonical key used app-wide -->
+    <string name="cancel">रद्द करें</string>
     <string name="label_verify">सत्यापित करें</string>
     <string name="otp_error_message">कृपया 4 अंकों का OTP दर्ज करें</string>
 
@@ -69,10 +73,10 @@
     <string name="label_connecting">कनेक्ट हो रहा है…</string>
     <string name="label_connected">कनेक्टेड</string>
     <string name="label_reconnecting">पुनः कनेक्ट हो रहा है…</string>
-    <string name="label_error">त्रुटि</string>
     <string name="content_desc_collapse">संक्षिप्त करें</string>
     <string name="content_desc_expand">विस्तार करें</string>
-    <string name="label_na">उपलब्ध नहीं</string>
+    <!-- "उपलब्ध नहीं" — canonical key; label_na removed -->
+    <string name="na">उपलब्ध नहीं</string>
     <string name="label_unknown">अज्ञात</string>
     <string name="label_logs_count">लॉग (%d)</string>
     <string name="content_desc_clear">साफ़ करें</string>
@@ -82,7 +86,7 @@
     <string name="label_seconds_ago">%d सेकंड पहले</string>
     <string name="label_minutes_ago">%d मिनट पहले</string>
 
-    <!-- Vehicle/Goods Mock Data -->
+    <!-- Vehicle / Goods -->
     <string name="vehicle_2_wheeler">2 व्हीलर</string>
     <string name="vehicle_2_wheeler_desc">छोटे पैकेज के लिए उपयुक्त</string>
     <string name="vehicle_2_wheeler_capacity">10 किलो तक</string>
@@ -125,7 +129,6 @@
     <string name="logout_title">लॉगआउट</string>
     <string name="logout_message">क्या आप वाकई लॉगआउट करना चाहते हैं?</string>
     <string name="logout">लॉगआउट</string>
-    <string name="cancel">रद्द करें</string>
     <string name="default_user_name">उपयोगकर्ता</string>
     <string name="view_label">देखें</string>
     <string name="profile_content_description">प्रोफ़ाइल</string>
@@ -146,15 +149,16 @@
 
     <!-- AddressSearchScreen -->
     <string name="add_address">पता जोड़ें</string>
+    <!-- "वापस" — canonical key used app-wide -->
     <string name="back">वापस</string>
     <string name="search_area_placeholder">क्षेत्र, गली का नाम खोजें…</string>
     <string name="select_on_map">नक्शे पर चुनें</string>
-    <string name="searching">खोज रहे हैं…</string>
+    <!-- "खोज रहे हैं…" — canonical key used app-wide -->
+    <string name="label_searching">खोज रहे हैं…</string>
 
     <!-- ProfileDetailsScreen -->
     <string name="profile_details">प्रोफ़ाइल विवरण</string>
     <string name="personal_details">व्यक्तिगत विवरण</string>
-    <string name="edit">संपादित करें</string>
     <string name="no_email_added">कोई ईमेल नहीं जोड़ा</string>
 
     <!-- SavedAddressesScreen -->
@@ -167,11 +171,9 @@
     <string name="add">जोड़ें</string>
     <string name="no_address_details">पते का विवरण नहीं</string>
 
-    <string name="label_loading_default">लोड हो रहा है…</string>
-
     <!-- Auth Common -->
-    <string name="label_error_title">त्रुटि</string>
-    <string name="label_ok">ठीक है</string>
+    <!-- "ठीक है" — canonical key used app-wide -->
+    <string name="ok">ठीक है</string>
 
     <!-- Complete Profile Screen -->
     <string name="title_complete_profile">प्रोफ़ाइल पूरी करें</string>
@@ -205,7 +207,6 @@
 
     <!-- OTP Screen -->
     <string name="title_verify_otp">OTP सत्यापित करें</string>
-    <string name="content_desc_back">वापस</string>
     <string name="content_desc_otp">OTP</string>
     <string name="label_enter_4_digit_code">4 अंकों का कोड दर्ज करें जो भेजा गया है</string>
     <string name="label_phone_with_code">+91 %s</string>
@@ -233,7 +234,6 @@
     <string name="no_vehicles_available">कोई वाहन उपलब्ध नहीं</string>
     <string name="try_again_later">कृपया बाद में पुनः प्रयास करें</string>
     <string name="error_dialog_title">त्रुटि</string>
-    <string name="ok">ठीक है</string>
     <string name="no_riders_available">कोई राइडर उपलब्ध नहीं</string>
     <string name="finding_rider">आपका राइडर खोज रहे हैं…</string>
     <string name="rider_assigned">राइडर मिल गया!</string>
@@ -244,11 +244,14 @@
     <string name="trip_format">ट्रिप #%s • प्रयास %d</string>
     <string name="trip_id_format">ट्रिप #%s</string>
     <string name="timed_out">समय समाप्त</string>
+    <!-- "शेष" — canonical key used app-wide -->
     <string name="remaining">शेष</string>
     <string name="view_details">विवरण देखें</string>
     <string name="retry_search">पुनः खोजें</string>
     <string name="time_format_total">3:00</string>
+    <!-- "वाहन" — canonical key used app-wide -->
     <string name="vehicle_fallback">वाहन</string>
+    <!-- "नकद" — canonical key used app-wide -->
     <string name="cash">नकद</string>
     <string name="tap_to_view_details">विवरण देखने के लिए टैप करें</string>
     <string name="pickup_content_description">पिकअप</string>
@@ -270,6 +273,7 @@
 
     <!-- OrderDetailsScreen -->
     <string name="order_details">ऑर्डर विवरण</string>
+    <!-- "सहायता" — canonical key used app-wide -->
     <string name="support">सहायता</string>
     <string name="book_again">फिर से बुक करें</string>
     <string name="delivery_otp">डिलीवरी OTP</string>
@@ -288,20 +292,23 @@
     <string name="instructions_label">निर्देश</string>
     <string name="payment_details">भुगतान विवरण</string>
     <string name="payment_method">भुगतान विधि</string>
-    <string name="na">उपलब्ध नहीं</string>
     <string name="base_fare">बेस किराया</string>
-    <string name="trip_fare">ट्रिप किराया</string>
+    <!-- "ट्रिप किराया" — canonical key; trip_fare removed -->
+    <string name="trip_fare_label">ट्रिप किराया</string>
     <string name="discount_label">छूट</string>
     <string name="total_amount">कुल राशि</string>
     <string name="coupon_applied">कूपन लागू</string>
     <string name="gstin_info_label">GSTIN</string>
     <string name="order_cancelled">ऑर्डर रद्द</string>
+    <!-- "रद्द" badge — canonical key used app-wide -->
     <string name="cancelled_label">रद्द</string>
     <string name="reason_format">कारण: %s</string>
     <string name="cancelled_by_format">रद्द किया: %s</string>
     <string name="your_rating">आपकी रेटिंग</string>
+    <!-- "दूरी" — canonical key used app-wide -->
     <string name="distance_label">दूरी</string>
     <string name="distance_format">%s किमी</string>
+    <!-- "अवधि" — canonical key used app-wide -->
     <string name="duration_label">अवधि</string>
     <string name="fare_format">₹%s</string>
     <string name="discount_format">-₹%s</string>
@@ -312,6 +319,7 @@
     <string name="complete_or_cancel_active">पहले अपनी चल रही बुकिंग पूरी या रद्द करें।</string>
     <string name="loading_orders">आपके ऑर्डर लोड हो रहे हैं…</string>
     <string name="something_went_wrong">कुछ गलत हो गया</string>
+    <!-- "पुनः प्रयास करें" — canonical key used app-wide -->
     <string name="try_again">पुनः प्रयास करें</string>
     <string name="looking_for_rider">राइडर खोज रहे हैं…</string>
     <string name="unrated">रेट नहीं किया</string>
@@ -329,6 +337,29 @@
     <string name="active_orders_empty_subtitle">अभी कोई डिलीवरी जारी नहीं</string>
     <string name="orders_empty_subtitle">बुकिंग करने पर आपके ऑर्डर यहां दिखेंगे</string>
 
+    <!-- OrdersScreen — status display labels -->
+    <string name="status_delivered">डिलीवर हो गया</string>
+    <!-- status_cancelled → use cancelled_label -->
+    <string name="status_searching">खोज रहे हैं</string>
+    <string name="status_assigned">असाइन किया गया</string>
+    <string name="status_arriving">आ रहे हैं</string>
+    <string name="status_picked_up">पिकअप हो गया</string>
+    <string name="status_in_progress">जारी है</string>
+    <string name="status_pending">लंबित</string>
+
+    <!-- OrdersScreen — filter chip labels -->
+    <string name="filter_all">सभी</string>
+    <!-- filter_searching  → use status_searching -->
+    <!-- filter_in_progress→ use status_in_progress -->
+    <!-- filter_completed  → use label_status_completed -->
+    <!-- filter_cancelled  → use cancelled_label -->
+
+    <!-- OrdersScreen — formatted values -->
+    <string name="rating_value_format">%d.0</string>
+    <string name="distance_km_format">%.1f किमी</string>
+    <string name="booking_number_format">#%s</string>
+    <string name="feedback_quote_format">&#8220;%s&#8221;</string>
+
     <!-- Payments Screen -->
     <string name="title_payments">भुगतान</string>
     <string name="label_wallet_balance">वॉलेट बैलेंस</string>
@@ -343,7 +374,7 @@
     <string name="label_cards_subtitle">क्रेडिट और डेबिट कार्ड</string>
     <string name="label_net_banking">नेट बैंकिंग</string>
     <string name="label_net_banking_subtitle">सभी प्रमुख बैंक</string>
-    <string name="label_cash">नकद</string>
+    <!-- label_cash removed — use cash instead -->
     <string name="label_cash_subtitle">डिलीवरी पर भुगतान</string>
     <string name="label_booking_number_prefix">बुकिंग #%s</string>
     <string name="label_refund">रिफंड</string>
@@ -431,6 +462,7 @@
     <string name="edit_drop_details">ड्रॉप विवरण संपादित करें</string>
     <string name="confirm_pickup_location">पिकअप स्थान पुष्टि करें</string>
     <string name="confirm_drop_location">ड्रॉप स्थान पुष्टि करें</string>
+    <!-- "पता सेव करें" — canonical key; save_address_btn removed -->
     <string name="save_address">पता सेव करें</string>
     <string name="save_changes">बदलाव सेव करें</string>
     <string name="confirm_pickup">पिकअप पुष्टि करें</string>
@@ -462,9 +494,7 @@
     <string name="pincode_label">पिनकोड</string>
     <string name="pincode_placeholder">6 अंकों का पिनकोड दर्ज करें</string>
     <string name="save_address_as">पता इस रूप में सेव करें</string>
-    <string name="home_type">घर</string>
-    <string name="shop_type">दुकान</string>
-    <string name="other_type">अन्य</string>
+    <!-- home_type / shop_type / other_type removed — use label_home / label_shop / label_other -->
     <string name="label_name_optional">लेबल नाम (वैकल्पिक)</string>
     <string name="label_placeholder">जैसे, ऑफिस, जिम, दोस्त का घर</string>
     <string name="enter_contact_name_error">कृपया संपर्क नाम दर्ज करें</string>
@@ -480,7 +510,6 @@
     <string name="label_search_pickup">पिकअप स्थान खोजें…</string>
     <string name="label_search_drop">ड्रॉप स्थान खोजें…</string>
     <string name="label_search_location">स्थान खोजें…</string>
-    <string name="label_searching">खोज रहे हैं…</string>
     <string name="label_recent_searches">हाल की खोजें</string>
     <string name="content_desc_history">इतिहास</string>
     <string name="content_desc_use">उपयोग करें</string>
@@ -491,12 +520,10 @@
     <string name="content_desc_save">सेव करें</string>
     <string name="label_current">वर्तमान</string>
     <string name="label_on_map">नक्शे पर</string>
-    <string name="save_address_btn">पता सेव करें</string>
 
     <!-- Map Picker Screen -->
     <string name="title_select_location">स्थान चुनें</string>
     <string name="content_desc_pin">पिन</string>
-    <string name="label_selected_location">चयनित स्थान</string>
     <string name="label_getting_address">पता प्राप्त हो रहा है…</string>
     <string name="label_move_map_hint">स्थान चुनने के लिए नक्शा हिलाएं</string>
     <string name="label_latitude">अक्षांश</string>
@@ -505,10 +532,6 @@
     <string name="content_desc_my_location">मेरा स्थान</string>
     <string name="label_unknown_location">अज्ञात स्थान</string>
     <string name="label_unable_get_address">पता प्राप्त करने में असमर्थ</string>
-
-    <!-- Route Map Screen -->
-    <string name="label_distance_label">दूरी</string>
-    <string name="label_duration_label">अवधि</string>
 
     <!-- Searching Rider Screen -->
     <string name="label_finding_route">मार्ग खोज रहे हैं…</string>
@@ -521,11 +544,7 @@
     <string name="label_connecting_driver">आपके ड्राइवर से कनेक्ट हो रहा है…</string>
     <string name="label_all_drivers_busy">अभी सभी ड्राइवर व्यस्त हैं</string>
     <string name="label_checking_drivers">आसपास के ड्राइवर जांच रहे हैं · प्रयास %d</string>
-    <string name="label_try_again">पुनः प्रयास करें</string>
     <string name="label_attempt_completed">प्रयास %d पूरा</string>
-    <string name="label_remaining">शेष</string>
-    <string name="label_support">सहायता</string>
-    <string name="label_vehicle_fallback">वाहन</string>
 
     <!-- Cancellation Bottom Sheet -->
     <string name="title_cancel_trip">ट्रिप रद्द करें?</string>
@@ -535,7 +554,7 @@
     <string name="label_reason_wrong_address">गलत पिकअप/ड्रॉप स्थान</string>
     <string name="label_reason_price_high">कीमत बहुत ज्यादा है</string>
     <string name="label_reason_booking_mistake">गलती से बुक हो गया</string>
-    <string name="label_reason_other">अन्य कारण</string>
+    <!-- label_reason_other → use label_other -->
     <string name="label_please_specify">कृपया बताएं</string>
     <string name="hint_enter_reason">अपना कारण दर्ज करें…</string>
     <string name="label_cancellation_policy">रद्दीकरण नीति</string>
@@ -546,8 +565,6 @@
     <string name="label_confirm_cancel_message">क्या आप वाकई इस ट्रिप को रद्द करना चाहते हैं?</string>
     <string name="label_yes_cancel">हां, रद्द करें</string>
     <string name="label_no_keep_it">नहीं, रखें</string>
-    <string name="label_cancelled">रद्द</string>
-    <string name="label_other_reason">अन्य</string>
 
     <!-- RestrictedItemsBottomSheet -->
     <string name="restricted_items_title">प्रतिबंधित सामान</string>
@@ -624,9 +641,9 @@
     <string name="rider_photo">राइडर की फोटो</string>
     <string name="trips_format">%d ट्रिप</string>
     <string name="call_rider">राइडर को कॉल करें</string>
+    <!-- "पिकअप OTP" — canonical key; label_pickup_otp + label_pickup_otp_default removed -->
     <string name="pickup_otp">पिकअप OTP</string>
     <string name="share_otp_for_verification">पिकअप सत्यापन के लिए राइडर को यह OTP बताएं</string>
-    <string name="trip_fare_label">ट्रिप किराया</string>
     <string name="cash_payment">नकद भुगतान</string>
     <string name="waiting_charge_label">प्रतीक्षा शुल्क</string>
     <string name="total_cash">कुल (नकद)</string>
@@ -640,11 +657,11 @@
     <string name="cancel_booking_btn">बुकिंग रद्द करें</string>
     <string name="go_back_btn">वापस जाएं</string>
 
+    <!-- Language Settings -->
     <string name="language_change_hint">आप कभी भी अकाउंट सेटिंग्स से भाषा बदल सकते हैं</string>
     <string name="change_language_title">भाषा बदलें</string>
     <string name="restart_now">अभी पुनः शुरू करें</string>
     <string name="language_options_display">English • हिंदी • मराठी</string>
-
     <string name="language">भाषा</string>
     <string name="select_language">भाषा चुनें</string>
     <string name="lang_english">English</string>
@@ -670,6 +687,7 @@
     <string name="label_wallet_topup_type">वॉलेट टॉप-अप</string>
     <string name="label_booking_payment_type">बुकिंग भुगतान</string>
     <string name="label_wallet_balance_result">वॉलेट बैलेंस</string>
+    <!-- "पूर्ण" status label — canonical; filter_completed reuses this -->
     <string name="label_status_completed">पूर्ण</string>
     <string name="label_status">स्थिति</string>
     <string name="label_done">हो गया</string>
@@ -682,7 +700,6 @@
     <string name="label_complete_payment">भुगतान पूरा करें</string>
     <string name="label_driver_arrived_delivery">ड्राइवर डिलीवरी पर पहुँचा • %s</string>
     <string name="label_fare_summary">किराया सारांश</string>
-    <string name="label_trip_fare">ट्रिप किराया</string>
     <string name="label_waiting_charge_post">प्रतीक्षा शुल्क</string>
     <string name="label_included">शामिल</string>
     <string name="label_coupon_discount">कूपन छूट</string>
@@ -710,14 +727,12 @@
     <string name="label_cash_pay_info">ड्राइवर को %s नकद दें। ड्राइवर अपनी ओर से भुगतान की पुष्टि करेगा।</string>
     <string name="label_invalid_booking_id">अमान्य बुकिंग ID</string>
     <string name="label_payment_failed_snackbar">भुगतान विफल: %s</string>
-
-    <!-- RiderFoundScreen -->
     <string name="label_payment_confirmed">भुगतान की पुष्टि हुई</string>
     <string name="label_verifying_payment">भुगतान सत्यापित हो रहा है</string>
     <string name="label_verifying_payment_message">ड्राइवर के साथ भुगतान की पुष्टि हो रही है…\nकृपया प्रतीक्षा करें</string>
     <string name="label_delivery_otp_title">डिलीवरी OTP</string>
     <string name="label_delivery_otp_sublabel">डिलीवरी सत्यापन के लिए यह OTP प्राप्तकर्ता को दें</string>
-    <string name="label_pickup_otp_default">पिकअप OTP</string>
+    <!-- label_pickup_otp_default removed — use pickup_otp -->
     <string name="label_pickup_otp_sublabel">पिकअप सत्यापन के लिए यह OTP ड्राइवर को दें</string>
     <string name="label_pickup_marker">पिकअप</string>
     <string name="label_drop_marker">ड्रॉप</string>
@@ -725,9 +740,9 @@
     <string name="label_wallet_for_booking">बुकिंग #%s के लिए वॉलेट</string>
     <string name="label_payment_for_booking">बुकिंग #%s के लिए भुगतान</string>
 
+    <!-- Misc -->
     <string name="see_all">सभी देखें</string>
     <string name="show_less">कम दिखाएं</string>
     <string name="active_booking_banner_title">बुकिंग जारी है</string>
     <string name="active_booking_banner_subtitle">नई राइड बुक करने के लिए मौजूदा बुकिंग पूरी या रद्द करें</string>
-
 </resources>

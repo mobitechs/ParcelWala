@@ -165,7 +165,7 @@ fun AddressSearchScreen(
                 when {
                     uiState.isLoading || uiState.isLoadingPredictions -> {
                         LoadingIndicator(
-                            message = stringResource(R.string.searching),
+                            message = stringResource(R.string.label_searching),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(32.dp)

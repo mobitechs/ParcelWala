@@ -143,14 +143,14 @@ fun OtpScreen(
             },
             title = {
                 Text(
-                    stringResource(R.string.label_error_title),
+                    stringResource(R.string.label_error),
                     color = AppColors.TextPrimary
                 )
             },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
             confirmButton = {
                 TextButton(onClick = { showError = false }) {
-                    Text(stringResource(R.string.label_ok), color = AppColors.Primary)
+                    Text(stringResource(R.string.ok), color = AppColors.Primary)
                 }
             },
             containerColor = AppColors.Surface
@@ -171,7 +171,7 @@ fun OtpScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.content_desc_back),
+                            contentDescription = stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }

@@ -157,7 +157,7 @@ fun BookingConfirmationScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.Default.ArrowBack,
-                            stringResource(R.string.content_desc_back),
+                            stringResource(R.string.back),
                             tint = AppColors.TextPrimary
                         )
                     }

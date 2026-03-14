@@ -56,7 +56,7 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
 @Composable
 fun OtpVerificationDialog(
     otp: String,
-    title: String = stringResource(R.string.label_pickup_otp),
+    title: String = stringResource(R.string.pickup_otp),
     message: String = stringResource(R.string.otp_share_message),
     onDismiss: () -> Unit
 ) {
@@ -263,7 +263,7 @@ fun OtpInputDialog(
                         shape = RoundedCornerShape(12.dp),
                         enabled = !isLoading
                     ) {
-                        Text(stringResource(R.string.label_cancel))
+                        Text(stringResource(R.string.cancel))
                     }
 
                     Button(

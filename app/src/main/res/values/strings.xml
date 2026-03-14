@@ -28,25 +28,29 @@
     <!-- ErrorView -->
     <string name="error_content_description">Error</string>
     <string name="error_title">Oops!</string>
+    <!-- "Error" label and "Retry" button — canonical keys used app-wide -->
+    <string name="label_error">Error</string>
     <string name="retry">Retry</string>
 
     <!-- Location Components -->
     <string name="content_desc_edit">Edit</string>
-    <string name="label_edit">Edit</string>
+    <!-- "Edit" label — use this key everywhere; label_edit was a duplicate -->
+    <string name="edit">Edit</string>
     <string name="label_pickup_location">Pickup Location</string>
     <string name="label_drop_location">Drop Location</string>
     <string name="label_estimated_time">Estimated: 15-20 mins</string>
+    <!-- "Home" / "Shop" / "Other" — canonical keys for location/address types -->
     <string name="label_home">Home</string>
     <string name="label_shop">Shop</string>
     <string name="label_other">Other</string>
 
     <!-- OTP Dialog -->
-    <string name="label_pickup_otp">Pickup OTP</string>
     <string name="otp_share_message">Share this OTP with the driver to confirm pickup</string>
     <string name="label_got_it">Got It</string>
     <string name="label_enter_pickup_otp">Enter Pickup OTP</string>
     <string name="otp_ask_customer_message">Ask the customer for the OTP</string>
-    <string name="label_cancel">Cancel</string>
+    <!-- "Cancel" — canonical key used app-wide -->
+    <string name="cancel">Cancel</string>
     <string name="label_verify">Verify</string>
     <string name="otp_error_message">Please enter a 4-digit OTP</string>
 
@@ -69,10 +73,10 @@
     <string name="label_connecting">Connecting…</string>
     <string name="label_connected">Connected</string>
     <string name="label_reconnecting">Reconnecting…</string>
-    <string name="label_error">Error</string>
     <string name="content_desc_collapse">Collapse</string>
     <string name="content_desc_expand">Expand</string>
-    <string name="label_na">N/A</string>
+    <!-- "N/A" — canonical key used app-wide -->
+    <string name="na">N/A</string>
     <string name="label_unknown">Unknown</string>
     <string name="label_logs_count">Logs (%d)</string>
     <string name="content_desc_clear">Clear</string>
@@ -82,7 +86,7 @@
     <string name="label_seconds_ago">%ds ago</string>
     <string name="label_minutes_ago">%dm ago</string>
 
-    <!-- Vehicle/Goods Mock Data -->
+    <!-- Vehicle / Goods -->
     <string name="vehicle_2_wheeler">2 Wheeler</string>
     <string name="vehicle_2_wheeler_desc">Perfect for small packages</string>
     <string name="vehicle_2_wheeler_capacity">Up to 10 kg</string>
@@ -125,7 +129,6 @@
     <string name="logout_title">Logout</string>
     <string name="logout_message">Are you sure you want to logout?</string>
     <string name="logout">Logout</string>
-    <string name="cancel">Cancel</string>
     <string name="default_user_name">User</string>
     <string name="view_label">View</string>
     <string name="profile_content_description">Profile</string>
@@ -146,15 +149,16 @@
 
     <!-- AddressSearchScreen -->
     <string name="add_address">Add Address</string>
+    <!-- "Back" — canonical key used app-wide -->
     <string name="back">Back</string>
     <string name="search_area_placeholder">Search for area, street name…</string>
     <string name="select_on_map">Select on map</string>
-    <string name="searching">Searching…</string>
+    <!-- "Searching…" — canonical key used app-wide -->
+    <string name="label_searching">Searching…</string>
 
     <!-- ProfileDetailsScreen -->
     <string name="profile_details">Profile Details</string>
     <string name="personal_details">Personal Details</string>
-    <string name="edit">Edit</string>
     <string name="no_email_added">No email added</string>
 
     <!-- SavedAddressesScreen -->
@@ -167,11 +171,9 @@
     <string name="add">Add</string>
     <string name="no_address_details">No address details</string>
 
-    <string name="label_loading_default">Loading…</string>
-
     <!-- Auth Common -->
-    <string name="label_error_title">Error</string>
-    <string name="label_ok">OK</string>
+    <!-- "OK" — canonical key used app-wide -->
+    <string name="ok">OK</string>
 
     <!-- Complete Profile Screen -->
     <string name="title_complete_profile">Complete Profile</string>
@@ -205,7 +207,6 @@
 
     <!-- OTP Screen -->
     <string name="title_verify_otp">Verify OTP</string>
-    <string name="content_desc_back">Back</string>
     <string name="content_desc_otp">OTP</string>
     <string name="label_enter_4_digit_code">Enter the 4-digit code sent to</string>
     <string name="label_phone_with_code">+91 %s</string>
@@ -233,7 +234,6 @@
     <string name="no_vehicles_available">No vehicles available</string>
     <string name="try_again_later">Please try again later</string>
     <string name="error_dialog_title">Error</string>
-    <string name="ok">OK</string>
     <string name="no_riders_available">No riders available</string>
     <string name="finding_rider">Finding your rider…</string>
     <string name="rider_assigned">Rider assigned!</string>
@@ -244,11 +244,14 @@
     <string name="trip_format">Trip #%s • Attempt %d</string>
     <string name="trip_id_format">Trip #%s</string>
     <string name="timed_out">Timed out</string>
+    <!-- "remaining" — canonical key used app-wide -->
     <string name="remaining">remaining</string>
     <string name="view_details">View Details</string>
     <string name="retry_search">Retry Search</string>
     <string name="time_format_total">3:00</string>
+    <!-- "Vehicle" fallback — canonical key used app-wide -->
     <string name="vehicle_fallback">Vehicle</string>
+    <!-- "Cash" — canonical key used app-wide -->
     <string name="cash">Cash</string>
     <string name="tap_to_view_details">Tap to view details</string>
     <string name="pickup_content_description">Pickup</string>
@@ -270,6 +273,7 @@
 
     <!-- OrderDetailsScreen -->
     <string name="order_details">Order Details</string>
+    <!-- "Support" — canonical key used app-wide -->
     <string name="support">Support</string>
     <string name="book_again">Book Again</string>
     <string name="delivery_otp">Delivery OTP</string>
@@ -288,18 +292,20 @@
     <string name="instructions_label">Instructions</string>
     <string name="payment_details">Payment Details</string>
     <string name="payment_method">Payment Method</string>
-    <string name="na">N/A</string>
     <string name="base_fare">Base Fare</string>
-    <string name="trip_fare">Trip Fare</string>
+    <!-- "Trip Fare" — canonical key used app-wide -->
+    <string name="trip_fare_label">Trip Fare</string>
     <string name="discount_label">Discount</string>
     <string name="total_amount">Total Amount</string>
     <string name="coupon_applied">Coupon Applied</string>
     <string name="gstin_info_label">GSTIN</string>
     <string name="order_cancelled">Order Cancelled</string>
+    <!-- "Cancelled" badge label — canonical key used app-wide -->
     <string name="cancelled_label">Cancelled</string>
     <string name="reason_format">Reason: %s</string>
     <string name="cancelled_by_format">Cancelled by: %s</string>
     <string name="your_rating">Your Rating</string>
+    <!-- "Distance" / "Duration" labels — canonical keys used app-wide -->
     <string name="distance_label">Distance</string>
     <string name="distance_format">%s km</string>
     <string name="duration_label">Duration</string>
@@ -312,6 +318,7 @@
     <string name="complete_or_cancel_active">Complete or cancel your active booking first.</string>
     <string name="loading_orders">Loading your orders…</string>
     <string name="something_went_wrong">Something went wrong</string>
+    <!-- "Try Again" — canonical key used app-wide -->
     <string name="try_again">Try Again</string>
     <string name="looking_for_rider">Looking for rider…</string>
     <string name="unrated">Unrated</string>
@@ -329,6 +336,33 @@
     <string name="active_orders_empty_subtitle">No deliveries in progress right now</string>
     <string name="orders_empty_subtitle">Your orders will appear here once you book a delivery</string>
 
+    <!-- OrdersScreen — status display labels -->
+    <string name="status_delivered">Delivered</string>
+    <!-- status_cancelled → use cancelled_label -->
+    <string name="status_searching">Searching</string>
+    <string name="status_assigned">Assigned</string>
+    <string name="status_arriving">Arriving</string>
+    <string name="status_picked_up">Picked Up</string>
+    <string name="status_in_progress">In Progress</string>
+    <string name="status_pending">Pending</string>
+
+    <!-- OrdersScreen — filter chip labels -->
+    <string name="filter_all">All</string>
+    <!-- filter_searching  → use status_searching -->
+    <!-- filter_in_progress→ use status_in_progress -->
+    <!-- filter_completed  → use label_status_completed (Payments section) -->
+    <!-- filter_cancelled  → use cancelled_label -->
+
+    <!-- OrdersScreen — formatted values -->
+    <!-- Star rating display, e.g. "4.0" -->
+    <string name="rating_value_format">%d.0</string>
+    <!-- Distance chip, e.g. "3.7 km" (1 decimal place) -->
+    <string name="distance_km_format">%.1f km</string>
+    <!-- Booking number chip, e.g. "#10042" -->
+    <string name="booking_number_format">#%s</string>
+    <!-- Quoted feedback, e.g. "Great service" -->
+    <string name="feedback_quote_format">&#8220;%s&#8221;</string>
+
     <!-- Payments Screen -->
     <string name="title_payments">Payments</string>
     <string name="label_wallet_balance">Wallet Balance</string>
@@ -343,7 +377,7 @@
     <string name="label_cards_subtitle">Credit &amp; Debit cards</string>
     <string name="label_net_banking">Net Banking</string>
     <string name="label_net_banking_subtitle">All major banks</string>
-    <string name="label_cash">Cash</string>
+    <!-- label_cash was a duplicate of cash — use cash instead -->
     <string name="label_cash_subtitle">Pay on delivery</string>
     <string name="label_booking_number_prefix">Booking #%s</string>
     <string name="label_refund">Refund</string>
@@ -431,6 +465,7 @@
     <string name="edit_drop_details">Edit Drop Details</string>
     <string name="confirm_pickup_location">Confirm Pickup Location</string>
     <string name="confirm_drop_location">Confirm Drop Location</string>
+    <!-- "Save Address" — canonical key; save_address_btn was a duplicate -->
     <string name="save_address">Save Address</string>
     <string name="save_changes">Save Changes</string>
     <string name="confirm_pickup">Confirm Pickup</string>
@@ -462,9 +497,7 @@
     <string name="pincode_label">Pincode</string>
     <string name="pincode_placeholder">Enter 6 digit pincode</string>
     <string name="save_address_as">Save address as</string>
-    <string name="home_type">Home</string>
-    <string name="shop_type">Shop</string>
-    <string name="other_type">Other</string>
+    <!-- home_type / shop_type / other_type removed — use label_home / label_shop / label_other -->
     <string name="label_name_optional">Label Name (Optional)</string>
     <string name="label_placeholder">e.g., Office, Gym, Friend\'s Place</string>
     <string name="enter_contact_name_error">Please enter contact name</string>
@@ -480,7 +513,6 @@
     <string name="label_search_pickup">Search pickup location…</string>
     <string name="label_search_drop">Search drop location…</string>
     <string name="label_search_location">Search location…</string>
-    <string name="label_searching">Searching…</string>
     <string name="label_recent_searches">Recent Searches</string>
     <string name="content_desc_history">History</string>
     <string name="content_desc_use">Use</string>
@@ -491,12 +523,10 @@
     <string name="content_desc_save">Save</string>
     <string name="label_current">Current</string>
     <string name="label_on_map">On Map</string>
-    <string name="save_address_btn">Save Address</string>
 
     <!-- Map Picker Screen -->
     <string name="title_select_location">Select Location</string>
     <string name="content_desc_pin">Pin</string>
-    <string name="label_selected_location">Selected Location</string>
     <string name="label_getting_address">Getting address…</string>
     <string name="label_move_map_hint">Move map to select location</string>
     <string name="label_latitude">Latitude</string>
@@ -505,10 +535,6 @@
     <string name="content_desc_my_location">My Location</string>
     <string name="label_unknown_location">Unknown location</string>
     <string name="label_unable_get_address">Unable to get address</string>
-
-    <!-- Route Map Screen -->
-    <string name="label_distance_label">Distance</string>
-    <string name="label_duration_label">Duration</string>
 
     <!-- Searching Rider Screen -->
     <string name="label_finding_route">Finding route…</string>
@@ -521,11 +547,7 @@
     <string name="label_connecting_driver">Connecting to your driver…</string>
     <string name="label_all_drivers_busy">All drivers are busy right now</string>
     <string name="label_checking_drivers">Checking nearby drivers · Attempt %d</string>
-    <string name="label_try_again">Try Again</string>
     <string name="label_attempt_completed">Attempt %d completed</string>
-    <string name="label_remaining">remaining</string>
-    <string name="label_support">Support</string>
-    <string name="label_vehicle_fallback">Vehicle</string>
 
     <!-- Cancellation Bottom Sheet -->
     <string name="title_cancel_trip">Cancel Trip?</string>
@@ -535,7 +557,7 @@
     <string name="label_reason_wrong_address">Wrong pickup/drop location</string>
     <string name="label_reason_price_high">Price is too high</string>
     <string name="label_reason_booking_mistake">Booked by mistake</string>
-    <string name="label_reason_other">Other reason</string>
+    <!-- Other reason — use label_other for the chip label, label_please_specify for the hint -->
     <string name="label_please_specify">Please specify</string>
     <string name="hint_enter_reason">Enter your reason…</string>
     <string name="label_cancellation_policy">Cancellation Policy</string>
@@ -546,8 +568,6 @@
     <string name="label_confirm_cancel_message">Are you sure you want to cancel this trip?</string>
     <string name="label_yes_cancel">Yes, Cancel</string>
     <string name="label_no_keep_it">No, Keep It</string>
-    <string name="label_cancelled">Cancelled</string>
-    <string name="label_other_reason">Other</string>
 
     <!-- RestrictedItemsBottomSheet -->
     <string name="restricted_items_title">Restricted Items</string>
@@ -624,9 +644,10 @@
     <string name="rider_photo">Rider photo</string>
     <string name="trips_format">%d trips</string>
     <string name="call_rider">Call rider</string>
+    <!-- "Pickup OTP" — canonical key; label_pickup_otp and label_pickup_otp_default were duplicates -->
     <string name="pickup_otp">Pickup OTP</string>
     <string name="share_otp_for_verification">Share this OTP with rider for pickup verification</string>
-    <string name="trip_fare_label">Trip Fare</string>
+    <!-- trip_fare_label is the canonical key for "Trip Fare" -->
     <string name="cash_payment">Cash Payment</string>
     <string name="waiting_charge_label">Waiting Charge</string>
     <string name="total_cash">Total (Cash)</string>
@@ -640,11 +661,11 @@
     <string name="cancel_booking_btn">Cancel Booking</string>
     <string name="go_back_btn">Go Back</string>
 
+    <!-- Language Settings -->
     <string name="language_change_hint">You can change the language anytime from Account settings</string>
     <string name="change_language_title">Change Language</string>
     <string name="restart_now">Restart Now</string>
     <string name="language_options_display">English • हिंदी • मराठी</string>
-
     <string name="language">Language</string>
     <string name="select_language">Select Language</string>
     <string name="lang_english">English</string>
@@ -670,6 +691,7 @@
     <string name="label_wallet_topup_type">Wallet Top-up</string>
     <string name="label_booking_payment_type">Booking Payment</string>
     <string name="label_wallet_balance_result">Wallet Balance</string>
+    <!-- "Completed" status label — canonical key; filter_completed reuses this -->
     <string name="label_status_completed">Completed</string>
     <string name="label_status">Status</string>
     <string name="label_done">Done</string>
@@ -682,7 +704,6 @@
     <string name="label_complete_payment">Complete Payment</string>
     <string name="label_driver_arrived_delivery">Driver arrived at delivery • %s</string>
     <string name="label_fare_summary">Fare Summary</string>
-    <string name="label_trip_fare">Trip Fare</string>
     <string name="label_waiting_charge_post">Waiting Charge</string>
     <string name="label_included">Included</string>
     <string name="label_coupon_discount">Coupon Discount</string>
@@ -710,14 +731,11 @@
     <string name="label_cash_pay_info">Pay %s cash to driver. Driver will confirm payment on their end.</string>
     <string name="label_invalid_booking_id">Invalid booking ID</string>
     <string name="label_payment_failed_snackbar">Payment failed: %s</string>
-
-    <!-- RiderFoundScreen -->
     <string name="label_payment_confirmed">Payment Confirmed</string>
     <string name="label_verifying_payment">Verifying Payment</string>
     <string name="label_verifying_payment_message">Confirming payment with driver…\nPlease wait</string>
     <string name="label_delivery_otp_title">Delivery OTP</string>
     <string name="label_delivery_otp_sublabel">Share this OTP with receiver for delivery verification</string>
-    <string name="label_pickup_otp_default">Pickup OTP</string>
     <string name="label_pickup_otp_sublabel">Share this OTP with driver for verification</string>
     <string name="label_pickup_marker">Pickup</string>
     <string name="label_drop_marker">Drop</string>
@@ -725,6 +743,7 @@
     <string name="label_wallet_for_booking">Wallet for booking #%s</string>
     <string name="label_payment_for_booking">Payment for booking #%s</string>
 
+    <!-- Misc -->
     <string name="see_all">See All</string>
     <string name="show_less">Show Less</string>
     <string name="active_booking_banner_title">Booking in progress</string>

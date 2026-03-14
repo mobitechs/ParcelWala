@@ -116,7 +116,7 @@ fun MapPreview(
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = stringResource(R.string.label_edit),
+                    text = stringResource(R.string.edit),
                     style = MaterialTheme.typography.labelLarge,
                     color = AppColors.Primary,
                     fontWeight = FontWeight.SemiBold

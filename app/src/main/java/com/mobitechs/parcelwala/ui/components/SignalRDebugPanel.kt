@@ -228,7 +228,7 @@ fun SignalRDebugPanel(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            InfoRow("Booking ID", bookingId ?: stringResource(R.string.label_na))
+                            InfoRow("Booking ID", bookingId ?: stringResource(R.string.na))
                             InfoRow(
                                 "State",
                                 connectionState::class.simpleName

@@ -391,7 +391,7 @@ private fun PaymentMethodsSection() {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             PaymentMethodRow(
                 icon = Icons.Default.MonetizationOn,
-                title = stringResource(R.string.label_cash),
+                title = stringResource(R.string.cash),
                 subtitle = stringResource(R.string.label_cash_subtitle),
                 iconColor = AppColors.Purple
             )
@@ -505,7 +505,7 @@ private fun TransactionItem(transaction: TransactionResponse) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        transaction.paymentMethod?.uppercase() ?: stringResource(R.string.label_na),
+                        transaction.paymentMethod?.uppercase() ?: stringResource(R.string.na),
                         fontSize = 11.sp,
                         color = AppColors.TextSecondary
                     )

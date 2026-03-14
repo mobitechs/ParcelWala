@@ -719,19 +719,19 @@ fun AddressConfirmationScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         AddressTypeChip(
-                            text = stringResource(R.string.home_type), icon = Icons.Default.Home,
+                            text = stringResource(R.string.label_home), icon = Icons.Default.Home,
                             isSelected = selectedType == "Home",
                             onClick = { selectedType = "Home"; customLabel = "" },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
-                            text = stringResource(R.string.shop_type), icon = Icons.Default.Store,
+                            text = stringResource(R.string.label_shop), icon = Icons.Default.Store,
                             isSelected = selectedType == "Shop",
                             onClick = { selectedType = "Shop"; customLabel = "" },
                             modifier = Modifier.weight(1f)
                         )
                         AddressTypeChip(
-                            text = stringResource(R.string.other_type),
+                            text = stringResource(R.string.label_other),
                             icon = Icons.Default.MoreHoriz,
                             isSelected = selectedType == "Other",
                             onClick = { selectedType = "Other" },

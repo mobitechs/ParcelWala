@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
@@ -355,30 +356,38 @@ private fun HomeHeader(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Green pickup dot
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(
-                                color = AppColors.Pickup,
-                                shape = CircleShape
-                            )
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = AppColors.White.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp)
                     )
 
                     // Pickup text
+//                    Text(
+//                        text = if (pickupLocation.isNotBlank() &&
+//                            pickupLocation != stringResource(R.string.pick_up_from)
+//                        )
+//                            pickupLocation
+//                        else
+//                            stringResource(R.string.pick_up_from),
+//                        style = MaterialTheme.typography.bodyMedium,
+//                        color = if (pickupLocation.isNotBlank() &&
+//                            pickupLocation != stringResource(R.string.pick_up_from)
+//                        )
+//                            AppColors.White
+//                        else
+//                            AppColors.White.copy(alpha = 0.55f),
+//                        maxLines = 1,
+//                        overflow = TextOverflow.Ellipsis,
+//                        modifier = Modifier.weight(1f)
+//                    )
+
                     Text(
-                        text = if (pickupLocation.isNotBlank() &&
-                            pickupLocation != stringResource(R.string.pick_up_from)
-                        )
-                            pickupLocation
-                        else
-                            stringResource(R.string.pick_up_from),
+                        text = stringResource(R.string.label_search_pickup),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (pickupLocation.isNotBlank() &&
-                            pickupLocation != stringResource(R.string.pick_up_from)
-                        )
-                            AppColors.White
-                        else
-                            AppColors.White.copy(alpha = 0.55f),
+                        color = AppColors.White.copy(alpha = 0.55f),
+
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -386,9 +395,9 @@ private fun HomeHeader(
 
                     // Location pin icon
                     Icon(
-                        imageVector = Icons.Default.LocationOn,
+                        imageVector = Icons.Default.Mic,
                         contentDescription = null,
-                        tint = AppColors.White.copy(alpha = 0.4f),
+                        tint = AppColors.White,
                         modifier = Modifier.size(18.dp)
                     )
                 }

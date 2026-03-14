@@ -804,7 +804,7 @@ private fun PaymentDetailsCard(order: OrderResponse) {
                     amount = stringResource(R.string.fare_format, baseFare)
                 )
             } ?: FareRow(
-                label = stringResource(R.string.trip_fare),
+                label = stringResource(R.string.trip_fare_label),
                 amount = stringResource(R.string.fare_format, order.fare)
             )
 

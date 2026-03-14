@@ -479,7 +479,7 @@ private fun SearchingSheetBody(
 ) {
     val pickupFallback = stringResource(R.string.label_pickup)
     val dropFallback = stringResource(R.string.label_drop)
-    val vehicleFallback = stringResource(R.string.label_vehicle_fallback)
+    val vehicleFallback = stringResource(R.string.vehicle_fallback)
 
     Column(
         modifier = Modifier
@@ -631,7 +631,7 @@ private fun SearchingSheetBody(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                stringResource(R.string.label_cash),
+                                stringResource(R.string.cash),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppColors.TextSecondary
                             )
@@ -662,7 +662,7 @@ private fun SearchingSheetBody(
                 Icon(Icons.Default.Headset, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    stringResource(R.string.label_support),
+                    stringResource(R.string.support),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
@@ -680,7 +680,7 @@ private fun SearchingSheetBody(
                 Icon(Icons.Default.Close, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    stringResource(R.string.label_cancel),
+                    stringResource(R.string.cancel),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
@@ -885,7 +885,7 @@ private fun SearchingAnimationCard(
                         Icon(Icons.Default.Refresh, null, Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            stringResource(R.string.label_try_again),
+                            stringResource(R.string.try_again),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -932,7 +932,7 @@ private fun SearchingAnimationCard(
                             )
                         }
                         Text(
-                            stringResource(R.string.label_remaining),
+                            stringResource(R.string.remaining),
                             style = MaterialTheme.typography.labelSmall,
                             color = AppColors.TextHint
                         )
@@ -1061,9 +1061,9 @@ private fun CancellationReasonBottomSheet(
     val reasonWrongAddress = stringResource(R.string.label_reason_wrong_address)
     val reasonPriceHigh = stringResource(R.string.label_reason_price_high)
     val reasonBookingMistake = stringResource(R.string.label_reason_booking_mistake)
-    val reasonOther = stringResource(R.string.label_reason_other)
-    val cancelledFallback = stringResource(R.string.label_cancelled)
-    val otherFallback = stringResource(R.string.label_other_reason)
+    val reasonOther = stringResource(R.string.label_other)
+    val cancelledFallback = stringResource(R.string.cancelled_label)
+    val otherFallback = stringResource(R.string.label_other)
 
     val reasons = listOf(
         CancellationReason("driver_delayed", reasonDriverDelayed, Icons.Default.Timer),

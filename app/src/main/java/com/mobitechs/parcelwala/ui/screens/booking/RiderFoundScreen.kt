@@ -649,7 +649,7 @@ private fun RiderDetailsCard(rider: RiderInfo, onCallRider: () -> Unit, modifier
 @Composable
 private fun OtpCard(
     otp: String,
-    label: String = stringResource(R.string.label_pickup_otp_default),
+    label: String = stringResource(R.string.pickup_otp),
     sublabel: String = stringResource(R.string.label_pickup_otp_sublabel),
     accentColor: Color = AppColors.Primary,
     modifier: Modifier = Modifier

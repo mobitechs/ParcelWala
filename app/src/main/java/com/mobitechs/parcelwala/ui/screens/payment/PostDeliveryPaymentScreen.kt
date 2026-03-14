@@ -433,7 +433,7 @@ private fun FareBreakdownCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             FareRow(
-                label = stringResource(R.string.label_trip_fare),
+                label = stringResource(R.string.trip_fare_label),
                 amount = formatRupee(roundedFare),
                 icon = Icons.Default.LocalShipping,
                 iconTint = AppColors.Primary
