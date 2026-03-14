@@ -17,12 +17,15 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,20 +37,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Payment
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Route
-import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PersonPin
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -73,6 +71,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,7 +82,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -96,6 +94,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.RatingDialog
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
 import com.mobitechs.parcelwala.ui.theme.AppSpacing
@@ -124,33 +123,33 @@ private data class FilterChipData(
 
 private val filterChips = listOf(
     FilterChipData(
-        labelRes      = R.string.filter_all,
-        filterKey     = null,
-        icon          = Icons.Rounded.Receipt,
+        labelRes = R.string.filter_all,
+        filterKey = null,
+        icon = Icons.Rounded.Receipt,
         selectedColor = AppColors.Primary          // ← teal, clearly visible when "All" is active
     ),
     FilterChipData(
-        labelRes      = R.string.status_searching,
-        filterKey     = Constants.FilterKey.SEARCHING,
-        icon          = Icons.Rounded.Search,
+        labelRes = R.string.status_searching,
+        filterKey = Constants.FilterKey.SEARCHING,
+        icon = Icons.Rounded.Search,
         selectedColor = AppColors.WarningAmberDark
     ),
     FilterChipData(
-        labelRes      = R.string.status_in_progress,
-        filterKey     = Constants.FilterKey.ACTIVE,
-        icon          = Icons.Rounded.LocalShipping,
+        labelRes = R.string.status_in_progress,
+        filterKey = Constants.FilterKey.ACTIVE,
+        icon = Icons.Rounded.LocalShipping,
         selectedColor = AppColors.WarningAmberDark
     ),
     FilterChipData(
-        labelRes      = R.string.label_status_completed,
-        filterKey     = Constants.FilterKey.COMPLETED,
-        icon          = Icons.Rounded.CheckCircle,
+        labelRes = R.string.label_status_completed,
+        filterKey = Constants.FilterKey.COMPLETED,
+        icon = Icons.Rounded.CheckCircle,
         selectedColor = AppColors.Pickup
     ),
     FilterChipData(
-        labelRes      = R.string.cancelled_label,
-        filterKey     = Constants.FilterKey.CANCELLED,
-        icon          = Icons.Rounded.Cancel,
+        labelRes = R.string.cancelled_label,
+        filterKey = Constants.FilterKey.CANCELLED,
+        icon = Icons.Rounded.Cancel,
         selectedColor = AppColors.Drop
     )
 )
@@ -181,18 +180,27 @@ fun OrdersScreen(
                 snackbarHostState.showSnackbar(state.message)
                 viewModel.clearRatingState()
             }
+
             is RatingSubmitState.Error -> {
                 snackbarHostState.showSnackbar(state.message)
                 viewModel.clearRatingState()
             }
+
             else -> {}
         }
     }
 
-    Scaffold(
+
+
+    StatusBarScaffold(
+        statusBarColor = AppColors.Primary,
+        darkStatusBarIcons = false,
         topBar = {
-            Surface(color = AppColors.White, shadowElevation = 0.dp, tonalElevation = 0.dp) {
+
+
+            Surface(color = AppColors.Primary, shadowElevation = 0.dp, tonalElevation = 0.dp) {
                 Column {
+
                     TopAppBar(
                         title = {
                             Text(
@@ -201,7 +209,7 @@ fun OrdersScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = (-0.3).sp
                                 ),
-                                color = AppColors.TextPrimary
+                                color = AppColors.White
                             )
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -248,6 +256,7 @@ fun OrdersScreen(
                             error = uiState.error ?: "",
                             onRetry = { viewModel.refreshOrders() }
                         )
+
                     uiState.orders.isEmpty() -> EmptyOrdersState(filter = selectedFilter)
                     else -> OrdersList(
                         orders = uiState.orders,
@@ -274,7 +283,9 @@ fun OrdersScreen(
         RatingDialog(
             bookingNumber = order.bookingNumber,
             fare = order.fare.toInt(),
-            existingCustomerRating = if ((order.rating ?: 0) > 0) order.rating?.toDouble() else null,
+            existingCustomerRating = if ((order.rating
+                    ?: 0) > 0
+            ) order.rating?.toDouble() else null,
             existingCustomerFeedback = order.review,
             driverRatingForCustomer = null,
             driverFeedbackForCustomer = null,
@@ -367,18 +378,18 @@ private fun StatusFilterRow(selectedFilter: String?, onFilterSelected: (String?)
                 colors = FilterChipDefaults.filterChipColors(
                     // Selected state — uses chip.selectedColor so "All" gets teal,
                     // others get their own semantic color
-                    selectedContainerColor  = chip.selectedColor.copy(alpha = 0.12f),
-                    selectedLabelColor      = chip.selectedColor,
-                    selectedLeadingIconColor= chip.selectedColor,
+                    selectedContainerColor = chip.selectedColor.copy(alpha = 0.12f),
+                    selectedLabelColor = chip.selectedColor,
+                    selectedLeadingIconColor = chip.selectedColor,
                     // Unselected state — same neutral gray for all chips
-                    containerColor          = AppColors.Gray100,
-                    labelColor              = AppColors.Gray600,
-                    iconColor               = AppColors.Gray600.copy(alpha = 0.6f)
+                    containerColor = AppColors.Gray100,
+                    labelColor = AppColors.Gray600,
+                    iconColor = AppColors.Gray600.copy(alpha = 0.6f)
                 ),
                 border = FilterChipDefaults.filterChipBorder(
-                    enabled             = true,
-                    selected            = isSelected,
-                    borderColor         = Color.Transparent,
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = Color.Transparent,
                     selectedBorderColor = chip.selectedColor.copy(alpha = 0.3f)
                 ),
                 modifier = Modifier.height(36.dp)
@@ -429,13 +440,6 @@ private fun OrdersList(
     }
 }
 
-// ── Order card (Variation C1) ─────────────────────────────────────────────────
-// Layout:
-//   [4dp accent bar] | [emoji icon box] [booking number + date] [status badge]
-//                    | [route box: vehicle · distance/driver/reason ── pickup ── drop]
-//                    | [divider]
-//                    | [payment method pill]  [fare]
-//                    | [Rate button] [Book Again button]   ← only when relevant
 
 @Composable
 private fun OrderCard(
@@ -445,13 +449,13 @@ private fun OrderCard(
     onRateOrder: () -> Unit
 ) {
     val statusConfig = getStatusConfig(order.status)
-    val accentColor  = getAccentColor(order.status)
-    val completed    = isCompletedStatus(order.status)
-    val cancelled    = isCancelledStatus(order.status)
-    val searching    = isSearchingStatus(order.status)
-    val active       = isActiveStatus(order.status)
-    val showRating   = needsRating(order)
-    val statusLabel  = statusConfig.resolveLabel()
+    val accentColor = getAccentColor(order.status)
+    val completed = isCompletedStatus(order.status)
+    val cancelled = isCancelledStatus(order.status)
+    val searching = isSearchingStatus(order.status)
+    val active = isActiveStatus(order.status)
+    val showRating = needsRating(order)
+    val statusLabel = statusConfig.resolveLabel()
 
     Surface(
         modifier = Modifier
@@ -466,7 +470,9 @@ private fun OrderCard(
         color = AppColors.White,
         onClick = onClick
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)) {
 
             // ── Left accent bar (status color) ────────────────────────────
             Box(
@@ -754,6 +760,7 @@ private fun RouteSection(
                         )
                     }
                 }
+
                 searching -> {
                     Text(
                         text = stringResource(R.string.looking_for_rider),
@@ -761,6 +768,7 @@ private fun RouteSection(
                         color = AppColors.WarningAmberDark
                     )
                 }
+
                 order.distance != null && order.distance > 0 -> {
                     // Distance shown for ALL other statuses including cancelled
                     Row(
@@ -783,6 +791,7 @@ private fun RouteSection(
                         )
                     }
                 }
+
                 else -> {
                     Text(
                         text = stringResource(R.string.booking_number_format, order.bookingNumber),
@@ -1098,8 +1107,8 @@ private fun EmptyOrdersState(filter: String?) {
                     Constants.FilterKey.COMPLETED -> stringResource(R.string.no_completed_orders)
                     Constants.FilterKey.CANCELLED -> stringResource(R.string.no_cancelled_orders)
                     Constants.FilterKey.SEARCHING -> stringResource(R.string.no_searching_orders)
-                    Constants.FilterKey.ACTIVE    -> stringResource(R.string.no_active_orders)
-                    else                          -> stringResource(R.string.no_orders_yet)
+                    Constants.FilterKey.ACTIVE -> stringResource(R.string.no_active_orders)
+                    else -> stringResource(R.string.no_orders_yet)
                 },
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
@@ -1112,8 +1121,8 @@ private fun EmptyOrdersState(filter: String?) {
                     Constants.FilterKey.COMPLETED -> stringResource(R.string.completed_orders_empty_subtitle)
                     Constants.FilterKey.CANCELLED -> stringResource(R.string.cancelled_orders_empty_subtitle)
                     Constants.FilterKey.SEARCHING -> stringResource(R.string.searching_orders_empty_subtitle)
-                    Constants.FilterKey.ACTIVE    -> stringResource(R.string.active_orders_empty_subtitle)
-                    else                          -> stringResource(R.string.orders_empty_subtitle)
+                    Constants.FilterKey.ACTIVE -> stringResource(R.string.active_orders_empty_subtitle)
+                    else -> stringResource(R.string.orders_empty_subtitle)
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
                 color = AppColors.TextSecondary,

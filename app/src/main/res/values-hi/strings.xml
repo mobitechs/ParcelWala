@@ -748,4 +748,30 @@
 
     <!-- Hindi -->
     <string name="book_again_available_after_delivery">डिलीवरी पूरी होने के बाद फिर से बुक करें उपलब्ध होगा</string>
+
+    <!-- Section labels -->
+    <string name="my_account_section">मेरा खाता</string>
+    <string name="more_section">सेटिंग्स</string>
+
+    <!-- Saved addresses -->
+    <string name="saved_addresses_subtitle">अपने सहेजे गए स्थान प्रबंधित करें</string>
+
+    <!-- GST -->
+    <string name="gst_details_subtitle">अपना GSTIN जोड़ें या अपडेट करें</string>
+
+    <!-- Help -->
+    <string name="help_support_subtitle">सामान्य प्रश्न, हमसे संपर्क करें</string>
+
+    <!-- Referral badge -->
+    <string name="referral_badge_value">₹50 / रेफर</string>
+
+    <!-- Logout -->
+<!--    <string name="logout_subtitle">अपने खाते से साइन आउट करें</string>-->
+
+    <!-- Edit profile header button -->
+    <string name="edit_profile_label">प्रोफ़ाइल संपादित करें</string>
+
+    <!-- Stat card labels -->
+    <string name="stat_total_orders">कुल ऑर्डर</string>
+    <string name="stat_referral_earned">रेफरल से कमाई</string>
 </resources>

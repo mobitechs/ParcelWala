@@ -75,6 +75,12 @@ import com.mobitechs.parcelwala.ui.viewmodel.PaymentEvent
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentViewModel
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.Surface
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,22 +161,32 @@ fun PaymentsScreen(
         paymentViewModel.loadWalletBalance()
     }
 
-    Scaffold(
+    StatusBarScaffold(
+        statusBarColor = AppColors.Primary,
+        darkStatusBarIcons = false,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(R.string.title_payments),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
+
+            Surface(color = AppColors.Primary, shadowElevation = 0.dp, tonalElevation = 0.dp) {
+                Column {
+
+                    TopAppBar(
+                        title = {
+                            Text(
+                                stringResource(R.string.title_payments),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White  // ← white on orange
+                            )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
+                        )
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Surface)
-            )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = AppColors.Background
+        containerColor = AppColors.Background,
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

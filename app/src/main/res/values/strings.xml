@@ -751,4 +751,32 @@
 
     <!-- OrderDetailsScreen -->
     <string name="book_again_available_after_delivery">Book Again available after delivery is complete</string>
+
+
+    <!-- Section labels -->
+    <string name="my_account_section">My Account</string>
+    <string name="more_section">Settings</string>
+
+    <!-- Saved addresses -->
+    <string name="saved_addresses_subtitle">Manage your saved locations</string>
+
+    <!-- GST -->
+    <string name="gst_details_subtitle">Add or update your GSTIN</string>
+
+    <!-- Help -->
+    <string name="help_support_subtitle">FAQs, contact us</string>
+
+    <!-- Referral badge -->
+    <string name="referral_badge_value">₹50 / Refer</string>
+
+    <!-- Logout -->
+<!--    <string name="logout_subtitle">Sign out of your account</string>-->
+
+
+    <!-- Edit profile header button -->
+    <string name="edit_profile_label">Edit Profile</string>
+
+    <!-- Stat card labels -->
+    <string name="stat_total_orders">Total Orders</string>
+    <string name="stat_referral_earned">Referral Earned</string>
 </resources>

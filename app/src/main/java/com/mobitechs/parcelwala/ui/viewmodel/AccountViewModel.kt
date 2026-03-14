@@ -308,5 +308,8 @@ data class AccountUiState(
     val addressSaveSuccess: Boolean = false,
     val addressDeleteSuccess: Boolean = false,
     val gstSaveSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+
+    val totalOrders: Int? = null,       // ← add this
+     val referralEarned: Int? = null,
 )

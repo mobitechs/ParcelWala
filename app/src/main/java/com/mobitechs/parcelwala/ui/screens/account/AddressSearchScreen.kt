@@ -50,6 +50,7 @@ import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.ui.components.ErrorMessageCard
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.components.SearchField
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
@@ -80,14 +81,17 @@ fun AddressSearchScreen(
         }
     }
 
-    Scaffold(
+    StatusBarScaffold(
+        statusBarColor = AppColors.Primary,
+        darkStatusBarIcons = false,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = stringResource(R.string.add_address),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.White
                     )
                 },
                 navigationIcon = {
@@ -95,12 +99,12 @@ fun AddressSearchScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = AppColors.TextPrimary
+                            tint = AppColors.White
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Primary
                 )
             )
         },

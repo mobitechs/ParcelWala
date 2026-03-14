@@ -69,11 +69,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
 import com.mobitechs.parcelwala.ui.theme.AppSpacing
 import com.mobitechs.parcelwala.utils.Constants
 import com.mobitechs.parcelwala.utils.DateTimeUtils
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,7 +115,10 @@ fun OrderDetailsScreen(
         }
     }
 
-    Scaffold(
+    //StatusBarScaffold this for status bar color common composable created
+    StatusBarScaffold(
+        statusBarColor = headerColor,
+        darkStatusBarIcons = false,
         containerColor = AppColors.LightGray50
     ) { paddingValues ->
         Column(

@@ -61,6 +61,7 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 
@@ -126,14 +127,17 @@ fun SavedAddressesScreen(
         }
     }
 
-    Scaffold(
+    StatusBarScaffold(
+        statusBarColor = AppColors.Primary,
+        darkStatusBarIcons = false,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = stringResource(R.string.saved_addresses),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.White
                     )
                 },
                 navigationIcon = {
@@ -141,7 +145,7 @@ fun SavedAddressesScreen(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = AppColors.TextPrimary
+                            tint = AppColors.White
                         )
                     }
                 },
@@ -150,10 +154,10 @@ fun SavedAddressesScreen(
                         onClick = onAddAddress,
                         modifier = Modifier.padding(end = 8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.Primary
+                            contentColor = AppColors.White
                         ),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.White)
                         ),
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
@@ -161,17 +165,19 @@ fun SavedAddressesScreen(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
+                            tint = AppColors.White
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.add),
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.White
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = AppColors.Primary
                 )
             )
         },
