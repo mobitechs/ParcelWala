@@ -18,14 +18,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,7 +57,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -71,7 +68,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,6 +89,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.RatingDialog
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -190,40 +187,17 @@ fun OrdersScreen(
         }
     }
 
-
-
     StatusBarScaffold(
-        statusBarColor = AppColors.Primary,
-        darkStatusBarIcons = false,
         topBar = {
-
-
-            Surface(color = AppColors.Primary, shadowElevation = 0.dp, tonalElevation = 0.dp) {
-                Column {
-
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = stringResource(R.string.my_orders),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = (-0.3).sp
-                                ),
-                                color = AppColors.White
-                            )
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent
-                        )
-                    )
+            AppTopBar(
+                title = stringResource(R.string.my_orders),
+                extraContent = {
                     StatusFilterRow(
                         selectedFilter = selectedFilter,
                         onFilterSelected = { viewModel.onFilterSelected(it) }
                     )
-                    HorizontalDivider(color = AppColors.Gray100, thickness = 1.dp)
                 }
-            }
+            )
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
@@ -362,7 +336,7 @@ private fun StatusFilterRow(selectedFilter: String?, onFilterSelected: (String?)
                     Text(
                         text = stringResource(chip.labelRes),
                         style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 13.sp
                         )
                     )
@@ -376,21 +350,22 @@ private fun StatusFilterRow(selectedFilter: String?, onFilterSelected: (String?)
                 },
                 shape = RoundedCornerShape(AppRadius.Full),
                 colors = FilterChipDefaults.filterChipColors(
-                    // Selected state — uses chip.selectedColor so "All" gets teal,
-                    // others get their own semantic color
-                    selectedContainerColor = chip.selectedColor.copy(alpha = 0.12f),
-                    selectedLabelColor = chip.selectedColor,
-                    selectedLeadingIconColor = chip.selectedColor,
-                    // Unselected state — same neutral gray for all chips
-                    containerColor = AppColors.Gray100,
-                    labelColor = AppColors.Gray600,
-                    iconColor = AppColors.Gray600.copy(alpha = 0.6f)
+                    // ── Selected: frosted white fill + white text ──
+                    selectedContainerColor = Color.White.copy(alpha = 0.22f),
+                    selectedLabelColor = Color.White,
+                    selectedLeadingIconColor = Color.White,
+                    // ── Unselected: transparent + faint white text ──
+                    containerColor = Color.Transparent,
+                    labelColor = Color.White.copy(alpha = 0.75f),
+                    iconColor = Color.White.copy(alpha = 0.6f)
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
                     selected = isSelected,
-                    borderColor = Color.Transparent,
-                    selectedBorderColor = chip.selectedColor.copy(alpha = 0.3f)
+                    selectedBorderColor = Color.White,          // solid white border when selected
+                    selectedBorderWidth = 1.5.dp,
+                    borderColor = Color.White.copy(alpha = 0.4f),  // faint border unselected
+                    borderWidth = 1.dp
                 ),
                 modifier = Modifier.height(36.dp)
             )
@@ -398,7 +373,6 @@ private fun StatusFilterRow(selectedFilter: String?, onFilterSelected: (String?)
         Spacer(modifier = Modifier.width(AppSpacing.LG))
     }
 }
-
 // ── Orders list ───────────────────────────────────────────────────────────────
 
 @Composable
@@ -470,9 +444,11 @@ private fun OrderCard(
         color = AppColors.White,
         onClick = onClick
     ) {
-        Row(modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+        ) {
 
             // ── Left accent bar (status color) ────────────────────────────
             Box(

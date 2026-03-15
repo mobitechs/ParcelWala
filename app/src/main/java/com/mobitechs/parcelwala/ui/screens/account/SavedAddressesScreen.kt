@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
@@ -128,57 +129,26 @@ fun SavedAddressesScreen(
     }
 
     StatusBarScaffold(
-        statusBarColor = AppColors.Primary,
-        darkStatusBarIcons = false,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.saved_addresses),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = AppColors.White
-                        )
-                    }
-                },
+            AppTopBar(
+                title = stringResource(R.string.saved_addresses),
+                onBack = onBack,
                 actions = {
                     OutlinedButton(
                         onClick = onAddAddress,
                         modifier = Modifier.padding(end = 8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AppColors.White
-                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.White)
+                            brush = androidx.compose.ui.graphics.SolidColor(Color.White)
                         ),
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = AppColors.White
-                        )
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = stringResource(R.string.add),
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.White
-                        )
+                        Text(stringResource(R.string.add), fontWeight = FontWeight.SemiBold)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppColors.Primary
-                )
+                }
             )
         },
         containerColor = AppColors.Background

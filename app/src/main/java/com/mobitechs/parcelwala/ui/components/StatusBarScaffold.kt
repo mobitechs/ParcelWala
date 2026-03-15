@@ -1,6 +1,8 @@
 // ui/components/StatusBarScaffold.kt
 package com.mobitechs.parcelwala.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -9,68 +11,40 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
+import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
-/**
- * StatusBarScaffold
- *
- * Drop-in replacement for Scaffold that:
- *  1. Colors the status bar to match your toolbar color
- *  2. Adds the correct top padding so content sits below system icons
- *  3. Restores transparent + dark icons when the screen is disposed
- *
- * Usage — Orange toolbar (HomeScreen / AccountScreen / OrdersScreen style):
- *
- *   StatusBarScaffold(
- *       statusBarColor = AppColors.Primary,
- *       darkStatusBarIcons = false,
- *       topBar = {
- *           TopAppBar(
- *               title = { Text("My Screen", color = Color.White) },
- *               colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Primary)
- *           )
- *       }
- *   ) { padding ->
- *       // your screen content
- *   }
- *
- * Usage — White toolbar (any plain screen):
- *
- *   StatusBarScaffold(
- *       statusBarColor = Color.White,
- *       darkStatusBarIcons = true,
- *       topBar = { TopAppBar(...) }
- *   ) { padding ->
- *       // your screen content
- *   }
- *
- * Usage — Dynamic color (OrderDetailsScreen — color depends on order status):
- *
- *   StatusBarScaffold(
- *       statusBarColor = statusConfig.color,
- *       darkStatusBarIcons = false,
- *       topBar = { /* coloured header Box with TopAppBar inside */ }
- *   ) { padding ->
- *       // your screen content
- *   }
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// StatusBarScaffold
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 fun StatusBarScaffold(
-    // Color applied to the status bar background AND the topBar surface
-    statusBarColor: Color = AppColors.Primary,
-    // false = white icons (use on dark/colored bars)
-    // true  = dark icons  (use on white/light bars)
+    statusBarColor: Color = AppColors.PrimaryDeep,
     darkStatusBarIcons: Boolean = false,
-    // Standard Scaffold parameters
+    useGradientTopBar: Boolean = true,
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
@@ -79,23 +53,20 @@ fun StatusBarScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val view = LocalView.current
+    val resolvedColor = AppColors.PrimaryDeep
     val statusBarColorArgb = android.graphics.Color.argb(
-        (statusBarColor.alpha * 255).toInt(),
-        (statusBarColor.red * 255).toInt(),
-        (statusBarColor.green * 255).toInt(),
-        (statusBarColor.blue * 255).toInt()
+        (resolvedColor.alpha * 255).toInt(),
+        (resolvedColor.red * 255).toInt(),
+        (resolvedColor.green * 255).toInt(),
+        (resolvedColor.blue * 255).toInt()
     )
 
-    // Apply and restore status bar color + icon style
     DisposableEffect(statusBarColorArgb, darkStatusBarIcons) {
         val window = (view.context as? android.app.Activity)?.window
         val controller = window?.let { WindowInsetsControllerCompat(it, view) }
-
         window?.statusBarColor = statusBarColorArgb
         controller?.isAppearanceLightStatusBars = darkStatusBarIcons
-
         onDispose {
-            // Restore transparent status bar with dark icons when leaving screen
             window?.statusBarColor = android.graphics.Color.TRANSPARENT
             controller?.isAppearanceLightStatusBars = true
         }
@@ -103,10 +74,11 @@ fun StatusBarScaffold(
 
     Scaffold(
         topBar = {
-            StatusBarAwareTopBar(
-                backgroundColor = statusBarColor,
-                content = topBar
-            )
+            if (useGradientTopBar) {
+                GradientTopBarWrapper(content = topBar)
+            } else {
+                topBar()
+            }
         },
         bottomBar = bottomBar,
         snackbarHost = snackbarHost,
@@ -116,41 +88,90 @@ fun StatusBarScaffold(
     )
 }
 
-/**
- * Wraps any topBar content with a Surface that:
- * - matches the statusBarColor
- * - adds a Spacer equal to the status bar height above the content
- *
- * This ensures your TopAppBar title/icons never overlap the system status icons.
- *
- * If you need a fully custom header (like OrderDetailsScreen's coloured Box),
- * pass useDefaultSurface = false and manage the Spacer yourself inside your topBar.
- */
-@Composable
-fun StatusBarAwareTopBar(
-    backgroundColor: Color,
-    useDefaultSurface: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+// ══════════════════════════════════════════════════════════════════════════════
+// GradientTopBarWrapper — internal, never use directly
+// ══════════════════════════════════════════════════════════════════════════════
 
-    if (useDefaultSurface) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = backgroundColor,
-            shadowElevation = androidx.compose.ui.unit.Dp(0f),
-            tonalElevation = androidx.compose.ui.unit.Dp(0f)
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(statusBarHeight))
-                content()
-            }
-        }
-    } else {
-        // Caller manages layout; just expose the height via a Spacer at the top
+@Composable
+private fun GradientTopBarWrapper(content: @Composable () -> Unit) {
+    val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val gradient = Brush.verticalGradient(
+        colors = listOf(AppColors.PrimaryDeep, AppColors.Primary)
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+            .background(brush = gradient)
+    ) {
         Column {
             Spacer(modifier = Modifier.height(statusBarHeight))
             content()
         }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AppTopBar — use this inside StatusBarScaffold on every screen
+//
+// EXAMPLES:
+//
+// Simple (Payments, Account tab screens with no back):
+//   AppTopBar(title = "Payments")
+//
+// With back button (SavedAddresses, ProfileDetails, Language):
+//   AppTopBar(title = "Saved Addresses", onBack = onBack)
+//
+// With trailing actions (SavedAddresses + Add button):
+//   AppTopBar(
+//       title = "Saved Addresses",
+//       onBack = onBack,
+//       actions = { OutlinedButton(...) }
+//   )
+//
+// With content below the title row (OrdersScreen filter chips):
+//   AppTopBar(
+//       title = "My Orders",
+//       extraContent = { StatusFilterRow(...) }
+//   )
+// ══════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppTopBar(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable () -> Unit = {},
+    extraContent: @Composable () -> Unit = {}
+) {
+    Column {
+        TopAppBar(
+            title = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = Color.White
+                        )
+                    }
+                }
+            },
+            actions = { actions() },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent
+            ),
+            windowInsets = WindowInsets(0)
+        )
+        extraContent()
     }
 }

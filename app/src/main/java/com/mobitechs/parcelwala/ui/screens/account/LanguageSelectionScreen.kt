@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LanguageViewModel
@@ -101,29 +102,11 @@ fun LanguageSelectionScreen(
     }
 
     StatusBarScaffold(
-        statusBarColor = AppColors.Primary,
-        darkStatusBarIcons = false,
+
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.select_language),
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                                    tint = AppColors.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppColors.Primary
-                )
+            AppTopBar(
+                title = stringResource(R.string.select_language),
+                onBack = onBack
             )
         },
         containerColor = AppColors.Background

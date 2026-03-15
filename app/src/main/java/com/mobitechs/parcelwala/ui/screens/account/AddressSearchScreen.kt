@@ -47,6 +47,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
+import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.ErrorMessageCard
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.components.SearchField
@@ -82,30 +83,10 @@ fun AddressSearchScreen(
     }
 
     StatusBarScaffold(
-        statusBarColor = AppColors.Primary,
-        darkStatusBarIcons = false,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.add_address),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = AppColors.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppColors.Primary
-                )
+            AppTopBar(
+                title = stringResource(R.string.add_address),
+                onBack = onBack
             )
         },
         containerColor = AppColors.Background

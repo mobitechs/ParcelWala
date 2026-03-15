@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -60,7 +62,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -76,8 +77,6 @@ import com.mobitechs.parcelwala.ui.theme.AppSpacing
 import com.mobitechs.parcelwala.utils.Constants
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailsScreen(
@@ -92,33 +91,13 @@ fun OrderDetailsScreen(
     val isActive      = isActiveStatus(order.status)
     val isCompleted   = isCompletedStatus(order.status)
     val isCancelled   = isCancelledStatus(order.status)
-    val showBookAgain = isCompleted || isCancelled   // hidden for active/searching/pending
+    val showBookAgain = isCompleted || isCancelled
 
-    // Tint the status bar to match the header color,
-    // and restore the default (transparent + dark icons) when this screen is disposed
-    val view = androidx.compose.ui.platform.LocalView.current
-    val headerColorArgb = headerColor.toArgb()
-    androidx.compose.runtime.DisposableEffect(headerColorArgb) {
-        val window = (view.context as? android.app.Activity)?.window
-        val controller = window?.let {
-            androidx.core.view.WindowInsetsControllerCompat(it, view)
-        }
-
-        // Apply status bar color matching the header
-        window?.statusBarColor = headerColorArgb
-        controller?.isAppearanceLightStatusBars = false   // white icons on coloured bar
-
-        onDispose {
-            // Restore transparent status bar with dark icons when navigating back
-            window?.statusBarColor = android.graphics.Color.TRANSPARENT
-            controller?.isAppearanceLightStatusBars = true
-        }
-    }
-
-    //StatusBarScaffold this for status bar color common composable created
+    // StatusBarScaffold handles status bar color + restore on dispose
     StatusBarScaffold(
         statusBarColor = headerColor,
         darkStatusBarIcons = false,
+        useGradientTopBar = false,          // dynamic color — header manages its own bg
         containerColor = AppColors.LightGray50
     ) { paddingValues ->
         Column(
@@ -137,13 +116,13 @@ fun OrderDetailsScreen(
                         .fillMaxWidth()
                         .background(headerColor)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth()
+                        .padding(top = 30.dp)) {
 
-                        // Top app bar inside the coloured header
+                        // TopAppBar inside the coloured header
                         TopAppBar(
                             title = {
                                 Column {
-                                    // Large primary title
                                     Text(
                                         text = stringResource(R.string.order_details),
                                         style = MaterialTheme.typography.headlineSmall.copy(
@@ -151,7 +130,6 @@ fun OrderDetailsScreen(
                                         ),
                                         color = AppColors.White
                                     )
-                                    // Small status subtitle — no icon, just text
                                     Text(
                                         text = statusConfig.resolveLabel(),
                                         style = MaterialTheme.typography.labelSmall.copy(
@@ -163,43 +141,35 @@ fun OrderDetailsScreen(
                             },
                             navigationIcon = {
                                 IconButton(onClick = onBack) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .background(AppColors.White.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowBack,
-                                            contentDescription = stringResource(R.string.back),
-                                            tint = AppColors.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = stringResource(R.string.back),
+                                        tint = AppColors.White,
+                                    )
                                 }
                             },
                             actions = {
-                                IconButton(onClick = onCallSupport) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(CircleShape)
-                                            .background(AppColors.White.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Support,
-                                            contentDescription = stringResource(R.string.support),
-                                            tint = AppColors.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
+//                                IconButton(onClick = onCallSupport) {
+//                                    Box(
+//                                        modifier = Modifier
+//                                            .size(34.dp)
+//                                            .clip(CircleShape)
+//                                            .background(AppColors.White.copy(alpha = 0.15f)),
+//                                        contentAlignment = Alignment.Center
+//                                    ) {
+//                                        Icon(
+//                                            imageVector = Icons.Default.Support,
+//                                            contentDescription = stringResource(R.string.support),
+//                                            tint = AppColors.White,
+//                                            modifier = Modifier.size(18.dp)
+//                                        )
+//                                    }
+//                                }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
                                 containerColor = Color.Transparent
-                            )
+                            ),
+                            windowInsets = WindowInsets(0)   // ← prevents double status bar padding
                         )
 
                         // Status + fare row
@@ -215,16 +185,14 @@ fun OrderDetailsScreen(
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Column {
-                                // Status label — large, no icon
                                 Text(
-                                    text = statusConfig.resolveLabel(),
+                                    text = order.bookingNumber,
                                     style = MaterialTheme.typography.headlineSmall.copy(
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,fontSize = 14.sp
                                     ),
                                     color = AppColors.White
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                // Date · vehicle type
+                                Spacer(modifier = Modifier.height(1.dp))
                                 Text(
                                     text = buildString {
                                         append(DateTimeUtils.formatDateTime(order.createdAt))
@@ -264,22 +232,18 @@ fun OrderDetailsScreen(
                         .background(AppColors.LightGray50)
                         .padding(top = AppSpacing.LG)
                 ) {
-                    // ── Stats strip ───────────────────────────────────────
                     StatsStrip(order = order, isCompleted = isCompleted, isActive = isActive)
 
-                    // ── Cancellation card (only when cancelled) ───────────
                     if (isCancelled && !order.cancellationReason.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(AppSpacing.SM))
                         CancellationCard(order = order)
                     }
 
-                    // ── OTP card (only when OTP exists) ───────────────────
                     if (!order.otp.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(AppSpacing.SM))
                         OtpCard(otp = order.otp!!, headerColor = headerColor)
                     }
 
-                    // ── Driver card (only when driver assigned) ───────────
                     if (!order.driverName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(AppSpacing.SM))
                         DriverCard(
@@ -289,11 +253,9 @@ fun OrderDetailsScreen(
                         )
                     }
 
-                    // ── Route card ────────────────────────────────────────
                     Spacer(modifier = Modifier.height(AppSpacing.SM))
                     RouteCard(order = order)
 
-                    // ── Goods card (only when goods info exists) ──────────
                     val hasGoods = order.goodsType != null
                             || order.goodsWeight != null
                             || order.goodsPackages != null
@@ -303,11 +265,9 @@ fun OrderDetailsScreen(
                         GoodsCard(order = order)
                     }
 
-                    // ── Payment card ──────────────────────────────────────
                     Spacer(modifier = Modifier.height(AppSpacing.SM))
                     PaymentCard(order = order, statusColor = headerColor)
 
-                    // ── Rating card (only when completed + rated) ─────────
                     if (isCompleted && (order.rating ?: 0) > 0) {
                         Spacer(modifier = Modifier.height(AppSpacing.SM))
                         RatingCard(order = order)
@@ -324,7 +284,13 @@ fun OrderDetailsScreen(
                         onClick = { onBookAgain(order) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(AppSpacing.LG),
+                            .padding(
+                                start = AppSpacing.LG,
+                                end = AppSpacing.LG,
+                                top = AppSpacing.LG,
+                                bottom = AppSpacing.LG
+                            )
+                            .navigationBarsPadding(),   // ← clears gesture/3-button nav bar
                         colors = ButtonDefaults.buttonColors(containerColor = headerColor),
                         shape = RoundedCornerShape(AppRadius.MD),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
@@ -335,17 +301,14 @@ fun OrderDetailsScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(AppSpacing.SM))
-                        Text(
-                            stringResource(R.string.book_again),
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(stringResource(R.string.book_again), fontWeight = FontWeight.Bold)
                     }
                 } else {
-                    // Active order — show informational note instead
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(AppSpacing.LG),
+                            .padding(AppSpacing.LG)
+                            .navigationBarsPadding(),   // ← clears gesture/3-button nav bar
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -360,7 +323,9 @@ fun OrderDetailsScreen(
     }
 }
 
-// ── Section card wrapper ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Section card wrapper
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun SectionCard(
@@ -396,7 +361,9 @@ private fun SectionLabel(text: String) {
     )
 }
 
-// ── Stats strip ───────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Stats strip
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun StatsStrip(
@@ -409,7 +376,6 @@ private fun StatsStrip(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Distance
             StatItem(
                 icon = Icons.Default.Route,
                 label = stringResource(R.string.distance_label),
@@ -420,7 +386,6 @@ private fun StatsStrip(
 
             StatDivider()
 
-            // Duration or driver name for active
             if (isActive && !order.driverName.isNullOrBlank()) {
                 StatItem(
                     icon = Icons.Default.Person,
@@ -436,7 +401,6 @@ private fun StatsStrip(
                 )
             }
 
-            // Rating — only for completed with a rating
             if (isCompleted && (order.rating ?: 0) > 0) {
                 StatDivider()
                 StatItem(
@@ -487,7 +451,9 @@ private fun StatDivider() {
     )
 }
 
-// ── Cancellation card ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Cancellation card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun CancellationCard(order: OrderResponse) {
@@ -529,7 +495,6 @@ private fun CancellationCard(order: OrderResponse) {
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = AppColors.Drop.copy(alpha = 0.8f)
                 )
-                // cancelledBy — only if non-blank
                 if (!order.cancelledBy.isNullOrBlank()) {
                     Text(
                         text = stringResource(R.string.cancelled_by_format, order.cancelledBy!!),
@@ -542,7 +507,9 @@ private fun CancellationCard(order: OrderResponse) {
     }
 }
 
-// ── OTP card ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// OTP card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun OtpCard(otp: String, headerColor: Color) {
@@ -596,7 +563,9 @@ private fun OtpCard(otp: String, headerColor: Color) {
     }
 }
 
-// ── Driver card ───────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Driver card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun DriverCard(
@@ -625,7 +594,6 @@ private fun DriverCard(
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = AppColors.TextPrimary
                 )
-                // Vehicle number — only if non-blank
                 if (!order.vehicleNumber.isNullOrBlank()) {
                     Text(
                         text = order.vehicleNumber!!,
@@ -633,7 +601,6 @@ private fun DriverCard(
                         color = AppColors.TextSecondary
                     )
                 }
-                // Driver rating — only if > 0
                 if ((order.driverRating ?: 0.0) > 0.0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -656,7 +623,6 @@ private fun DriverCard(
                     }
                 }
             }
-            // Call button — only if phone number available
             if (!order.driverPhone.isNullOrBlank()) {
                 FilledIconButton(
                     onClick = onCallDriver,
@@ -676,14 +642,15 @@ private fun DriverCard(
     }
 }
 
-// ── Route card ────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Route card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun RouteCard(order: OrderResponse) {
     SectionCard {
         SectionLabel(stringResource(R.string.label_route).uppercase())
 
-        // Pickup row
         RouteRow(
             color = AppColors.Pickup,
             contactName = order.pickupContactName,
@@ -691,7 +658,6 @@ private fun RouteCard(order: OrderResponse) {
             address = order.pickupAddress
         )
 
-        // Connector dots
         Column(
             modifier = Modifier.padding(start = 6.dp, top = 3.dp, bottom = 3.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -706,7 +672,6 @@ private fun RouteCard(order: OrderResponse) {
             }
         }
 
-        // Drop row
         RouteRow(
             color = AppColors.Drop,
             contactName = order.dropContactName,
@@ -761,7 +726,6 @@ private fun RouteRow(
                 ),
                 color = AppColors.TextSecondary
             )
-            // Contact phone — only if non-blank
             if (!contactPhone.isNullOrBlank()) {
                 Text(
                     text = contactPhone,
@@ -776,7 +740,9 @@ private fun RouteRow(
     }
 }
 
-// ── Goods card ────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Goods card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun GoodsCard(order: OrderResponse) {
@@ -809,7 +775,6 @@ private fun GoodsCard(order: OrderResponse) {
                 )
             }
         }
-        // Instructions — only if non-blank
         if (!order.instructions.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(AppSpacing.MD))
             HorizontalDivider(color = AppColors.DividerLight)
@@ -861,7 +826,9 @@ private fun GoodsStatDivider() {
     )
 }
 
-// ── Payment card ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Payment card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun PaymentCard(order: OrderResponse, statusColor: Color) {
@@ -870,7 +837,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
     val hasGstin    = !order.gstin.isNullOrBlank()
 
     SectionCard {
-        // Header row: label + payment status badge (if non-blank)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -895,7 +861,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
             }
         }
 
-        // Payment method row
         PaymentRow(
             label = stringResource(R.string.payment_method),
             trailing = {
@@ -924,7 +889,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
 
         HorizontalDivider(color = AppColors.DividerLight, modifier = Modifier.padding(vertical = AppSpacing.SM))
 
-        // Base fare (if available) or trip fare
         order.baseFare?.let { base ->
             PaymentRow(
                 label = stringResource(R.string.base_fare),
@@ -935,8 +899,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
             value = stringResource(R.string.fare_format, order.fare.toInt())
         )
 
-        // Platform fee — show if base_fare exists and differs from fare
-        // (i.e. there are additional charges)
         if (order.baseFare != null && order.baseFare < order.fare && !hasDiscount) {
             val platformFee = order.fare - order.baseFare - (order.discountAmount ?: 0.0)
             if (platformFee > 0) {
@@ -948,7 +910,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
             }
         }
 
-        // Coupon / discount row — green tinted
         if (hasCoupon || hasDiscount) {
             Spacer(modifier = Modifier.height(AppSpacing.XS))
             Row(
@@ -985,7 +946,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
 
         HorizontalDivider(color = AppColors.DividerLight, modifier = Modifier.padding(vertical = AppSpacing.SM))
 
-        // Total
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1003,7 +963,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
             )
         }
 
-        // "You saved" banner — only if discount > 0
         if (hasDiscount) {
             Spacer(modifier = Modifier.height(AppSpacing.SM))
             Surface(
@@ -1033,7 +992,6 @@ private fun PaymentCard(order: OrderResponse, statusColor: Color) {
             }
         }
 
-        // GSTIN row — only if present
         if (hasGstin) {
             HorizontalDivider(
                 color = AppColors.DividerLight,
@@ -1079,7 +1037,9 @@ private fun PaymentRow(
     }
 }
 
-// ── Rating card ───────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Rating card
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun RatingCard(order: OrderResponse) {

@@ -363,25 +363,6 @@ private fun HomeHeader(
                         modifier = Modifier.size(18.dp)
                     )
 
-                    // Pickup text
-//                    Text(
-//                        text = if (pickupLocation.isNotBlank() &&
-//                            pickupLocation != stringResource(R.string.pick_up_from)
-//                        )
-//                            pickupLocation
-//                        else
-//                            stringResource(R.string.pick_up_from),
-//                        style = MaterialTheme.typography.bodyMedium,
-//                        color = if (pickupLocation.isNotBlank() &&
-//                            pickupLocation != stringResource(R.string.pick_up_from)
-//                        )
-//                            AppColors.White
-//                        else
-//                            AppColors.White.copy(alpha = 0.55f),
-//                        maxLines = 1,
-//                        overflow = TextOverflow.Ellipsis,
-//                        modifier = Modifier.weight(1f)
-//                    )
 
                     Text(
                         text = stringResource(R.string.label_search_pickup),
