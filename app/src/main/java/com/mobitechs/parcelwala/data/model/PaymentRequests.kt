@@ -23,6 +23,12 @@ data class VerifyPaymentRequest(
     val paymentMethod: String
 )
 
+data class PayViaWalletRequest(
+    val bookingId: Int,
+    val amount: String
+)
+
+
 /**
  * Request to create wallet topup order
  */
@@ -93,6 +99,22 @@ data class WalletTopupResponse(
     val createdAt: String,
 )
 
+
+data class PayViaWalletResponse(
+    val data: PayViaWalletResponseData,
+    val success: Boolean
+)
+data class PayViaWalletResponseData(
+    val amount: Int,
+    val bookingId: Int,
+    val paymentStatus: String,
+    val success: Boolean,
+    val transactionNumber: String,
+    val transactionTime: String,
+    val walletBalanceAfter: Double,
+    val walletBalanceBefore: Double,
+    val walletTransactionId: Int
+)
 /**
  * Transaction history item
  */

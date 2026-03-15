@@ -1,4 +1,3 @@
-// ui/screens/account/SavedAddressesScreen.kt
 package com.mobitechs.parcelwala.ui.screens.account
 
 import androidx.compose.foundation.background
@@ -20,10 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.outlined.LocationOff
@@ -32,16 +31,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,10 +62,6 @@ import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 
-/**
- * Saved Addresses Screen
- * Displays list of saved addresses with edit and delete options
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedAddressesScreen(
@@ -80,10 +72,9 @@ fun SavedAddressesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val savedAddresses by viewModel.savedAddresses.collectAsState()
-
     var addressToDelete by remember { mutableStateOf<SavedAddress?>(null) }
 
-    // Delete confirmation dialog
+    // ── Delete confirmation dialog ─────────────────────────────────────────
     addressToDelete?.let { address ->
         AlertDialog(
             onDismissRequest = { addressToDelete = null },
@@ -100,9 +91,7 @@ fun SavedAddressesScreen(
                     fontWeight = FontWeight.Bold
                 )
             },
-            text = {
-                Text(stringResource(R.string.delete_address_message))
-            },
+            text = { Text(stringResource(R.string.delete_address_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -144,9 +133,22 @@ fun SavedAddressesScreen(
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
-                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.add), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.add),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                },
+                // ── Info card lives inside the gradient ────────────────────
+                extraContent = {
+                    if (savedAddresses.isNotEmpty()) {
+                        AddressInfoCard(count = savedAddresses.size)
                     }
                 }
             )
@@ -156,9 +158,7 @@ fun SavedAddressesScreen(
         when {
             uiState.isLoadingAddresses -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
                     LoadingIndicator(message = stringResource(R.string.loading_addresses))
@@ -167,9 +167,7 @@ fun SavedAddressesScreen(
 
             savedAddresses.isEmpty() -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
                     EmptyState(
@@ -184,10 +182,11 @@ fun SavedAddressesScreen(
 
             else -> {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, end = 16.dp,
+                        top = 16.dp, bottom = 100.dp
+                    ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
@@ -201,8 +200,9 @@ fun SavedAddressesScreen(
                         )
                     }
 
+                    // ── Dashed Add New button at bottom of list ────────────
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        AddNewAddressButton(onClick = onAddAddress)
                     }
                 }
             }
@@ -210,9 +210,66 @@ fun SavedAddressesScreen(
     }
 }
 
-/**
- * Saved Address Card - Updated to use getDisplayLabel()
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// AddressInfoCard — frosted card inside gradient showing count
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun AddressInfoCard(count: Int) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = Color.White.copy(alpha = 0.25f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = "$count saved ${if (count == 1) "address" else "addresses"}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = stringResource(R.string.add_addresses_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SavedAddressCard
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 private fun SavedAddressCard(
     address: SavedAddress,
@@ -223,14 +280,14 @@ private fun SavedAddressCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
-            // Header Row
+            // ── Header: icon + label + contact ────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -238,19 +295,17 @@ private fun SavedAddressCard(
             ) {
                 AddressTypeIcon(
                     addressType = address.addressType,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(44.dp)
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Use getDisplayLabel() for proper "Other (label)" format
                     Text(
-                        text = address.getDisplayLabel(),
-                        style = MaterialTheme.typography.titleMedium,
+                        text = address.getDisplayLabel().uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary
+                        color = AppColors.TextPrimary,
+                        letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified
                     )
-
-                    // Contact info
                     val contactInfo = buildString {
                         address.contactName?.takeIf { it.isNotEmpty() }?.let { append(it) }
                         address.contactPhone?.takeIf { it.isNotEmpty() }?.let {
@@ -268,90 +323,87 @@ private fun SavedAddressCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Address Text
+            // ── Address text box ──────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(AppColors.Background)
-                    .padding(12.dp)
+                    .padding(10.dp)
             ) {
                 Text(
                     text = address.address.ifEmpty { stringResource(R.string.no_address_details) },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = AppColors.TextSecondary,
                     maxLines = 2
                 )
             }
 
-            // Building Details & Landmark if available
+            // ── Building details & landmark ───────────────────────────────
             if (!address.buildingDetails.isNullOrEmpty() || !address.landmark.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    address.buildingDetails?.let { details ->
-                        if (details.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AppColors.Primary.copy(alpha = 0.1f)
+                    address.buildingDetails?.takeIf { it.isNotEmpty() }?.let { details ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AppColors.Primary.copy(alpha = 0.08f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Apartment,
-                                        contentDescription = null,
-                                        tint = AppColors.Primary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = details,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = AppColors.Primary
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Apartment,
+                                    contentDescription = null,
+                                    tint = AppColors.Primary,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = details,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.Primary
+                                )
                             }
                         }
                     }
-
-                    address.landmark?.let { lm ->
-                        if (lm.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AppColors.TextSecondary.copy(alpha = 0.1f)
+                    address.landmark?.takeIf { it.isNotEmpty() }?.let { lm ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AppColors.TextSecondary.copy(alpha = 0.08f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Place,
-                                        contentDescription = null,
-                                        tint = AppColors.TextSecondary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = lm,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = AppColors.TextSecondary
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = AppColors.TextSecondary,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = lm,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppColors.TextSecondary
+                                )
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Buttons
+            // ── Edit / Delete action row ───────────────────────────────────
+            HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -364,20 +416,22 @@ private fun SavedAddressCard(
                         imageVector = Icons.Default.Edit,
                         contentDescription = null,
                         tint = AppColors.Primary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.edit),
                         color = AppColors.Primary,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
 
                 Box(
                     modifier = Modifier
-                        .width(1.dp)
-                        .height(24.dp)
+                        .width(0.5.dp)
+                        .height(36.dp)
+                        .align(Alignment.CenterVertically)
                         .background(AppColors.Divider)
                 )
 
@@ -389,13 +443,14 @@ private fun SavedAddressCard(
                         imageVector = Icons.Default.Delete,
                         contentDescription = null,
                         tint = AppColors.Drop,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.delete),
                         color = AppColors.Drop,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
             }
@@ -403,27 +458,81 @@ private fun SavedAddressCard(
     }
 }
 
-/**
- * Address Type Icon
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// AddNewAddressButton — dashed outline CTA at bottom of list
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun AddNewAddressButton(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = AppColors.Primary.copy(alpha = 0.03f),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.5.dp,
+            color = AppColors.Primary.copy(alpha = 0.4f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.Primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.add_address),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.Primary
+            )
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AddressTypeIcon
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 fun AddressTypeIcon(
     addressType: String,
     modifier: Modifier = Modifier
 ) {
-    // Handle both capitalized and lowercase
     val type = addressType.lowercase()
 
-    val (icon, backgroundColor) = when (type) {
-        "home" -> Icons.Default.Home to AppColors.Primary.copy(alpha = 0.1f)
-        "shop" -> Icons.Default.Store to AppColors.Pickup.copy(alpha = 0.1f)
-        else -> Icons.Default.Place to AppColors.TextSecondary.copy(alpha = 0.1f)
-    }
-
-    val iconTint = when (type) {
-        "home" -> AppColors.Primary
-        "shop" -> AppColors.Pickup
-        else -> AppColors.TextSecondary
+    val (icon, backgroundColor, iconTint) = when (type) {
+        "home" -> Triple(
+            Icons.Default.Home,
+            AppColors.Primary.copy(alpha = 0.10f),
+            AppColors.Primary
+        )
+        "shop", "work" -> Triple(
+            Icons.Default.Store,
+            Color(0xFFFFF3E0),
+            Color(0xFFD4900A)
+        )
+        else -> Triple(
+            Icons.Default.Place,
+            AppColors.TextSecondary.copy(alpha = 0.10f),
+            AppColors.TextSecondary
+        )
     }
 
     Box(
@@ -436,7 +545,7 @@ fun AddressTypeIcon(
             imageVector = icon,
             contentDescription = addressType,
             tint = iconTint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 }

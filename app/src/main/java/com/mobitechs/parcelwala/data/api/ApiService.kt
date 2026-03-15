@@ -10,6 +10,8 @@ import com.mobitechs.parcelwala.data.model.request.CompleteProfileRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequest
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
 import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
+import com.mobitechs.parcelwala.data.model.request.PayViaWalletRequest
+import com.mobitechs.parcelwala.data.model.request.PayViaWalletResponse
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.request.SendOtpRequest
 import com.mobitechs.parcelwala.data.model.request.TransactionListResponse
@@ -186,6 +188,12 @@ interface ApiService {
     suspend fun verifyPayment(
         @Body request: VerifyPaymentRequest
     ): ApiResponse<VerifyPaymentResponse>
+
+
+    @POST("payments/pay-via-wallet")
+    suspend fun payViaWallet(
+        @Body request: PayViaWalletRequest
+    ): ApiResponse<PayViaWalletResponse>
 
 
     // Get transaction history

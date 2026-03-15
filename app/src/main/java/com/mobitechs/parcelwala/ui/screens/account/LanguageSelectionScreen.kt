@@ -26,12 +26,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Translate
@@ -40,14 +40,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,7 +55,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -102,11 +97,14 @@ fun LanguageSelectionScreen(
     }
 
     StatusBarScaffold(
-
         topBar = {
             AppTopBar(
                 title = stringResource(R.string.select_language),
-                onBack = onBack
+                onBack = onBack,
+                // ── Info card lives in extraContent inside the gradient ──
+                extraContent = {
+                    LanguageInfoCard()
+                }
             )
         },
         containerColor = AppColors.Background
@@ -115,15 +113,13 @@ fun LanguageSelectionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(
+                start = 16.dp, end = 16.dp,
+                top = 16.dp, bottom = 32.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Header illustration
-            item {
-                LanguageHeader()
-            }
-
-            // Language options
+            // Language option cards
             itemsIndexed(languages) { index, language ->
                 LanguageCard(
                     language = language,
@@ -140,7 +136,7 @@ fun LanguageSelectionScreen(
 
             // Footer hint
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(R.string.language_change_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -154,7 +150,7 @@ fun LanguageSelectionScreen(
         }
     }
 
-    // Restart confirmation dialog
+    // ── Restart confirmation dialog ────────────────────────────────────────
     if (showRestartDialog) {
         val pendingLang = languages.find { it.code == pendingLanguage }
 
@@ -201,7 +197,6 @@ fun LanguageSelectionScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.TextSecondary
                     )
-
                     pendingLang?.let { lang ->
                         Spacer(modifier = Modifier.height(16.dp))
                         Surface(
@@ -220,10 +215,7 @@ fun LanguageSelectionScreen(
                                     fontSize = 18.sp,
                                     color = AppColors.Primary
                                 )
-                                Text(
-                                    text = "  •  ",
-                                    color = AppColors.TextHint
-                                )
+                                Text(text = "  •  ", color = AppColors.TextHint)
                                 Text(
                                     text = stringResource(lang.nameResId),
                                     style = MaterialTheme.typography.bodyMedium,
@@ -239,7 +231,6 @@ fun LanguageSelectionScreen(
                     onClick = {
                         pendingLanguage?.let { lang ->
                             viewModel.setLanguage(lang)
-
                             (context as? Activity)?.let { activity ->
                                 val intent = activity.packageManager
                                     .getLaunchIntentForPackage(activity.packageName)
@@ -253,9 +244,7 @@ fun LanguageSelectionScreen(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.Primary
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -284,65 +273,71 @@ fun LanguageSelectionScreen(
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// LanguageInfoCard
+// Lives inside AppTopBar's extraContent — gradient background from
+// GradientTopBarWrapper shows through automatically.
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
-private fun LanguageHeader() {
+private fun LanguageInfoCard() {
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = Color.White.copy(alpha = 0.25f)
+        )
     ) {
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            AppColors.Primary,
-                            AppColors.PrimaryDark
-                        )
-                    )
-                )
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Globe icon box
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            color = Color.White.copy(alpha = 0.2f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Language,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.select_language),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = stringResource(R.string.language_options_display),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f)
+                    text = stringResource(R.string.language_change_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 11.sp
                 )
             }
         }
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LanguageCard
+// ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun LanguageCard(
@@ -363,14 +358,8 @@ private fun LanguageCard(
         label = "border"
     )
 
-    val backgroundColor by animateColorAsState(
-        targetValue = Color.White,
-        animationSpec = tween(300),
-        label = "bg"
-    )
-
     val elevation by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 1.dp,
+        targetValue = if (isSelected) 3.dp else 1.dp,
         animationSpec = tween(300),
         label = "elevation"
     )
@@ -396,54 +385,53 @@ private fun LanguageCard(
                 )
                 .clickable(onClick = onClick),
             shape = RoundedCornerShape(16.dp),
-            color = backgroundColor
+            color = Color.White
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.weight(1f)
+                // Greeting badge
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isSelected)
+                                AppColors.Primary.copy(alpha = 0.10f)
+                            else
+                                AppColors.Background
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Greeting badge
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .background(
-                                color = if (isSelected)
-                                    AppColors.Primary.copy(alpha = 0.12f)
-                                else
-                                    AppColors.Background,
-                                shape = RoundedCornerShape(14.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = language.greeting,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) AppColors.Primary else AppColors.TextSecondary
-                        )
-                    }
+                    Text(
+                        text = language.greeting,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = language.nativeName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = AppColors.TextPrimary
-                        )
-                        Text(
-                            text = stringResource(language.nameResId),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.TextHint
-                        )
-                    }
+                // Name + subtitle
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = language.nativeName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = AppColors.TextPrimary
+                    )
+                    Text(
+                        text = stringResource(language.nameResId),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextHint
+                    )
                 }
 
                 // Selection indicator
@@ -454,18 +442,15 @@ private fun LanguageCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                color = AppColors.Primary,
-                                shape = CircleShape
-                            ),
+                            .size(30.dp)
+                            .background(AppColors.Primary, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = stringResource(R.string.selected_cd),
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -473,12 +458,8 @@ private fun LanguageCard(
                 if (!isSelected) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .border(
-                                width = 2.dp,
-                                color = AppColors.Divider,
-                                shape = CircleShape
-                            )
+                            .size(30.dp)
+                            .border(2.dp, AppColors.Divider, CircleShape)
                     )
                 }
             }

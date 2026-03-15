@@ -142,6 +142,11 @@ fun PostDeliveryPaymentScreen(
                 }
 
                 is PaymentEvent.WalletTopupSuccess -> {}
+
+                is PaymentEvent.WalletPayBookingSuccess -> {
+                    paymentProcessing = false
+                    onPaymentComplete()
+                }
             }
         }
     }
@@ -298,30 +303,38 @@ fun PostDeliveryPaymentScreen(
                         onClick = {
                             showPaymentError = null
                             paymentProcessing = true
-
+                            val bookingIdInt = bookingId.toIntOrNull()
                             when {
                                 isCash -> {
                                     paymentProcessing = false
                                     onPaymentSkipped()
                                 }
 
-                                isWallet || isOnline -> {
-                                    val bookingIdInt = bookingId.toIntOrNull()
+                                isWallet -> {
+                                    if (bookingIdInt != null) {
+                                        paymentViewModel.payViaWallet(
+                                            bookingId = bookingIdInt,
+                                            amount = totalFare.toString()
+                                        )
+                                    } else {
+                                        paymentProcessing = false
+                                        showPaymentError =
+                                            context.getString(R.string.label_invalid_booking_id)
+                                    }
+                                }
+
+                                isOnline -> {
+
                                     if (bookingIdInt != null) {
                                         paymentViewModel.initiateBookingPayment(
                                             bookingId = bookingIdInt,
                                             amount = totalFare,
-                                            paymentMethod = if (isWallet) "wallet" else selectedMethod,
-                                            notes = if (isWallet)
-                                                context.getString(
-                                                    R.string.label_wallet_for_booking,
-                                                    bookingId
-                                                )
-                                            else
-                                                context.getString(
-                                                    R.string.label_payment_for_booking,
-                                                    bookingId
-                                                )
+                                            paymentMethod = selectedMethod,
+                                            notes = context.getString(
+                                                R.string.label_payment_for_booking,
+                                                bookingId
+                                            )
+
                                         )
                                     } else {
                                         paymentProcessing = false

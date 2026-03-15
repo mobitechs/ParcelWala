@@ -3,6 +3,8 @@ package com.mobitechs.parcelwala.data.repository
 import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
 import com.mobitechs.parcelwala.data.model.request.CreatePaymentOrderRequest
+import com.mobitechs.parcelwala.data.model.request.PayViaWalletRequest
+import com.mobitechs.parcelwala.data.model.request.PayViaWalletResponse
 import com.mobitechs.parcelwala.data.model.request.TransactionListResponse
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
@@ -79,6 +81,28 @@ class PaymentRepository @Inject constructor(
                 emit(NetworkResult.Success(response.data))
             } else {
                 emit(NetworkResult.Error(response.message ?: "Payment verification failed"))
+            }
+        } catch (e: Exception) {
+            emit(NetworkResult.Error(e.message ?: "Network error"))
+        }
+    }
+
+    fun payViaWallet(
+        bookingId: Int,
+        amount: String
+    ): Flow<NetworkResult<PayViaWalletResponse>> = flow {
+        emit(NetworkResult.Loading())
+        try {
+            val request = PayViaWalletRequest(
+                bookingId = bookingId,
+                amount = amount
+            )
+            val response = apiService.payViaWallet(request)
+
+            if (response.success && response.data != null) {
+                emit(NetworkResult.Success(response.data))
+            } else {
+                emit(NetworkResult.Error(response.message ?: "Wallet Payment verification failed"))
             }
         } catch (e: Exception) {
             emit(NetworkResult.Error(e.message ?: "Network error"))

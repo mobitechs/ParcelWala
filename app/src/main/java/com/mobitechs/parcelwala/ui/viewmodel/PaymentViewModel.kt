@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.RazorpayManager
 import com.mobitechs.parcelwala.data.model.request.CreateOrderResponse
+import com.mobitechs.parcelwala.data.model.request.PayViaWalletResponseData
 import com.mobitechs.parcelwala.data.model.request.TransactionResponse
 import com.mobitechs.parcelwala.data.model.request.VerifyPaymentResponse
 import com.mobitechs.parcelwala.data.repository.PaymentRepository
@@ -63,6 +64,10 @@ sealed class PaymentEvent {
         val newBalance: Double,
         val amount: Double,
         val transactionNumber: String? = null
+    ) : PaymentEvent()
+
+    data class WalletPayBookingSuccess(        // ← add this
+        val response: PayViaWalletResponseData
     ) : PaymentEvent()
 }
 
@@ -201,6 +206,48 @@ class PaymentViewModel @Inject constructor(
                         _paymentEvent.emit(
                             PaymentEvent.PaymentFailure(
                                 result.message ?: "Payment verification failed"
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+    fun payViaWallet(
+        bookingId: Int,
+        amount: String
+    ) {
+
+        viewModelScope.launch {
+            paymentRepository.payViaWallet(
+                bookingId = bookingId,
+                amount = amount
+            ).collect { result ->
+                when (result) {
+                    is NetworkResult.Loading -> {
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+
+                    is NetworkResult.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = null,
+                                walletBalance = result.data?.data?.walletBalanceAfter ?: it.walletBalance
+                            )
+                        }
+                        result.data?.data?.let {                                    // ← .data.data
+                            _paymentEvent.emit(PaymentEvent.WalletPayBookingSuccess(it))
+                        }
+                    }
+
+                    is NetworkResult.Error -> {
+                        _uiState.update {
+                            it.copy(isLoading = false, error = result.message)
+                        }
+                        _paymentEvent.emit(
+                            PaymentEvent.PaymentFailure(
+                                result.message ?: "Wallet Payment verification failed"
                             )
                         )
                     }

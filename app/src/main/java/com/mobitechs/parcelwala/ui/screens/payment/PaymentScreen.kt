@@ -136,6 +136,7 @@ fun PaymentsScreen(
                     paymentViewModel.loadTransactions()
                     paymentViewModel.loadWalletBalance()
                 }
+                is PaymentEvent.WalletPayBookingSuccess -> { /* not used here */ }
             }
         }
     }
