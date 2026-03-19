@@ -779,4 +779,10 @@
     <!-- Stat card labels -->
     <string name="stat_total_orders">Total Orders</string>
     <string name="stat_referral_earned">Referral Earned</string>
+
+    <string name="required_label">Required</string>
+    <string name="select_goods_type_error">Please select a goods type to continue</string>
+    <string name="required_to_book">Required for booking</string>
+    <string name="save_more_with_coupon">Save more with a coupon code</string>
+    <string name="select_goods_to_continue">Select Goods Type to Continue</string>
 </resources>

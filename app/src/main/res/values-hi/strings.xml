@@ -774,4 +774,10 @@
     <!-- Stat card labels -->
     <string name="stat_total_orders">कुल ऑर्डर</string>
     <string name="stat_referral_earned">रेफरल से कमाई</string>
+
+    <string name="required_label">आवश्यक</string>
+    <string name="select_goods_type_error">जारी रखने के लिए सामान का प्रकार चुनें</string>
+    <string name="required_to_book">बुकिंग के लिए आवश्यक</string>
+    <string name="save_more_with_coupon">कूपन कोड से और बचत करें</string>
+    <string name="select_goods_to_continue">जारी रखने के लिए सामान चुनें</string>
 </resources>

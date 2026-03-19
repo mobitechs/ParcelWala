@@ -4,11 +4,22 @@ import androidx.compose.ui.graphics.Color
 
 object AppColors {
 
+
+
     // ── Brand / Primary (Deep Teal) ──
-    val Primary = Color(0xFF0D9488)
-    val PrimaryDark = Color(0xFF0F766E)
-    val PrimaryDeep = Color(0xFF115E59)
-    val PrimaryLight = Color(0xFFCCFBF1)
+//    val Primary = Color(0xFF1A1A2E)  //deep navy purple (gradient start)
+//    val Primary = Color(0xFF2D2B69)  //mid indigo purple (gradient end)
+
+    //purple
+    val Primary = Color(0xFF4F46E5)        // was 0xFF0D9488 (teal)
+    val PrimaryDark = Color(0xFF2D2B69)    // was 0xFF0F766E
+    val PrimaryDeep = Color(0xFF1A1A2E)    // was 0xFF115E59
+    val PrimaryLight = Color(0xFFEEF2FF)
+    //Green
+//    val Primary = Color(0xFF0D9488)
+//    val PrimaryDark = Color(0xFF0F766E)
+//    val PrimaryDeep = Color(0xFF115E59)
+//    val PrimaryLight = Color(0xFFCCFBF1)
     val PrimaryMuted = Color(0xFF5EEAD4)
     val PrimaryContainer = Color(0xFF99F6E4)
 
