@@ -11,8 +11,8 @@ object AppColors {
 //    val Primary = Color(0xFF2D2B69)  //mid indigo purple (gradient end)
 
     //purple
-    val Primary = Color(0xFF4F46E5)        // was 0xFF0D9488 (teal)
-    val PrimaryDark = Color(0xFF2D2B69)    // was 0xFF0F766E
+    val Primary = Color(0xFF2D2B69)        // was 0xFF0D9488 (teal)
+    val PrimaryDark = Color(0xFF1A1A2E)    // was 0xFF0F766E
     val PrimaryDeep = Color(0xFF1A1A2E)    // was 0xFF115E59
     val PrimaryLight = Color(0xFFEEF2FF)
     //Green
