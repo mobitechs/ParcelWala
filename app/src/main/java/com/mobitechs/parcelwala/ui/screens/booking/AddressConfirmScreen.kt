@@ -1,4 +1,3 @@
-// ui/screens/booking/AddressConfirmationScreen.kt
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.animation.AnimatedVisibility
@@ -6,7 +5,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -43,18 +43,16 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -68,14 +66,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -88,13 +89,14 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
-/**
- * Address Confirmation Screen
- * Used for both booking flow and account saved addresses
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// AddressConfirmationScreen  —  Variation 1: Map hero + stacked section cards
+// ══════════════════════════════════════════════════════════════════════════════
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddressConfirmationScreen(
@@ -108,182 +110,140 @@ fun AddressConfirmationScreen(
     showSaveLocationBadge: Boolean = false,
     viewModel: BookingViewModel? = null
 ) {
-    val focusManager = LocalFocusManager.current
+    val focusManager       = LocalFocusManager.current
+    val isSaveAddressMode  = locationType == "save" || showSaveLocationBadge
 
-    val isSaveAddressMode = locationType == "save" || showSaveLocationBadge
-
-    // ============ GET ACTUAL ADDRESS ============
-    val uiState = viewModel?.uiState?.collectAsState()?.value
-
+    // ── Resolve the address to display ────────────────────────────────────────
+    val uiState      = viewModel?.uiState?.collectAsState()?.value
     val actualAddress = when {
-        viewModel != null && uiState?.pendingAddress != null -> {
-            uiState.pendingAddress
-        }
-
-        viewModel != null && isEditMode -> {
+        viewModel != null && uiState?.pendingAddress != null -> uiState.pendingAddress
+        viewModel != null && isEditMode ->
             if (locationType == "pickup") uiState?.pickupAddress else uiState?.dropAddress
-        }
-
         else -> address
     }
 
-    // ============ FORM STATE ============
-    val addressKey =
-        "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
+    // ── Form state ────────────────────────────────────────────────────────────
+    val addressKey = "${actualAddress?.addressId}_${actualAddress?.latitude}_${actualAddress?.longitude}"
 
-    var contactName by remember(addressKey) { mutableStateOf(actualAddress?.contactName ?: "") }
-    var contactPhone by remember(addressKey) { mutableStateOf(actualAddress?.contactPhone ?: "") }
-    var buildingDetails by remember(addressKey) {
-        mutableStateOf(
-            actualAddress?.buildingDetails ?: ""
-        )
-    }
-    var landmark by remember(addressKey) { mutableStateOf(actualAddress?.landmark ?: "") }
-    var pincode by remember(addressKey) { mutableStateOf(actualAddress?.pincode ?: "") }
-
-    var selectedType by remember(addressKey) {
+    var contactName     by remember(addressKey) { mutableStateOf(actualAddress?.contactName ?: "") }
+    var contactPhone    by remember(addressKey) { mutableStateOf(actualAddress?.contactPhone ?: "") }
+    var buildingDetails by remember(addressKey) { mutableStateOf(actualAddress?.buildingDetails ?: "") }
+    var landmark        by remember(addressKey) { mutableStateOf(actualAddress?.landmark ?: "") }
+    var pincode         by remember(addressKey) { mutableStateOf(actualAddress?.pincode ?: "") }
+    var selectedType    by remember(addressKey) {
         mutableStateOf(
             when (actualAddress?.addressType?.lowercase()) {
-                "home" -> "Home"
-                "shop" -> "Shop"
-                else -> "Other"
+                "home" -> "Home"; "shop" -> "Shop"; else -> "Other"
             }
         )
     }
-
     var customLabel by remember(addressKey) {
         mutableStateOf(
-            if (actualAddress?.addressType?.equals("other", ignoreCase = true) == true) {
-                val label = actualAddress.label
-                if (!label.equals("other", ignoreCase = true) &&
-                    !label.equals("selected location", ignoreCase = true)
-                ) {
-                    label
-                } else {
-                    ""
-                }
-            } else {
-                ""
-            }
+            if (actualAddress?.addressType.equals("other", ignoreCase = true)) {
+                val lbl = actualAddress?.label ?: ""
+                if (!lbl.equals("other", ignoreCase = true) &&
+                    !lbl.equals("selected location", ignoreCase = true)) lbl else ""
+            } else ""
         )
     }
-
     var useMyNumber by remember { mutableStateOf(false) }
-    var nameError by remember { mutableStateOf<String?>(null) }
-    var phoneError by remember { mutableStateOf<String?>(null) }
+    var nameError   by remember { mutableStateOf<String?>(null) }
+    var phoneError  by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(useMyNumber) {
         if (useMyNumber && userPhoneNumber != null) {
             contactPhone = userPhoneNumber.replace("+91", "").replace(" ", "").trim()
-            phoneError = null
+            phoneError   = null
         }
     }
 
-    // ============ MAP STATE ============
+    // ── Map state ─────────────────────────────────────────────────────────────
     val hasCoordinates = actualAddress?.latitude != null && actualAddress.longitude != null &&
             actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0
     val defaultLat = actualAddress?.latitude ?: 19.0760
     val defaultLng = actualAddress?.longitude ?: 72.8777
-    val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${
-        actualAddress?.longitude?.toString()?.take(8)
-    }"
+    val mapKey = "${actualAddress?.latitude?.toString()?.take(8)}_${actualAddress?.longitude?.toString()?.take(8)}"
 
     val cameraPositionState = rememberCameraPositionState(key = mapKey) {
         position = CameraPosition.fromLatLngZoom(LatLng(defaultLat, defaultLng), 16f)
     }
-
     LaunchedEffect(actualAddress?.latitude, actualAddress?.longitude) {
-        if (actualAddress?.latitude != null && actualAddress.longitude != null &&
-            actualAddress.latitude != 0.0 && actualAddress.longitude != 0.0
-        ) {
-            val newPosition = LatLng(actualAddress.latitude, actualAddress.longitude)
+        if (hasCoordinates) {
             cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(newPosition, 16f),
+                CameraUpdateFactory.newLatLngZoom(LatLng(actualAddress!!.latitude, actualAddress.longitude), 16f),
                 durationMs = 300
             )
         }
     }
 
-    // Empty state if no address
+    // ── Empty state guard ─────────────────────────────────────────────────────
     if (actualAddress == null) {
         EmptyState(
-            icon = Icons.Default.ErrorOutline,
-            title = stringResource(R.string.no_address_selected),
-            subtitle = stringResource(R.string.select_location_first),
+            icon       = Icons.Default.ErrorOutline,
+            title      = stringResource(R.string.no_address_selected),
+            subtitle   = stringResource(R.string.select_location_first),
             actionText = stringResource(R.string.go_back),
-            onAction = onBack,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp)
+            onAction   = onBack,
+            modifier   = Modifier.fillMaxSize().padding(32.dp)
         )
         return
     }
 
-    // ============ SCREEN CONFIGURATION ============
+    // ── Screen copy ───────────────────────────────────────────────────────────
     val screenTitle = when {
         isSaveAddressMode && isEditMode -> stringResource(R.string.edit_address_title)
-        isSaveAddressMode -> stringResource(R.string.add_new_address_title)
-        isEditMode -> if (locationType == "pickup") stringResource(R.string.edit_pickup_details) else stringResource(
-            R.string.edit_drop_details
-        )
-
-        locationType == "pickup" -> stringResource(R.string.confirm_pickup_location)
-        else -> stringResource(R.string.confirm_drop_location)
+        isSaveAddressMode               -> stringResource(R.string.add_new_address_title)
+        isEditMode -> if (locationType == "pickup")
+            stringResource(R.string.edit_pickup_details)
+        else stringResource(R.string.edit_drop_details)
+        locationType == "pickup"        -> stringResource(R.string.confirm_pickup_location)
+        else                            -> stringResource(R.string.confirm_drop_location)
     }
-
     val buttonText = when {
-        isSaveAddressMode -> stringResource(R.string.save_address)
-        isEditMode -> stringResource(R.string.save_changes)
-        locationType == "pickup" -> stringResource(R.string.confirm_pickup)
-        else -> stringResource(R.string.confirm_drop)
+        isSaveAddressMode            -> stringResource(R.string.save_address)
+        isEditMode                   -> stringResource(R.string.save_changes)
+        locationType == "pickup"     -> stringResource(R.string.confirm_pickup)
+        else                         -> stringResource(R.string.confirm_drop)
     }
-
-    val sectionHeaderText = when {
-        isSaveAddressMode -> stringResource(R.string.contact_details_header)
-        locationType == "pickup" -> stringResource(R.string.sender_details_header)
-        else -> stringResource(R.string.receiver_details_header)
+    val sectionHeader = when {
+        isSaveAddressMode            -> stringResource(R.string.contact_details_header)
+        locationType == "pickup"     -> stringResource(R.string.sender_details_header)
+        else                         -> stringResource(R.string.receiver_details_header)
     }
-
-    val nameFieldLabel = when {
-        isSaveAddressMode -> stringResource(R.string.name_required)
-        locationType == "pickup" -> stringResource(R.string.sender_name_required)
-        else -> stringResource(R.string.receiver_name_required)
+    val nameLabel = when {
+        isSaveAddressMode            -> stringResource(R.string.name_required)
+        locationType == "pickup"     -> stringResource(R.string.sender_name_required)
+        else                         -> stringResource(R.string.receiver_name_required)
     }
-
     val enterContactNameError = stringResource(R.string.enter_contact_name_error)
-    val enterValidPhoneError = stringResource(R.string.enter_valid_phone_error)
+    val enterValidPhoneError  = stringResource(R.string.enter_valid_phone_error)
 
-    Scaffold(
+    // ── Location accent colours ────────────────────────────────────────────────
+    val accentColor = when {
+        isSaveAddressMode        -> AppColors.Primary
+        locationType == "pickup" -> AppColors.Pickup
+        else                     -> AppColors.Drop
+    }
+    val locationIcon = when {
+        isSaveAddressMode        -> Icons.Default.Place
+        locationType == "pickup" -> Icons.Default.TripOrigin
+        else                     -> Icons.Default.LocationOn
+    }
+    val locationLabel = when {
+        isSaveAddressMode        -> stringResource(R.string.selected_location)
+        locationType == "pickup" -> stringResource(R.string.pickup_location)
+        else                     -> stringResource(R.string.drop_location)
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Layout — uses StatusBarScaffold to keep the gradient top bar consistent
+    // with every other screen in the app (no rogue white TopAppBar).
+    // ══════════════════════════════════════════════════════════════════════════
+    StatusBarScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = screenTitle,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (isEditMode && !isSaveAddressMode) {
-                            Text(
-                                text = stringResource(R.string.update_contact_subtitle),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.TextSecondary
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = AppColors.TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
+            com.mobitechs.parcelwala.ui.components.AppTopBar(
+                title  = screenTitle,
+                onBack = onBack
             )
         },
         containerColor = AppColors.Background
@@ -293,482 +253,251 @@ fun AddressConfirmationScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Scrollable Content
+
+            // ── Scrollable body ────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                // ============ MAP PREVIEW ============
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                ) {
-                    if (hasCoordinates) {
-                        GoogleMap(
-                            modifier = Modifier.fillMaxSize(),
-                            cameraPositionState = cameraPositionState,
-                            uiSettings = MapUiSettings(
-                                zoomControlsEnabled = false,
-                                scrollGesturesEnabled = false,
-                                zoomGesturesEnabled = false,
-                                tiltGesturesEnabled = false,
-                                rotationGesturesEnabled = false
-                            )
-                        ) {
-                            Marker(
-                                state = MarkerState(
-                                    position = LatLng(
-                                        actualAddress.latitude,
-                                        actualAddress.longitude
-                                    )
-                                ),
-                                title = if (locationType == "pickup") stringResource(R.string.pickup_fallback) else stringResource(
-                                    R.string.drop_fallback
-                                )
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(AppColors.Surface),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.Map,
-                                    contentDescription = null,
-                                    tint = AppColors.TextHint,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = stringResource(R.string.location_not_available),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = AppColors.TextHint
-                                )
-                            }
-                        }
-                    }
 
-                    if (isSaveAddressMode) {
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 12.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            color = AppColors.TextPrimary.copy(alpha = 0.9f)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.location_saved_badge),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(8.dp)
-                    ) {
-                        FilledTonalButton(
-                            onClick = onChangeLocation,
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Color.White
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.EditLocation,
-                                contentDescription = null,
-                                tint = AppColors.Primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.change_location),
-                                color = AppColors.Primary,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
-                }
+                // ── 1. MAP PREVIEW ─────────────────────────────────────────
+                MapPreviewSection(
+                    hasCoordinates      = hasCoordinates,
+                    actualAddress       = actualAddress,
+                    cameraPositionState = cameraPositionState,
+                    locationType        = locationType,
+                    isSaveAddressMode   = isSaveAddressMode,
+                    onChangeLocation    = onChangeLocation
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ============ ADDRESS DISPLAY CARD ============
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
+                // ── 2. ADDRESS DISPLAY CARD ────────────────────────────────
+                SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.Top
+                        modifier          = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = when {
-                                isSaveAddressMode -> Icons.Default.Place
-                                locationType == "pickup" -> Icons.Default.TripOrigin
-                                else -> Icons.Default.LocationOn
-                            },
-                            contentDescription = null,
-                            tint = when {
-                                isSaveAddressMode -> AppColors.Primary
-                                locationType == "pickup" -> AppColors.Pickup
-                                else -> AppColors.Drop
-                            },
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        // Coloured dot icon
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = 0.10f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector        = locationIcon,
+                                contentDescription = null,
+                                tint               = accentColor,
+                                modifier           = Modifier.size(18.dp)
+                            )
+                        }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = when {
-                                    isSaveAddressMode -> stringResource(R.string.selected_location)
-                                    locationType == "pickup" -> stringResource(R.string.pickup_location)
-                                    else -> stringResource(R.string.drop_location)
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = when {
-                                    isSaveAddressMode -> AppColors.Primary
-                                    locationType == "pickup" -> AppColors.Pickup
-                                    else -> AppColors.Drop
-                                },
-                                fontWeight = FontWeight.Bold
+                                text       = locationLabel,
+                                style      = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize      = 9.sp,
+                                    letterSpacing = 0.6.sp
+                                ),
+                                fontWeight = FontWeight.Bold,
+                                color      = accentColor
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
-                                text = actualAddress.address.ifEmpty { stringResource(R.string.address_not_available) },
-                                style = MaterialTheme.typography.bodyMedium,
+                                text  = actualAddress.address.ifEmpty {
+                                    stringResource(R.string.address_not_available)
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
                                 color = AppColors.TextPrimary
                             )
                             if (hasCoordinates) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "📍 ${
-                                        String.format(
-                                            "%.6f",
-                                            actualAddress.latitude
-                                        )
+                                    text  = "${
+                                        String.format("%.6f", actualAddress.latitude)
                                     }, ${String.format("%.6f", actualAddress.longitude)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AppColors.TextHint
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    color = AppColors.TextSecondary
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // ============ CONTACT DETAILS SECTION ============
-                Text(
-                    text = sectionHeaderText,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Contact Name
-                OutlinedTextField(
-                    value = contactName,
-                    onValueChange = { contactName = it; nameError = null },
-                    label = { Text(nameFieldLabel) },
-                    placeholder = { Text(stringResource(R.string.enter_contact_name)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    isError = nameError != null,
-                    supportingText = nameError?.let {
-                        {
+                // ── 3. CONTACT DETAILS CARD ────────────────────────────────
+                SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SectionHeader(
+                        title    = sectionHeader,
+                        icon     = Icons.Default.Person,
+                        modifier = Modifier.padding(bottom = 14.dp)
+                    )
+
+                    // Name field
+                    StyledTextField(
+                        value         = contactName,
+                        onValueChange = { contactName = it; nameError = null },
+                        label         = nameLabel,
+                        placeholder   = stringResource(R.string.enter_contact_name),
+                        icon          = Icons.Default.Person,
+                        isError       = nameError != null,
+                        errorMessage  = nameError,
+                        imeAction     = ImeAction.Next,
+                        onNext        = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Phone field
+                    StyledTextField(
+                        value         = contactPhone,
+                        onValueChange = {
+                            if (it.length <= 10 && it.all { c -> c.isDigit() }) {
+                                contactPhone = it; phoneError = null
+                            }
+                        },
+                        label         = stringResource(R.string.contact_phone_required),
+                        placeholder   = stringResource(R.string.enter_10_digit_mobile),
+                        icon          = Icons.Default.Phone,
+                        prefix        = stringResource(R.string.phone_prefix),
+                        keyboardType  = KeyboardType.Phone,
+                        isError       = phoneError != null,
+                        errorMessage  = phoneError,
+                        imeAction     = ImeAction.Next,
+                        onNext        = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
+
+                    // "Use my number" checkbox
+                    if (isSaveAddressMode && userPhoneNumber != null) {
+                        Row(
+                            modifier          = Modifier.fillMaxWidth().padding(top = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked         = useMyNumber,
+                                onCheckedChange = { useMyNumber = it },
+                                colors          = CheckboxDefaults.colors(
+                                    checkedColor   = AppColors.Primary,
+                                    checkmarkColor = Color.White
+                                )
+                            )
                             Text(
-                                it,
-                                color = MaterialTheme.colorScheme.error
+                                text  = stringResource(R.string.use_my_mobile_format, userPhoneNumber),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppColors.TextSecondary
                             )
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = {
-                        focusManager.moveFocus(
-                            FocusDirection.Down
-                        )
-                    })
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Contact Phone
-                OutlinedTextField(
-                    value = contactPhone,
-                    onValueChange = {
-                        if (it.length <= 10 && it.all { char -> char.isDigit() }) {
-                            contactPhone = it; phoneError = null
-                        }
-                    },
-                    label = { Text(stringResource(R.string.contact_phone_required)) },
-                    placeholder = { Text(stringResource(R.string.enter_10_digit_mobile)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    prefix = { Text(stringResource(R.string.phone_prefix)) },
-                    isError = phoneError != null,
-                    supportingText = phoneError?.let {
-                        {
-                            Text(
-                                it,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Next
-                    ),
-                    keyboardActions = KeyboardActions(onNext = {
-                        focusManager.moveFocus(
-                            FocusDirection.Down
-                        )
-                    })
-                )
-
-                // "Use my mobile number" checkbox
-                if (isSaveAddressMode && userPhoneNumber != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = useMyNumber,
-                            onCheckedChange = { useMyNumber = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = AppColors.Primary,
-                                checkmarkColor = Color.White
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.use_my_mobile_format, userPhoneNumber),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppColors.TextPrimary
-                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // ============ ADDRESS DETAILS SECTION ============
-                Text(
-                    text = stringResource(R.string.address_details_optional),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Building Details
-                OutlinedTextField(
-                    value = buildingDetails,
-                    onValueChange = { buildingDetails = it },
-                    label = { Text(stringResource(R.string.building_details_label)) },
-                    placeholder = { Text(stringResource(R.string.building_details_placeholder)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Apartment,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = {
-                        focusManager.moveFocus(
-                            FocusDirection.Down
-                        )
-                    })
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Landmark
-                OutlinedTextField(
-                    value = landmark,
-                    onValueChange = { landmark = it },
-                    label = { Text(stringResource(R.string.landmark_label)) },
-                    placeholder = { Text(stringResource(R.string.landmark_placeholder)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = {
-                        focusManager.moveFocus(
-                            FocusDirection.Down
-                        )
-                    })
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Pincode
-                OutlinedTextField(
-                    value = pincode,
-                    onValueChange = {
-                        if (it.length <= 6 && it.all { char -> char.isDigit() }) {
-                            pincode = it
-                        }
-                    },
-                    label = { Text(stringResource(R.string.pincode_label)) },
-                    placeholder = { Text(stringResource(R.string.pincode_placeholder)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.PinDrop,
-                            contentDescription = null,
-                            tint = AppColors.Primary
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppColors.Primary,
-                        unfocusedBorderColor = AppColors.Border
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
-                )
-
-                // ============ SAVE AS SECTION ============
-                if (isSaveAddressMode) {
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = stringResource(R.string.save_address_as),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextPrimary,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                // ── 4. ADDRESS DETAILS CARD ────────────────────────────────
+                SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SectionHeader(
+                        title    = stringResource(R.string.address_details_optional),
+                        icon     = Icons.Default.Apartment,
+                        modifier = Modifier.padding(bottom = 14.dp)
                     )
 
+                    StyledTextField(
+                        value         = buildingDetails,
+                        onValueChange = { buildingDetails = it },
+                        label         = stringResource(R.string.building_details_label),
+                        placeholder   = stringResource(R.string.building_details_placeholder),
+                        icon          = Icons.Default.Apartment,
+                        imeAction     = ImeAction.Next,
+                        onNext        = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    StyledTextField(
+                        value         = landmark,
+                        onValueChange = { landmark = it },
+                        label         = stringResource(R.string.landmark_label),
+                        placeholder   = stringResource(R.string.landmark_placeholder),
+                        icon          = Icons.Default.Place,
+                        imeAction     = ImeAction.Next,
+                        onNext        = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    StyledTextField(
+                        value         = pincode,
+                        onValueChange = {
+                            if (it.length <= 6 && it.all { c -> c.isDigit() }) pincode = it
+                        },
+                        label         = stringResource(R.string.pincode_label),
+                        placeholder   = stringResource(R.string.pincode_placeholder),
+                        icon          = Icons.Default.PinDrop,
+                        keyboardType  = KeyboardType.Number,
+                        imeAction     = ImeAction.Done,
+                        onDone        = { focusManager.clearFocus() }
+                    )
+                }
+
+                // ── 5. SAVE AS CARD (only in save mode) ────────────────────
+                if (isSaveAddressMode) {
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Address Type Selector
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        AddressTypeChip(
-                            text = stringResource(R.string.label_home), icon = Icons.Default.Home,
-                            isSelected = selectedType == "Home",
-                            onClick = { selectedType = "Home"; customLabel = "" },
-                            modifier = Modifier.weight(1f)
+                    SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        SectionHeader(
+                            title    = stringResource(R.string.save_address_as),
+                            icon     = Icons.Default.Label,
+                            modifier = Modifier.padding(bottom = 14.dp)
                         )
-                        AddressTypeChip(
-                            text = stringResource(R.string.label_shop), icon = Icons.Default.Store,
-                            isSelected = selectedType == "Shop",
-                            onClick = { selectedType = "Shop"; customLabel = "" },
-                            modifier = Modifier.weight(1f)
-                        )
-                        AddressTypeChip(
-                            text = stringResource(R.string.label_other),
-                            icon = Icons.Default.MoreHoriz,
-                            isSelected = selectedType == "Other",
-                            onClick = { selectedType = "Other" },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
 
-                    AnimatedVisibility(
-                        visible = selectedType == "Other",
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedTextField(
-                                value = customLabel,
-                                onValueChange = { customLabel = it },
-                                label = { Text(stringResource(R.string.label_name_optional)) },
-                                placeholder = { Text(stringResource(R.string.label_placeholder)) },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Label,
-                                        contentDescription = null,
-                                        tint = AppColors.Primary
-                                    )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AppColors.Primary,
-                                    unfocusedBorderColor = AppColors.Border
-                                ),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            AddressTypeChip(
+                                text       = stringResource(R.string.label_home),
+                                icon       = Icons.Default.Home,
+                                isSelected = selectedType == "Home",
+                                onClick    = { selectedType = "Home"; customLabel = "" },
+                                modifier   = Modifier.weight(1f)
                             )
+                            AddressTypeChip(
+                                text       = stringResource(R.string.label_shop),
+                                icon       = Icons.Default.Store,
+                                isSelected = selectedType == "Shop",
+                                onClick    = { selectedType = "Shop"; customLabel = "" },
+                                modifier   = Modifier.weight(1f)
+                            )
+                            AddressTypeChip(
+                                text       = stringResource(R.string.label_other),
+                                icon       = Icons.Default.MoreHoriz,
+                                isSelected = selectedType == "Other",
+                                onClick    = { selectedType = "Other" },
+                                modifier   = Modifier.weight(1f)
+                            )
+                        }
+
+                        // Custom label field — slides in when "Other" is picked
+                        AnimatedVisibility(
+                            visible = selectedType == "Other",
+                            enter   = fadeIn() + expandVertically(),
+                            exit    = fadeOut() + shrinkVertically()
+                        ) {
+                            Column {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                StyledTextField(
+                                    value         = customLabel,
+                                    onValueChange = { customLabel = it },
+                                    label         = stringResource(R.string.label_name_optional),
+                                    placeholder   = stringResource(R.string.label_placeholder),
+                                    icon          = Icons.Default.Label,
+                                    imeAction     = ImeAction.Done,
+                                    onDone        = { focusManager.clearFocus() }
+                                )
+                            }
                         }
                     }
                 }
@@ -776,98 +505,335 @@ fun AddressConfirmationScreen(
                 Spacer(modifier = Modifier.height(100.dp))
             }
 
-            // ============ BOTTOM BUTTON ============
+            // ── Sticky bottom CTA ──────────────────────────────────────────
+            // navigationBarsPadding() pushes the button above the system
+            // gesture bar / 3-button nav so it is never obscured.
             Surface(
-                color = Color.White,
-                shadowElevation = 8.dp
+                color           = Color.White,
+                shadowElevation = 8.dp,
+                modifier        = Modifier.navigationBarsPadding()
             ) {
                 PrimaryButton(
-                    text = buttonText,
+                    text    = buttonText,
                     onClick = {
                         var isValid = true
-                        if (contactName.isBlank()) {
-                            nameError = enterContactNameError; isValid = false
-                        }
-                        if (contactPhone.length != 10) {
-                            phoneError = enterValidPhoneError; isValid = false
-                        }
+                        if (contactName.isBlank()) { nameError = enterContactNameError; isValid = false }
+                        if (contactPhone.length != 10) { phoneError = enterValidPhoneError; isValid = false }
 
                         if (isValid) {
                             val finalLabel = when (selectedType) {
-                                "Home" -> "Home"
-                                "Shop" -> "Shop"
+                                "Home"  -> "Home"
+                                "Shop"  -> "Shop"
                                 "Other" -> customLabel.trim().ifEmpty { "Other" }
-                                else -> actualAddress.label.ifEmpty { "Other" }
+                                else    -> actualAddress.label.ifEmpty { "Other" }
                             }
-
-                            val confirmedAddress = actualAddress.copy(
-                                addressType = if (isSaveAddressMode) selectedType else actualAddress.addressType,
-                                label = if (isSaveAddressMode) finalLabel else actualAddress.label.ifEmpty { "Address" },
-                                contactName = contactName.trim(),
-                                contactPhone = contactPhone.trim(),
-                                buildingDetails = buildingDetails.trim().ifEmpty { null },
-                                landmark = landmark.trim().ifEmpty { null },
-                                pincode = pincode.trim().ifEmpty { null },
-                                latitude = actualAddress.latitude,
-                                longitude = actualAddress.longitude,
-                                address = actualAddress.address
+                            onConfirm(
+                                actualAddress.copy(
+                                    addressType     = if (isSaveAddressMode) selectedType else actualAddress.addressType,
+                                    label           = if (isSaveAddressMode) finalLabel else actualAddress.label.ifEmpty { "Address" },
+                                    contactName     = contactName.trim(),
+                                    contactPhone    = contactPhone.trim(),
+                                    buildingDetails = buildingDetails.trim().ifEmpty { null },
+                                    landmark        = landmark.trim().ifEmpty { null },
+                                    pincode         = pincode.trim().ifEmpty { null },
+                                    latitude        = actualAddress.latitude,
+                                    longitude       = actualAddress.longitude,
+                                    address         = actualAddress.address
+                                )
                             )
-                            onConfirm(confirmedAddress)
                         }
                     },
-                    icon = when {
-                        isSaveAddressMode -> Icons.Default.Check
-                        isEditMode -> Icons.Default.Check
-                        else -> Icons.Default.ArrowForward
+                    icon     = when {
+                        isSaveAddressMode || isEditMode -> Icons.Default.Check
+                        else                            -> Icons.Default.ArrowForward
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
         }
     }
 }
 
-/**
- * Address Type Selection Chip
- */
+// ══════════════════════════════════════════════════════════════════════════════
+// MapPreviewSection
+// Full-width map (or placeholder) with a "Change location" pill.
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun MapPreviewSection(
+    hasCoordinates: Boolean,
+    actualAddress: SavedAddress,
+    cameraPositionState: com.google.maps.android.compose.CameraPositionState,
+    locationType: String,
+    isSaveAddressMode: Boolean,
+    onChangeLocation: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+    ) {
+        if (hasCoordinates) {
+            GoogleMap(
+                modifier            = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                uiSettings          = MapUiSettings(
+                    zoomControlsEnabled   = false,
+                    scrollGesturesEnabled = false,
+                    zoomGesturesEnabled   = false,
+                    tiltGesturesEnabled   = false,
+                    rotationGesturesEnabled = false
+                )
+            ) {
+                Marker(
+                    state = MarkerState(
+                        position = LatLng(actualAddress.latitude, actualAddress.longitude)
+                    ),
+                    title = if (locationType == "pickup") "Pickup" else "Drop"
+                )
+            }
+        } else {
+            // Placeholder when coordinates are unavailable
+            Box(
+                modifier         = Modifier
+                    .fillMaxSize()
+                    .background(AppColors.Background),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector        = Icons.Default.Map,
+                        contentDescription = null,
+                        tint               = AppColors.TextSecondary.copy(alpha = 0.40f),
+                        modifier           = Modifier.size(44.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text  = stringResource(R.string.location_not_available),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary
+                    )
+                }
+            }
+        }
+
+        // "Location saved" badge — save mode only
+        if (isSaveAddressMode) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = AppColors.TextPrimary.copy(alpha = 0.85f)
+            ) {
+                Text(
+                    text     = stringResource(R.string.location_saved_badge),
+                    style    = MaterialTheme.typography.labelMedium,
+                    color    = Color.White,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                )
+            }
+        }
+
+        // "Change location" pill — bottom-right
+        FilledTonalButton(
+            onClick  = onChangeLocation,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(10.dp),
+            colors   = ButtonDefaults.filledTonalButtonColors(containerColor = Color.White),
+            shape    = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                imageVector        = Icons.Default.EditLocation,
+                contentDescription = null,
+                tint               = AppColors.Primary,
+                modifier           = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text  = stringResource(R.string.change_location),
+                color = AppColors.Primary,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SectionCard — white rounded card wrapping a logical group of fields
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun SectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier        = modifier.fillMaxWidth(),
+        shape           = RoundedCornerShape(16.dp),
+        color           = Color.White,
+        shadowElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            content()
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SectionHeader — icon + title row at the top of each card
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier          = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier         = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(AppColors.Primary.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector        = icon,
+                contentDescription = null,
+                tint               = AppColors.Primary,
+                modifier           = Modifier.size(15.dp)
+            )
+        }
+        Text(
+            text       = title,
+            style      = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
+            fontWeight = FontWeight.Bold,
+            color      = AppColors.TextPrimary
+        )
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// StyledTextField — OutlinedTextField wrapped in the app's colour system
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun StyledTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    icon: ImageVector,
+    prefix: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Next,
+    isError: Boolean = false,
+    errorMessage: String? = null,
+    onNext: (() -> Unit)? = null,
+    onDone: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value         = value,
+        onValueChange = onValueChange,
+        label         = { Text(label, fontSize = 12.sp) },
+        placeholder   = { Text(placeholder, fontSize = 12.sp) },
+        leadingIcon   = {
+            Icon(
+                imageVector        = icon,
+                contentDescription = null,
+                tint               = AppColors.Primary,
+                modifier           = Modifier.size(18.dp)
+            )
+        },
+        prefix        = prefix?.let { { Text(it, fontSize = 12.sp) } },
+        isError       = isError,
+        supportingText = errorMessage?.let {
+            { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
+        },
+        modifier      = modifier.fillMaxWidth(),
+        colors        = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor   = AppColors.Primary,
+            unfocusedBorderColor = AppColors.Border,
+            focusedLabelColor    = AppColors.Primary
+        ),
+        shape         = RoundedCornerShape(12.dp),
+        singleLine    = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction    = imeAction
+        ),
+        keyboardActions = KeyboardActions(
+            onNext = onNext?.let { { it() } },
+            onDone = onDone?.let { { it() } }
+        )
+    )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AddressTypeChip — square selector chip for Home / Shop / Other
+// ══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 private fun AddressTypeChip(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        onClick = onClick,
+        onClick  = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) AppColors.Primary.copy(alpha = 0.1f) else Color.White,
-        border = BorderStroke(
-            width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) AppColors.Primary else AppColors.Border
+        shape    = RoundedCornerShape(12.dp),
+        color    = if (isSelected) AppColors.Primary.copy(alpha = 0.08f) else AppColors.Background,
+        border   = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 1.5.dp else 0.5.dp,
+            color = if (isSelected) AppColors.Primary else AppColors.Divider
         )
     ) {
         Column(
-            modifier = Modifier
+            modifier              = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment   = Alignment.CenterHorizontally,
+            verticalArrangement   = Arrangement.spacedBy(5.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = text,
-                tint = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            // Icon in a small tinted circle
+            Box(
+                modifier         = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) AppColors.Primary.copy(alpha = 0.12f)
+                        else AppColors.Divider.copy(alpha = 0.50f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = icon,
+                    contentDescription = text,
+                    tint               = if (isSelected) AppColors.Primary else AppColors.TextSecondary,
+                    modifier           = Modifier.size(17.dp)
+                )
+            }
             Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
+                text       = text,
+                style      = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) AppColors.Primary else AppColors.TextSecondary
+                color      = if (isSelected) AppColors.Primary else AppColors.TextSecondary
             )
         }
     }
