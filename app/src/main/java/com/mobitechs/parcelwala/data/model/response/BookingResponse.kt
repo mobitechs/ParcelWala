@@ -175,6 +175,11 @@ data class FareDetails(
     fun getEtaText(): String = "$estimatedDurationMinutes mins"
     fun hasSurgePricing(): Boolean = surgeMultiplier > 1.0
     fun getSurgePercentage(): Int = ((surgeMultiplier - 1.0) * 100).toInt()
+    fun getEffectiveFare(): Double {
+        // return the final fare used for the strikethrough base
+        // e.g. return if (discount > 0) totalFare else totalFare
+        return totalFare
+    }
 }
 
 

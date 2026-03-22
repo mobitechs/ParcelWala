@@ -2,7 +2,6 @@
 package com.mobitechs.parcelwala.ui.screens.booking
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -16,43 +15,36 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,24 +54,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
-import com.mobitechs.parcelwala.ui.components.AddressesCard
+import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.EmptyState
-import com.mobitechs.parcelwala.ui.components.InfoCard
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
+import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun BookingConfirmationScreen(
     pickupAddress: SavedAddress?,
@@ -89,13 +85,10 @@ fun BookingConfirmationScreen(
     onVehicleSelected: (FareDetails) -> Unit,
     onEditPickup: () -> Unit,
     onEditDrop: () -> Unit,
-    onChangePickup: () -> Unit,
-    onChangeDrop: () -> Unit,
     onBack: () -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
-    var selectedFareDetails by remember { mutableStateOf<FareDetails?>(null) }
-    var showLocationDetails by remember { mutableStateOf(false) }
+    var selectedFare by remember { mutableStateOf<FareDetails?>(null) }
     var hasInitializedPreSelection by remember { mutableStateOf(false) }
 
     val vehicleFares by viewModel.vehicleFares.collectAsState()
@@ -114,7 +107,7 @@ fun BookingConfirmationScreen(
     LaunchedEffect(vehicleFares, preSelectedVehicleId) {
         if (!hasInitializedPreSelection && vehicleFares.isNotEmpty() && preSelectedVehicleId != null) {
             vehicleFares.find { it.vehicleTypeId == preSelectedVehicleId }?.let {
-                selectedFareDetails = it
+                selectedFare = it
                 hasInitializedPreSelection = true
             }
         }
@@ -127,42 +120,16 @@ fun BookingConfirmationScreen(
             subtitle = stringResource(R.string.label_select_pickup_drop),
             actionText = stringResource(R.string.label_go_back),
             onAction = onBack,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp)
+            modifier = Modifier.fillMaxSize().padding(32.dp)
         )
         return
     }
 
-    Scaffold(
+    StatusBarScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            stringResource(R.string.title_select_vehicle),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (isPrefilledFromOrder) {
-                            Text(
-                                stringResource(R.string.label_booking_from_previous),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.Primary
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            stringResource(R.string.back),
-                            tint = AppColors.TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppColors.Surface)
+            AppTopBar(
+                title = stringResource(R.string.title_select_vehicle),
+                onBack = onBack
             )
         },
         containerColor = AppColors.Background
@@ -173,104 +140,89 @@ fun BookingConfirmationScreen(
                 .padding(paddingValues)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+
+                // ── Scrollable body ───────────────────────────────────────
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
+                        .padding(vertical = 4.dp)
                 ) {
-                    if (isPrefilledFromOrder) {
-                        BookAgainBanner(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
 
-                    CompactJourneySummary(
+                    // Journey summary card
+                    JourneyCard(
                         pickupAddress = pickupAddress,
                         dropAddress = dropAddress,
                         distanceKm = vehicleFares.firstOrNull()?.distanceKm,
                         estimatedMins = vehicleFares.firstOrNull()?.estimatedDurationMinutes,
-                        onViewDetails = { showLocationDetails = true },
-                        onEditPickup = onEditPickup,
-                        onEditDrop = onEditDrop,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    // Section header
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 14.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                stringResource(R.string.label_choose_your_ride),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.TextPrimary
-                            )
-                            Text(
-                                if (preSelectedVehicleId != null) stringResource(R.string.label_pre_selected_hint) else stringResource(
-                                    R.string.label_select_vehicle_hint
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.label_choose_your_ride),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.TextSecondary,
+                            letterSpacing = androidx.compose.ui.unit.TextUnit(0.4f, androidx.compose.ui.unit.TextUnitType.Sp)
+                        )
                         if (!isFareLoading) {
-                            IconButton(onClick = { viewModel.calculateFaresForAllVehicles() }) {
+                            IconButton(
+                                onClick = { viewModel.calculateFaresForAllVehicles() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
                                 Icon(
                                     Icons.Default.Refresh,
-                                    stringResource(R.string.content_desc_refresh),
-                                    tint = AppColors.Primary
+                                    contentDescription = stringResource(R.string.content_desc_refresh),
+                                    tint = AppColors.Primary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    AnimatedVisibility(
-                        visible = isFareLoading,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        FareLoadingIndicator(
+                    // Loading
+                    AnimatedVisibility(visible = isFareLoading, enter = fadeIn(), exit = fadeOut()) {
+                        FareLoadingState(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp)
+                                .padding(40.dp)
                         )
                     }
 
+                    // Vehicle cards
                     AnimatedVisibility(
                         visible = !isFareLoading && vehicleFares.isNotEmpty(),
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
-                        Column {
-                            vehicleFares.forEach { fareDetails ->
-                                VehicleFareCard(
-                                    fareDetails = fareDetails,
-                                    isSelected = selectedFareDetails?.vehicleTypeId == fareDetails.vehicleTypeId,
-                                    isPreSelected = preSelectedVehicleId == fareDetails.vehicleTypeId,
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            vehicleFares.forEach { fare ->
+                                VehicleCard(
+                                    fareDetails = fare,
+                                    isSelected = selectedFare?.vehicleTypeId == fare.vehicleTypeId,
                                     onSelect = {
-                                        selectedFareDetails = fareDetails
-                                        viewModel.selectFareDetails(fareDetails)
+                                        selectedFare = fare
+                                        viewModel.selectFareDetails(fare)
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .padding(horizontal = 14.dp)
                                 )
                             }
                         }
                     }
 
+                    // Empty state
                     AnimatedVisibility(
                         visible = !isFareLoading && vehicleFares.isEmpty() && uiState.hasFaresLoaded,
                         enter = fadeIn(),
@@ -288,41 +240,18 @@ fun BookingConfirmationScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    InfoCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Timer,
-                                null,
-                                tint = AppColors.Primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                stringResource(R.string.label_fare_info),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = AppColors.TextSecondary
-                            )
-                        }
-                    }
-
                     Spacer(modifier = Modifier.height(100.dp))
                 }
 
-                BottomFareActionBar(
-                    selectedFareDetails = selectedFareDetails,
-                    onProceed = { selectedFareDetails?.let { onVehicleSelected(it) } },
-                    isLoading = isFareLoading
+                // ── Bottom action bar ─────────────────────────────────────
+                BottomActionBar(
+                    selectedFare = selectedFare,
+                    isLoading = isFareLoading,
+                    onProceed = { selectedFare?.let { onVehicleSelected(it) } }
                 )
             }
 
+            // Snackbar
             uiState.error?.let { error ->
                 Snackbar(
                     modifier = Modifier
@@ -331,292 +260,332 @@ fun BookingConfirmationScreen(
                         .padding(bottom = 80.dp),
                     action = {
                         TextButton(onClick = { viewModel.clearError() }) {
-                            Text(
-                                stringResource(R.string.label_dismiss)
-                            )
+                            Text(stringResource(R.string.label_dismiss))
                         }
                     }
                 ) { Text(error) }
             }
         }
     }
-
-    if (showLocationDetails) {
-        ModalBottomSheet(
-            onDismissRequest = { showLocationDetails = false },
-            containerColor = AppColors.Surface
-        ) {
-            LocationDetailsBottomSheet(
-                pickupAddress = pickupAddress,
-                dropAddress = dropAddress,
-                distanceKm = vehicleFares.firstOrNull()?.distanceKm,
-                estimatedMins = vehicleFares.firstOrNull()?.estimatedDurationMinutes,
-                onDismiss = { showLocationDetails = false }
-            )
-        }
-    }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Journey card
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-private fun CompactJourneySummary(
-    pickupAddress: SavedAddress, dropAddress: SavedAddress,
-    distanceKm: Double?, estimatedMins: Int?,
-    onViewDetails: () -> Unit, onEditPickup: () -> Unit, onEditDrop: () -> Unit,
+private fun JourneyCard(
+    pickupAddress: SavedAddress,
+    dropAddress: SavedAddress,
+    distanceKm: Double?,
+    estimatedMins: Int?,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        border = BorderStroke(0.5.dp, AppColors.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        AddressesCard(
-            pickupAddress.contactName, pickupAddress.contactPhone, pickupAddress.address,
-            dropAddress.contactName, dropAddress.contactPhone, dropAddress.address
-        )
+        Column {
+            // Pickup row
+            JourneyStop(
+                address = pickupAddress,
+                isPickup = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            )
+
+            HorizontalDivider(
+                color = AppColors.Divider,
+                thickness = 0.5.dp,
+                modifier = Modifier.padding(horizontal = 14.dp)
+            )
+
+            // Drop row
+            JourneyStop(
+                address = dropAddress,
+                isPickup = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            )
+
+            // Footer chips — distance + time only
+            if (distanceKm != null || estimatedMins != null) {
+                HorizontalDivider(color = AppColors.Divider, thickness = 0.5.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AppColors.Background)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    distanceKm?.let {
+                        JourneyChip(text = String.format("%.1f km", it))
+                    }
+                    estimatedMins?.let {
+                        JourneyChip(text = "$it mins")
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun VehicleFareCard(
-    fareDetails: FareDetails, isSelected: Boolean, isPreSelected: Boolean = false,
-    onSelect: () -> Unit, modifier: Modifier = Modifier
+private fun JourneyStop(
+    address: SavedAddress,
+    isPickup: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    val alpha by animateFloatAsState(targetValue = if (isSelected) 1f else 0.9f, label = "alpha")
+    val accentColor = if (isPickup) AppColors.Pickup else AppColors.Drop
+    val label = if (isPickup) "PICKUP" else "DROP"
 
-    Card(
-        modifier = modifier
-            .alpha(alpha)
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
-        border = when {
-            isSelected -> BorderStroke(2.dp, AppColors.Primary)
-            isPreSelected -> BorderStroke(2.dp, AppColors.Primary.copy(alpha = 0.4f))
-            else -> BorderStroke(1.dp, AppColors.Border)
-        },
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 6.dp else 2.dp)
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
+        // Dot icon
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(top = 2.dp)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(accentColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = if (isSelected) AppColors.Primary.copy(alpha = 0.15f) else AppColors.Background,
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(fareDetails.vehicleTypeIcon, style = MaterialTheme.typography.headlineMedium)
-            }
+            Icon(
+                imageVector = if (isPickup) Icons.Default.TripOrigin else Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(12.dp)
+            )
+        }
 
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        fareDetails.vehicleTypeName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSelected) AppColors.Primary else AppColors.TextPrimary
-                    )
-                    if (isPreSelected) {
-                        Surface(
-                            color = AppColors.Primary.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                stringResource(R.string.label_previous),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppColors.Primary,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    if (fareDetails.hasSurgePricing()) {
-                        Surface(color = AppColors.PrimaryLight, shape = RoundedCornerShape(4.dp)) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.TrendingUp,
-                                    stringResource(R.string.label_surge),
-                                    tint = AppColors.OrangeDark,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    "${fareDetails.getSurgePercentage()}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AppColors.OrangeDark,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = accentColor,
+                letterSpacing = androidx.compose.ui.unit.TextUnit(0.4f, androidx.compose.ui.unit.TextUnitType.Sp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            val contactDisplay = listOfNotNull(
+                address.contactName?.takeIf { it.isNotBlank() },
+                address.contactPhone?.takeIf { it.isNotBlank() }
+            ).joinToString(" · ")
+            if (contactDisplay.isNotBlank()) {
                 Text(
-                    fareDetails.capacity,
+                    text = contactDisplay,
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
+                    fontWeight = FontWeight.Medium,
+                    color = AppColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Timer,
-                        null,
-                        tint = AppColors.TextHint,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        fareDetails.getEtaText(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextHint
-                    )
-                }
             }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    fareDetails.getDisplayFare(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) AppColors.Primary else AppColors.TextPrimary
-                )
-                if (fareDetails.discount > 0) {
-                    Text(
-                        "₹${fareDetails.totalFare.toInt()}",
-                        style = MaterialTheme.typography.bodySmall.copy(textDecoration = TextDecoration.LineThrough),
-                        color = AppColors.TextHint
-                    )
-                }
-                if (fareDetails.tollCharges > 0) {
-                    Text(
-                        stringResource(R.string.label_incl_toll),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextHint
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-            RadioButton(
-                selected = isSelected,
-                onClick = onSelect,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = AppColors.Primary,
-                    unselectedColor = AppColors.Border
-                )
+            Text(
+                text = address.address,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = androidx.compose.ui.unit.TextUnit(16f, androidx.compose.ui.unit.TextUnitType.Sp)
             )
         }
     }
 }
 
 @Composable
-private fun FareLoadingIndicator(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+private fun JourneyChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = AppColors.Surface,
+        border = BorderStroke(0.5.dp, AppColors.Border),
+        tonalElevation = 0.dp
     ) {
-        CircularProgressIndicator(color = AppColors.Primary, modifier = Modifier.size(48.dp))
-        Spacer(modifier = Modifier.height(16.dp))
         Text(
-            stringResource(R.string.label_calculating_fares),
-            style = MaterialTheme.typography.bodyLarge,
-            color = AppColors.TextSecondary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.label_finding_best_prices),
-            style = MaterialTheme.typography.bodySmall,
-            color = AppColors.TextHint
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppColors.TextSecondary,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Vehicle card
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-private fun BottomFareActionBar(
-    selectedFareDetails: FareDetails?,
-    onProceed: () -> Unit,
-    isLoading: Boolean
+private fun VehicleCard(
+    fareDetails: FareDetails,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(color = AppColors.Surface, shadowElevation = 12.dp) {
-        Column(
+    val strikePrice = (fareDetails.getEffectiveFare() * 1.1).toInt()
+
+    Card(
+        modifier = modifier.clickable(onClick = onSelect),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
+        border = if (isSelected)
+            BorderStroke(1.5.dp, AppColors.Primary)
+        else
+            BorderStroke(0.5.dp, AppColors.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column {
+            // Top row: emoji · name · price
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Vehicle emoji
+                Text(
+                    text = fareDetails.vehicleTypeIcon,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                // Name
+                Text(
+                    text = fareDetails.vehicleTypeName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSelected) AppColors.Primary else AppColors.TextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Price column
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = fareDetails.getDisplayFare(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isSelected) AppColors.Primary else AppColors.TextPrimary
+                    )
+                    Text(
+                        text = "₹$strikePrice",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            textDecoration = TextDecoration.LineThrough
+                        ),
+                        color = AppColors.TextHint
+                    )
+                }
+            }
+
+            // Detail row: ETA · weight
+            HorizontalDivider(
+                color = AppColors.Divider,
+                thickness = 0.5.dp,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                VehicleDetailItem(
+                    icon = Icons.Default.Timer,
+                    text = fareDetails.getEtaText()
+                )
+                VehicleDetailItem(
+                    icon = Icons.Default.TrendingUp, // replace with your weight icon if available
+                    text = fareDetails.capacity  // e.g. "Upto 10 kg"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleDetailItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = AppColors.TextHint,
+            modifier = Modifier.size(13.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.TextSecondary
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom action bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun BottomActionBar(
+    selectedFare: FareDetails?,
+    isLoading: Boolean,
+    onProceed: () -> Unit
+) {
+    Surface(
+        color = AppColors.Surface,
+        shadowElevation = 12.dp,
+        tonalElevation = 0.dp
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            selectedFareDetails?.let { fare ->
+            if (selectedFare != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
                         Text(
-                            fare.vehicleTypeName,
-                            style = MaterialTheme.typography.labelMedium,
+                            text = selectedFare.vehicleTypeName,
+                            style = MaterialTheme.typography.bodySmall,
                             color = AppColors.TextSecondary
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                fare.getDisplayFare(),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.Primary
-                            )
-                            if (fare.discount > 0) {
-                                Surface(
-                                    color = AppColors.Pickup.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        stringResource(
-                                            R.string.label_discount_off,
-                                            fare.discount.toInt()
-                                        ),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = AppColors.Pickup,
-                                        modifier = Modifier.padding(
-                                            horizontal = 6.dp,
-                                            vertical = 2.dp
-                                        )
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = selectedFare.getDisplayFare(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.Primary
+                        )
                     }
                     PrimaryButton(
                         text = stringResource(R.string.label_proceed),
                         onClick = onProceed,
                         icon = Icons.Default.ArrowForward,
-                        modifier = Modifier.width(150.dp),
+                        modifier = Modifier.width(148.dp),
                         enabled = !isLoading
                     )
                 }
-            } ?: run {
+            } else {
                 Text(
-                    if (isLoading) stringResource(R.string.label_calculating_fares) else stringResource(
-                        R.string.label_select_vehicle_to_proceed
-                    ),
+                    text = if (isLoading)
+                        stringResource(R.string.label_calculating_fares)
+                    else
+                        stringResource(R.string.label_select_vehicle_to_proceed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppColors.TextHint,
                     modifier = Modifier.fillMaxWidth()
@@ -626,164 +595,33 @@ private fun BottomFareActionBar(
     }
 }
 
-@Composable
-private fun BookAgainBanner(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = AppColors.Primary.copy(alpha = 0.1f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                Icons.Default.Refresh,
-                stringResource(R.string.content_desc_book_again),
-                tint = AppColors.Primary,
-                modifier = Modifier.size(24.dp)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.label_booking_again),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.Primary
-                )
-                Text(
-                    stringResource(R.string.label_details_prefilled),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.TextSecondary
-                )
-            }
-        }
-    }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Loading state
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun LocationDetailsBottomSheet(
-    pickupAddress: SavedAddress,
-    dropAddress: SavedAddress,
-    distanceKm: Double?,
-    estimatedMins: Int?,
-    onDismiss: () -> Unit
-) {
+private fun FareLoadingState(modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                stringResource(R.string.label_trip_details),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
-            )
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    Icons.Default.Close,
-                    stringResource(R.string.content_desc_close),
-                    tint = AppColors.TextSecondary
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-        LocationDetailItem(pickupAddress, stringResource(R.string.label_pickup), AppColors.Pickup)
+        CircularProgressIndicator(
+            color = AppColors.Primary,
+            modifier = Modifier.size(40.dp),
+            strokeWidth = 3.dp
+        )
         Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider(color = AppColors.Divider)
-        Spacer(modifier = Modifier.height(16.dp))
-        LocationDetailItem(dropAddress, stringResource(R.string.label_drop), AppColors.Drop)
-        Spacer(modifier = Modifier.height(24.dp))
-        if (distanceKm != null || estimatedMins != null) {
-            InfoCard {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    distanceKm?.let {
-                        InfoStatItem(
-                            Icons.Default.Route,
-                            String.format("%.1f km", it),
-                            stringResource(R.string.label_distance)
-                        )
-                    }
-                    estimatedMins?.let {
-                        InfoStatItem(
-                            Icons.Default.Timer,
-                            "$it mins",
-                            stringResource(R.string.label_est_time)
-                        )
-                    }
-                    InfoStatItem(
-                        Icons.Default.Speed,
-                        stringResource(R.string.label_fastest),
-                        stringResource(R.string.label_route)
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(32.dp))
-    }
-}
-
-@Composable
-private fun LocationDetailItem(address: SavedAddress, type: String, color: Color) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                if (type == stringResource(R.string.label_pickup)) Icons.Default.TripOrigin else Icons.Default.LocationOn,
-                null,
-                tint = color,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                type,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            address.address,
+            text = stringResource(R.string.label_calculating_fares),
             style = MaterialTheme.typography.bodyMedium,
-            color = AppColors.TextPrimary
+            color = AppColors.TextSecondary
         )
-        address.contactName?.let { name ->
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "$name • ${address.contactPhone ?: ""}",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextSecondary
-            )
-        }
-    }
-}
-
-@Composable
-private fun InfoStatItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, label, tint = AppColors.Primary, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
+            text = stringResource(R.string.label_finding_best_prices),
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.TextHint
         )
-        Text(label, style = MaterialTheme.typography.labelSmall, color = AppColors.TextSecondary)
     }
 }

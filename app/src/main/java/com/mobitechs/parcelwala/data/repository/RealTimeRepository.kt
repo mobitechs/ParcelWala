@@ -197,13 +197,6 @@ class RealTimeRepository @Inject constructor(
 
     fun isConnected(): Boolean = hubConnection?.connectionState == HubConnectionState.CONNECTED
 
-    fun getConnectionStatusText(): String = when (_connectionState.value) {
-        is RealTimeConnectionState.Connected -> "Connected"
-        is RealTimeConnectionState.Connecting -> "Connecting..."
-        is RealTimeConnectionState.Reconnecting -> "Reconnecting..."
-        is RealTimeConnectionState.Error -> "Connection error"
-        is RealTimeConnectionState.Disconnected -> "Disconnected"
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // CANCEL BOOKING

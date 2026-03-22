@@ -484,8 +484,8 @@ fun NavGraph(
                     onVehicleSelected = { fareDetails -> viewModel.selectFareDetails(fareDetails); navController.navigate("review_booking") },
                     onEditPickup = { viewModel.clearPendingAddress(); navController.navigate("address_confirm/pickup?isEdit=true") },
                     onEditDrop = { viewModel.clearPendingAddress(); navController.navigate("address_confirm/drop?isEdit=true") },
-                    onChangePickup = { viewModel.clearPendingAddress(); navController.navigate("location_search/pickup?isChange=true") },
-                    onChangeDrop = { viewModel.clearPendingAddress(); navController.navigate("location_search/drop?isChange=true") },
+//                    onChangePickup = { viewModel.clearPendingAddress(); navController.navigate("location_search/pickup?isChange=true") },
+//                    onChangeDrop = { viewModel.clearPendingAddress(); navController.navigate("location_search/drop?isChange=true") },
                     onBack = {
                         if (uiState.isBookAgain) navController.navigate(Screen.Main.route) { popUpTo("booking_flow") { inclusive = true } }
                         else navController.popBackStack()
