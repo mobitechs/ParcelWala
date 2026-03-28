@@ -312,8 +312,6 @@ class RiderTrackingViewModel @Inject constructor(
     // ═══════════════════════════════════════════════════════════════════════
 
     fun submitRating(bookingId: String, rating: Int, feedback: String?) {
-        // ✅ Dismiss dialog immediately so the user sees instant feedback.
-        // API call and navigation happen in the background — no perceived lag.
         _ratingState.update { it.copy(showRatingDialog = false, isSubmitting = true) }
         viewModelScope.launch {
             try {
@@ -324,7 +322,6 @@ class RiderTrackingViewModel @Inject constructor(
                     }
                     .onFailure { e ->
                         Log.e(TAG, "⭐ Rating failed: ${e.message}")
-                        // Navigate home regardless — don't block the user for a rating error
                         navigateHomeAfterCompletion()
                     }
             } catch (e: Exception) {
@@ -335,7 +332,6 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     fun skipRating() {
-        // ✅ Dismiss dialog immediately, navigate in background
         _ratingState.update { it.copy(showRatingDialog = false) }
         viewModelScope.launch { navigateHomeAfterCompletion() }
     }
@@ -361,13 +357,7 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun connectToBooking(bookingId: String, pickupLatitude: Double, pickupLongitude: Double) {
         Log.d(TAG, "📡 Connecting to booking: $bookingId")
-
-        // ✅ FIX: Reset all stale state from any previous booking before connecting.
-        // Without this, completed-booking state (e.g. showRatingDialog=true, paymentState)
-        // bleeds into the new booking — the rating dialog from booking N appears as soon
-        // as the driver is assigned to booking N+1.
         clearState()
-
         _uiState.update { it.copy(currentBookingId = bookingId) }
 
         activeBookingManager.activeBooking.value?.let { booking ->
@@ -376,16 +366,20 @@ class RiderTrackingViewModel @Inject constructor(
                 Log.d(TAG, "💰 Cached booking fare: ${formatRupee(booking.fare)}")
             }
             _paymentState.update { it.copy(paymentMethod = booking.paymentMethod) }
-
             freeWaitingSeconds = booking.freeWaitingSeconds
             chargePerMinute = booking.waitingChargePerMin
             Log.d(TAG, "⏱️ Waiting config: free=${booking.freeWaitingTimeMins}min | charge=₹${booking.waitingChargePerMin}/min")
+
+            // Restore last known UI state immediately — before SignalR delivers anything.
+            // Handles app restart and long reconnects where the server hasn't re-sent an event yet.
+            booking.lastSignalRUpdate?.let { cachedUpdate ->
+                Log.d(TAG, "🔁 Restoring UI from persisted state: ${cachedUpdate.status}")
+                handleBookingStatusUpdate(cachedUpdate)
+            }
         }
 
         realTimeRepository.connectAndSubscribe(
-            bookingId = bookingId,
-            pickupLatitude = pickupLatitude,
-            pickupLongitude = pickupLongitude
+            bookingId = bookingId
         )
     }
 
@@ -409,9 +403,7 @@ class RiderTrackingViewModel @Inject constructor(
             )
         }
         realTimeRepository.connectAndSubscribe(
-            bookingId = bookingId,
-            pickupLatitude = activeBooking.pickupAddress.latitude,
-            pickupLongitude = activeBooking.pickupAddress.longitude
+            bookingId = bookingId
         )
         activeBookingManager.retrySearch()
     }
@@ -471,23 +463,26 @@ class RiderTrackingViewModel @Inject constructor(
         val status = update.getStatusType()
         logStatusUpdate(update, status)
 
+        // Persist full server state first — one call, nothing lost
+        activeBookingManager.updateFromSignalR(update)
+
         restoreRiderIfNeeded(update)
         cacheFareIfAvailable(update)
         _uiState.update { it.copy(currentStatus = status, statusMessage = update.message) }
 
         viewModelScope.launch {
             when (status) {
-                BookingStatusType.SEARCHING -> activeBookingManager.updateStatus(BookingStatus.SEARCHING)
-                BookingStatusType.RIDER_ASSIGNED -> handleDriverAssigned(update)
-                BookingStatusType.RIDER_ENROUTE -> handleRiderEnroute(update)
-                BookingStatusType.ARRIVED -> handleDriverArrived(update)
-                BookingStatusType.PICKED_UP -> handleParcelPickedUp(update)
-                BookingStatusType.IN_TRANSIT -> handleInTransit(update)
+                BookingStatusType.SEARCHING        -> { /* status already saved above */ }
+                BookingStatusType.RIDER_ASSIGNED   -> handleDriverAssigned(update)
+                BookingStatusType.RIDER_ENROUTE    -> handleRiderEnroute(update)
+                BookingStatusType.ARRIVED          -> handleDriverArrived(update)
+                BookingStatusType.PICKED_UP        -> handleParcelPickedUp(update)
+                BookingStatusType.IN_TRANSIT       -> handleInTransit(update)
                 BookingStatusType.ARRIVED_DELIVERY -> handleArrivedAtDelivery(update)
-                BookingStatusType.PAYMENT_SUCCESS -> handlePaymentSuccess(update)
-                BookingStatusType.DELIVERED -> handleDeliveryCompleted(update)
-                BookingStatusType.NO_RIDER -> handleNoRider(update)
-                BookingStatusType.CANCELLED -> handleCancelled(update)
+                BookingStatusType.PAYMENT_SUCCESS  -> handlePaymentSuccess(update)
+                BookingStatusType.DELIVERED        -> handleDeliveryCompleted(update)
+                BookingStatusType.NO_RIDER         -> handleNoRider(update)
+                BookingStatusType.CANCELLED        -> handleCancelled(update)
             }
         }
     }
@@ -520,7 +515,6 @@ class RiderTrackingViewModel @Inject constructor(
             fetchRoute(pickup.first, pickup.second, drop.first, drop.second, isDriverToPickup = false)
         }
 
-        activeBookingManager.updateStatus(BookingStatus.RIDER_ASSIGNED)
         cacheBookingFareIfNeeded()
 
         showNotification(
@@ -540,7 +534,6 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private suspend fun handleRiderEnroute(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
         showNotification(
             update.bookingId, "Driver on the way",
             buildString {
@@ -552,7 +545,6 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.RIDER_EN_ROUTE)
         startWaitingTimer()
         _etaMinutes.value = 0
         _distanceKm.value = 0.0
@@ -571,7 +563,6 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
         val finalCharge = getFinalWaitingCharge()
         stopWaitingTimer()
         Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
@@ -607,12 +598,10 @@ class RiderTrackingViewModel @Inject constructor(
     }
 
     private suspend fun handleInTransit(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.IN_TRANSIT)
         showNotification(update.bookingId, "Parcel in transit", "Your parcel is on the way to delivery")
     }
 
     private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.ARRIVED_DELIVERY)
         update.deliveredOtp?.let { _deliveryOtp.value = it }
 
         val fare = extractFareFromUpdate(update)
@@ -658,26 +647,14 @@ class RiderTrackingViewModel @Inject constructor(
         )
     }
 
-    // ✅ FIX: Do NOT emit PaymentConfirmed navigation here.
-    //
-    // Old code emitted PaymentConfirmed → screen navigated away → DELIVERED arrived
-    // with no screen alive to receive it → rating dialog never showed.
-    //
-    // Correct flow:
-    //   ARRIVED_DELIVERY → ShowPaymentScreen (customer pays)
-    //   PAYMENT_SUCCESS  → close payment UI, show "confirming..." state, STAY on screen
-    //   DELIVERED        → handleDeliveryCompleted → showRatingDialog = true → navigate home
     private suspend fun handlePaymentSuccess(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.PAYMENT_SUCCESS)
         Log.d(TAG, "💳 PAYMENT_SUCCESS | booking=${update.bookingId} | method=${update.paymentMethod}")
 
-        // Close payment screen and show a brief "confirming" state.
-        // Do NOT navigate away — wait for DELIVERED to trigger the rating dialog.
         _paymentState.update {
             it.copy(
                 showPaymentScreen = false,
                 isPaymentCompleted = true,
-                isVerifyingPayment = true   // screen can show "Completing delivery..." UI
+                isVerifyingPayment = true
             )
         }
 
@@ -687,12 +664,9 @@ class RiderTrackingViewModel @Inject constructor(
             "Payment confirmed. Completing delivery..."
         )
         _toastMessage.emit("Payment confirmed! Completing delivery…")
-
-        // ✅ No _navigationEvent emit here — DELIVERED will handle next step
     }
 
     private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.DELIVERED)
         stopWaitingTimer()
         _paymentState.update {
             it.copy(
@@ -714,11 +688,8 @@ class RiderTrackingViewModel @Inject constructor(
             },
             isFinal = true
         )
-
         _toastMessage.emit("Delivery completed!")
 
-        // ✅ Set rating state FIRST — before disconnect() — so no connection-closed
-        // event can trigger navigation before the dialog is visible on screen.
         _ratingState.update {
             it.copy(
                 showRatingDialog = true,
@@ -731,12 +702,10 @@ class RiderTrackingViewModel @Inject constructor(
             )
         }
 
-        // Disconnect after rating state is set — safe now
         realTimeRepository.disconnect()
     }
 
     private suspend fun handleNoRider(update: BookingStatusUpdate) {
-        activeBookingManager.updateStatus(BookingStatus.SEARCH_TIMEOUT)
         _uiState.update { it.copy(isNoRiderAvailable = true) }
         _navigationEvent.emit(RiderTrackingNavigationEvent.NoRiderAvailable(update.message ?: "No riders available"))
     }
@@ -791,9 +760,9 @@ class RiderTrackingViewModel @Inject constructor(
         Log.d(TAG, "📋 Customer/system cancelled, navigating home")
 
         val cancelLabel = when (update.cancelledBy?.lowercase()) {
-            "system" -> "Booking was cancelled by system"
+            "system"   -> "Booking was cancelled by system"
             "customer" -> "You cancelled the booking"
-            else -> "Booking has been cancelled"
+            else       -> "Booking has been cancelled"
         }
 
         showNotification(
@@ -805,7 +774,6 @@ class RiderTrackingViewModel @Inject constructor(
             isFinal = true
         )
 
-        activeBookingManager.updateStatus(BookingStatus.CANCELLED)
         activeBookingManager.clearActiveBooking()
         realTimeRepository.disconnect()
 
@@ -1015,12 +983,12 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun getStatusDisplayText(): String = when (currentStatus) {
         BookingStatusType.RIDER_ASSIGNED, BookingStatusType.RIDER_ENROUTE -> "Driver is on the way"
-        BookingStatusType.ARRIVED -> "Driver has arrived"
-        BookingStatusType.PICKED_UP -> "Parcel picked up"
-        BookingStatusType.IN_TRANSIT -> "On the way to delivery"
+        BookingStatusType.ARRIVED        -> "Driver has arrived"
+        BookingStatusType.PICKED_UP      -> "Parcel picked up"
+        BookingStatusType.IN_TRANSIT     -> "On the way to delivery"
         BookingStatusType.ARRIVED_DELIVERY -> "Arrived at delivery"
-        BookingStatusType.PAYMENT_SUCCESS -> "Payment confirmed"
-        BookingStatusType.DELIVERED -> "Delivery completed"
+        BookingStatusType.PAYMENT_SUCCESS  -> "Payment confirmed"
+        BookingStatusType.DELIVERED        -> "Delivery completed"
         else -> "Tracking your delivery"
     }
 
@@ -1142,11 +1110,6 @@ sealed class RiderTrackingNavigationEvent {
         val driverName: String,
         val paymentMethod: String
     ) : RiderTrackingNavigationEvent()
-
-    // ✅ PaymentConfirmed kept in sealed class for any screens that still reference it,
-    //    but it is NO LONGER emitted from handlePaymentSuccess.
-    //    Rating dialog is shown only from handleDeliveryCompleted via ratingState.showRatingDialog.
     data class PaymentConfirmed(val bookingId: String) : RiderTrackingNavigationEvent()
-
     object NavigateToHome : RiderTrackingNavigationEvent()
 }
