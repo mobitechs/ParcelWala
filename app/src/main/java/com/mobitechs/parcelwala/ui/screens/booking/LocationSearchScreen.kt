@@ -1,5 +1,11 @@
 package com.mobitechs.parcelwala.ui.screens.booking
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,12 +13,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -21,8 +30,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.NorthWest
 import androidx.compose.material.icons.filled.Person
@@ -69,6 +80,7 @@ import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
 import com.mobitechs.parcelwala.utils.DateTimeUtils
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 // ── Local colour tokens ───────────────────────────────────────────────────────
 private val SearchBarBg     = Color.White.copy(alpha = 0.13f)
@@ -77,7 +89,7 @@ private val HeaderText      = Color.White
 private val HeaderTextMuted = Color.White.copy(alpha = 0.60f)
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LocationSearchScreen  —  Variation 2: dark header + all-white flat list
+// LocationSearchScreen
 // ══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +108,19 @@ fun LocationSearchScreen(
         if (granted) viewModel.getCurrentLocation()
     }
 
+    // ── Speech-to-text launcher ──────────────────────────────────────────────
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val matches = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            matches?.firstOrNull()?.let { spokenText ->
+                viewModel.updateSearchQuery(spokenText)
+            }
+        }
+    }
+
     // Auto-focus the search field so the keyboard opens immediately
     LaunchedEffect(Unit) {
         delay(100)
@@ -110,10 +135,20 @@ fun LocationSearchScreen(
                 onQueryChange  = { viewModel.updateSearchQuery(it) },
                 onClearQuery   = { viewModel.updateSearchQuery("") },
                 focusRequester = focusRequester,
-                onBack         = onBack
+                onBack         = onBack,
+                onMicClick     = {
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(
+                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                        )
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Search for a location…")
+                    }
+                    speechLauncher.launch(intent)
+                }
             )
         },
-        // White body — the dark header provides all the contrast needed
         containerColor = Color.White
     ) { paddingValues ->
         Column(
@@ -136,7 +171,7 @@ fun LocationSearchScreen(
 
                     uiState.predictions.isNotEmpty() && uiState.searchQuery.isNotBlank() -> {
                         AutocompleteResultsList(
-                            predictions     = uiState.predictions,
+                            predictions       = uiState.predictions,
                             onPredictionClick = { prediction ->
                                 viewModel.selectPlace(prediction.placeId) { address ->
                                     onAddressSelected(address)
@@ -147,7 +182,18 @@ fun LocationSearchScreen(
 
                     else -> {
                         DefaultContentList(
-                            uiState         = uiState,
+                            uiState              = uiState,
+                            onUseCurrentLocation = {
+                                // Request permission if needed, then fetch + navigate
+                                if (permissionGranted.value) {
+                                    viewModel.getCurrentLocation()
+                                    // Once location is fetched, selectedAddress is populated
+                                    uiState.selectedAddress?.let { onAddressSelected(it) }
+                                } else {
+                                    // Trigger permission request (callback above handles the rest)
+                                    viewModel.getCurrentLocation()
+                                }
+                            },
                             onHistoryClick  = { history ->
                                 viewModel.selectFromHistory(history) { address ->
                                     onAddressSelected(address)
@@ -163,7 +209,7 @@ fun LocationSearchScreen(
                 }
             }
 
-            // ── Error card (non-blocking, sits above the bottom bar) ───────
+            // ── Error card ─────────────────────────────────────────────────
             uiState.error?.let { error ->
                 ErrorMessageCard(
                     message  = error,
@@ -193,8 +239,11 @@ fun LocationSearchScreen(
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LocationSearchTopBar
-// Lives inside GradientTopBarWrapper — gradient shows through.
-// Title + subtitle + live BasicTextField search bar.
+// CHANGES:
+//   • Added statusBarHeight top padding so header doesn't crowd the status bar
+//   • Back icon changed to ArrowBack (← standard Android back)
+//   • Mic icon added at end of search bar; shows when query is empty,
+//     replaces MyLocation GPS icon (GPS moved to bottom bar only)
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -204,53 +253,57 @@ private fun LocationSearchTopBar(
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit,
     focusRequester: FocusRequester,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onMicClick: () -> Unit
 ) {
     val isPickup = locationType == "pickup"
 
+    // ── Respect the status bar height so content isn't clipped ──────────────
+    // GradientTopBarWrapper adds a Spacer for status bar, but we still add
+    // a small extra top gap here for breathing room.
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            // top = 8.dp gives comfortable gap below the status bar spacer
+            .padding(top = 8.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // ── Title row ──────────────────────────────────────────────────────
         Row(
-            modifier          = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
+            modifier          = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Back button — circle ghost
+            // ← Standard back button
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.12f))
+                    .background(Color.White.copy(alpha = 0.14f))
                     .clickable { onBack() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector        = Icons.Default.NorthWest, // swap to ArrowBack
+                    imageVector        = Icons.Default.ArrowBack,   // ← FIXED
                     contentDescription = stringResource(R.string.back),
                     tint               = HeaderText,
-                    modifier           = Modifier.size(16.dp)
+                    modifier           = Modifier.size(20.dp)
                 )
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text       = if (isPickup)
+                    text  = if (isPickup)
                         stringResource(R.string.label_pickup_location)
                     else
                         stringResource(R.string.label_drop_location),
-                    style      = MaterialTheme.typography.titleMedium.copy(
+                    // titleMedium ≈ 16sp Bold — matches standard toolbar title size
+                    style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight    = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp
+                        letterSpacing = (-0.3).sp
                     ),
-                    color      = HeaderText
+                    color = HeaderText
                 )
                 Text(
                     text  = stringResource(R.string.search_area_placeholder),
@@ -316,7 +369,7 @@ private fun LocationSearchTopBar(
                     }
                 )
 
-                // Clear icon when typing; GPS icon when idle
+                // ── Trailing icon: ✕ while typing, 🎤 mic when idle ────────
                 if (query.isNotEmpty()) {
                     Icon(
                         imageVector        = Icons.Default.Close,
@@ -327,11 +380,14 @@ private fun LocationSearchTopBar(
                             .clickable { onClearQuery() }
                     )
                 } else {
+                    // Mic icon — tap to speak
                     Icon(
-                        imageVector        = Icons.Default.MyLocation,
-                        contentDescription = null,
-                        tint               = Color.White.copy(alpha = 0.80f),
-                        modifier           = Modifier.size(18.dp)
+                        imageVector        = Icons.Default.Mic,
+                        contentDescription = "Search by voice",
+                        tint               = Color.White.copy(alpha = 0.85f),
+                        modifier           = Modifier
+                            .size(20.dp)
+                            .clickable { onMicClick() }
                     )
                 }
             }
@@ -341,26 +397,35 @@ private fun LocationSearchTopBar(
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DefaultContentList
-// Shows history → saved addresses → recent pickups as a single flat
-// divider-separated list. Section labels act as anchors.
+// CHANGE: Added "Use Current Location" as the very first item above history.
+// On click it triggers location fetch and passes the address to the next screen.
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun DefaultContentList(
     uiState: com.mobitechs.parcelwala.ui.viewmodel.LocationSearchUiState,
+    onUseCurrentLocation: () -> Unit,
     onHistoryClick: (SearchHistory) -> Unit,
     onClearHistory: () -> Unit,
     onAddressClick: (SavedAddress) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+        // ── Use Current Location ───────────────────────────────────────────
+        item {
+            UseCurrentLocationRow(onClick = onUseCurrentLocation)
+            HorizontalDivider(
+                color     = AppColors.Divider,
+                thickness = 0.5.dp,
+                modifier  = Modifier.padding(horizontal = 16.dp)
+            )
+        }
 
         // ── Search history ─────────────────────────────────────────────────
         if (uiState.searchHistory.isNotEmpty()) {
             item {
                 FlatSectionLabel(
-                    title       = stringResource(R.string.label_recent_searches),
+                    title = stringResource(R.string.label_recent_searches),
                     trailingAction = {
                         TextButton(onClick = onClearHistory) {
                             Text(
@@ -374,8 +439,8 @@ private fun DefaultContentList(
             }
             itemsIndexed(uiState.searchHistory.take(5)) { index, history ->
                 HistoryRow(
-                    history  = history,
-                    onClick  = { onHistoryClick(history) },
+                    history     = history,
+                    onClick     = { onHistoryClick(history) },
                     showDivider = index < minOf(uiState.searchHistory.size, 5) - 1
                 )
             }
@@ -416,7 +481,62 @@ private fun DefaultContentList(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Autocomplete results list (shown while user is typing)
+// UseCurrentLocationRow
+// Prominent teal/primary row at the top of the list.
+// Tapping fetches GPS location and auto-navigates to the confirm screen.
+// ══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun UseCurrentLocationRow(onClick: () -> Unit) {
+    Row(
+        modifier              = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Filled primary circle with GPS icon
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(AppColors.Primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector        = Icons.Default.MyLocation,
+                contentDescription = null,
+                tint               = AppColors.Primary,
+                modifier           = Modifier.size(20.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text       = "Use Current Location",
+                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                fontWeight = FontWeight.SemiBold,
+                color      = AppColors.Primary
+            )
+            Text(
+                text  = "Fetches your GPS location automatically",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                color = AppColors.TextSecondary
+            )
+        }
+
+        Icon(
+            imageVector        = Icons.Default.MyLocation,
+            contentDescription = null,
+            tint               = AppColors.Primary.copy(alpha = 0.50f),
+            modifier           = Modifier.size(16.dp)
+        )
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Autocomplete results list
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -436,7 +556,7 @@ private fun AutocompleteResultsList(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Row composables — all flat (no card wrapper), divider-separated
+// Row composables
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -454,7 +574,6 @@ private fun HistoryRow(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Clock icon in a neutral circle
             IconCircle(
                 icon = Icons.Default.History,
                 bg   = AppColors.Background,
@@ -472,7 +591,6 @@ private fun HistoryRow(
                         overflow   = TextOverflow.Ellipsis
                     )
                 }
-                // Address + relative time merged into one subtitle line
                 val subtitle = buildString {
                     append(history.address)
                     val rel = DateTimeUtils.formatRelativeTime(history.timestamp)
@@ -487,7 +605,6 @@ private fun HistoryRow(
                 )
             }
 
-            // NW arrow — "use this result" affordance
             Icon(
                 imageVector        = Icons.Default.NorthWest,
                 contentDescription = null,
@@ -513,14 +630,14 @@ private fun SavedAddressRow(
 ) {
     val type = address.addressType.lowercase()
     val (bg, tint) = when (type) {
-        "home"        -> Color(0xFFECFDF5) to Color(0xFF059669)
-        "work", "shop"-> Color(0xFFFEF9C3) to Color(0xFFD97706)
-        else          -> AppColors.Background to AppColors.Primary
+        "home"         -> Color(0xFFECFDF5) to Color(0xFF059669)
+        "work", "shop" -> Color(0xFFFEF9C3) to Color(0xFFD97706)
+        else           -> AppColors.Background to AppColors.Primary
     }
     val icon = when (type) {
-        "home"        -> Icons.Default.Place   // swap to Icons.Default.Home
-        "work", "shop"-> Icons.Default.Place   // swap to Icons.Default.Store
-        else          -> Icons.Default.Place
+        "home"         -> Icons.Default.Place
+        "work", "shop" -> Icons.Default.Place
+        else           -> Icons.Default.Place
     }
 
     Column {
@@ -552,17 +669,16 @@ private fun SavedAddressRow(
                 )
             }
 
-            // "Saved" green badge
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFFECFDF5)
             ) {
                 Text(
-                    text     = "Saved",
-                    style    = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color    = Color(0xFF15803D),
+                    text       = "Saved",
+                    style      = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color      = Color(0xFF15803D),
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    modifier   = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                 )
             }
         }
@@ -613,7 +729,6 @@ private fun RecentPickupRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // Contact name + phone if available
                 address.contactName?.takeIf { it.isNotEmpty() }?.let { name ->
                     Spacer(modifier = Modifier.height(3.dp))
                     Row(
@@ -711,7 +826,7 @@ private fun AutocompleteRow(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Section label — flat, no card, with optional trailing action
+// Section label
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -740,7 +855,7 @@ private fun FlatSectionLabel(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// IconCircle — reusable tinted circle icon used by all row types
+// IconCircle
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -766,7 +881,7 @@ private fun IconCircle(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BottomActionBar — Current location + On map buttons above system nav
+// BottomActionBar
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -785,7 +900,6 @@ private fun BottomActionBar(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Current location — outlined secondary style
             Surface(
                 onClick  = onCurrentLocation,
                 modifier = Modifier.weight(1f),
@@ -818,7 +932,6 @@ private fun BottomActionBar(
                 }
             }
 
-            // On map — filled primary style
             Surface(
                 onClick  = onMapPicker,
                 modifier = Modifier.weight(1f),

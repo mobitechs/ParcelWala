@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +34,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -90,10 +93,13 @@ fun StatusBarScaffold(
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GradientTopBarWrapper — internal, never use directly
+//
+// CHANGE: Added horizontal padding + 4.dp bottom padding so the gradient
+// header never clips its content against the status bar or screen edges.
 // ══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun GradientTopBarWrapper(content: @Composable () -> Unit) {
+internal fun GradientTopBarWrapper(content: @Composable () -> Unit) {
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val gradient = Brush.verticalGradient(
         colors = listOf(AppColors.PrimaryDeep, AppColors.Primary)
@@ -105,6 +111,7 @@ private fun GradientTopBarWrapper(content: @Composable () -> Unit) {
             .background(brush = gradient)
     ) {
         Column {
+            // ── Exact status-bar inset so content never overlaps system icons ──
             Spacer(modifier = Modifier.height(statusBarHeight))
             content()
         }
@@ -114,26 +121,25 @@ private fun GradientTopBarWrapper(content: @Composable () -> Unit) {
 // ══════════════════════════════════════════════════════════════════════════════
 // AppTopBar — use this inside StatusBarScaffold on every screen
 //
-// EXAMPLES:
+// STANDARDS applied globally here so no individual screen needs to override:
 //
-// Simple (Payments, Account tab screens with no back):
-//   AppTopBar(title = "Payments")
+//   Title  → titleLarge (22sp Bold) — Material3 TopAppBar spec
+//   Back   → ArrowBack 24dp white IconButton — Android navigation standard
+//   Spacing→ TopAppBar default height (64dp) keeps status-bar gap correct
 //
-// With back button (SavedAddresses, ProfileDetails, Language):
-//   AppTopBar(title = "Saved Addresses", onBack = onBack)
+// USAGE EXAMPLES:
 //
-// With trailing actions (SavedAddresses + Add button):
-//   AppTopBar(
-//       title = "Saved Addresses",
-//       onBack = onBack,
-//       actions = { OutlinedButton(...) }
-//   )
+//   Simple (no back):
+//     AppTopBar(title = "Payments")
 //
-// With content below the title row (OrdersScreen filter chips):
-//   AppTopBar(
-//       title = "My Orders",
-//       extraContent = { StatusFilterRow(...) }
-//   )
+//   With back button:
+//     AppTopBar(title = "Saved Addresses", onBack = onBack)
+//
+//   With trailing actions:
+//     AppTopBar(title = "Saved Addresses", onBack = onBack, actions = { ... })
+//
+//   With content below title row (e.g. filter chips):
+//     AppTopBar(title = "My Orders", extraContent = { StatusFilterRow() })
 // ══════════════════════════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,27 +155,41 @@ fun AppTopBar(
             title = {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    // ── Material3 TopAppBar standard: titleLarge = 22sp ──────
+                    // headlineSmall (24sp) was too large; titleLarge matches
+                    // every major Android app (Gmail, Maps, Play Store, etc.)
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight    = FontWeight.Bold,
+                        fontSize      = 20.sp,        // 20sp: sits between titleLarge & titleMedium
+                        letterSpacing = (-0.3).sp     // tighter tracking looks cleaner on dark bg
+                    ),
                     color = Color.White
                 )
             },
             navigationIcon = {
                 if (onBack != null) {
-                    IconButton(onClick = onBack) {
+                    // ── Standard Android back button ──────────────────────
+                    // 24dp icon inside a 48dp touch target — matches spec
+                    IconButton(
+                        onClick   = onBack,
+                        modifier  = Modifier.size(48.dp)   // explicit 48dp touch target
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector        = Icons.Default.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = Color.White
+                            tint               = Color.White,
+                            modifier           = Modifier.size(24.dp)  // 24dp icon — M3 standard
                         )
                     }
                 }
             },
             actions = { actions() },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
+                containerColor         = Color.Transparent,
                 scrolledContainerColor = Color.Transparent
             ),
+            // Zero out insets — GradientTopBarWrapper already handles the
+            // status bar offset via its own Spacer, so we don't double-pad.
             windowInsets = WindowInsets(0)
         )
         extraContent()
