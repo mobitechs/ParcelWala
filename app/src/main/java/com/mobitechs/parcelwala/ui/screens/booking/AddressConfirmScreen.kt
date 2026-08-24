@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -28,7 +31,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Home
@@ -44,6 +49,8 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -72,6 +79,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,6 +99,8 @@ import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.utils.Validators
+import com.mobitechs.parcelwala.utils.rememberContactPicker
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -107,6 +117,24 @@ fun AddressConfirmationScreen(
     onBack: () -> Unit,
     isEditMode: Boolean = false,
     userPhoneNumber: String? = null,
+    /** Signed-in user's name, used by the "these are my details" shortcut. */
+    userName: String? = null,
+    /**
+     * The customer's saved addresses. When non-empty a "Saved address" button
+     * appears, so a regular sender doesn't retype the same flat number and
+     * contact every single booking. Empty list simply hides the option.
+     */
+    savedAddresses: List<SavedAddress> = emptyList(),
+    /**
+     * Opens the full saved-addresses page. The sheet lists what's already here;
+     * "See all" is for browsing, editing, or adding a new one. Whatever comes back
+     * gets applied through [onSavedAddressPicked].
+     */
+    onSeeAllAddresses: () -> Unit = {},
+    /** Set true by the caller to open the saved-address list. */
+    openSavedAddressPicker: Boolean = false,
+    /** Called once the picker has been opened, so the caller can reset its flag. */
+    onSavedAddressPickerHandled: () -> Unit = {},
     showSaveLocationBadge: Boolean = false,
     viewModel: BookingViewModel? = null
 ) {
@@ -146,14 +174,83 @@ fun AddressConfirmationScreen(
             } else ""
         )
     }
-    var useMyNumber by remember { mutableStateOf(false) }
-    var nameError   by remember { mutableStateOf<String?>(null) }
-    var phoneError  by remember { mutableStateOf<String?>(null) }
+    // ── ITEM 3: "these are my details" ────────────────────────────────────────
+    // Most people booking a pickup are standing at the pickup themselves, and
+    // most people receiving are sending to someone they've saved. One tap fills
+    // the name and number from the signed-in account instead of retyping them.
+    var useMyDetails by remember(addressKey) { mutableStateOf(false) }
 
-    LaunchedEffect(useMyNumber) {
-        if (useMyNumber && userPhoneNumber != null) {
-            contactPhone = userPhoneNumber.replace("+91", "").replace(" ", "").trim()
-            phoneError   = null
+    // ── ITEMS 1 & 4: validation state ────────────────────────────────────────
+    // serverNameError / serverPhoneError hold errors pushed in from a failed
+    // submit. Everything else is derived live from Validators, so the button
+    // enables and disables as the user types.
+    var serverNameError  by remember(addressKey) { mutableStateOf<String?>(null) }
+    var serverPhoneError by remember(addressKey) { mutableStateOf<String?>(null) }
+
+    var nameTouched     by remember(addressKey) { mutableStateOf(false) }
+    var phoneTouched    by remember(addressKey) { mutableStateOf(false) }
+    var buildingTouched by remember(addressKey) { mutableStateOf(false) }
+    var pincodeTouched  by remember(addressKey) { mutableStateOf(false) }
+    var labelTouched    by remember(addressKey) { mutableStateOf(false) }
+
+    var showSavedAddressPicker by remember { mutableStateOf(false) }
+
+    // Caller asked for the list (via "See all"). Open it, then hand the flag back
+    // so it doesn't reopen on every recomposition.
+    LaunchedEffect(openSavedAddressPicker) {
+        if (openSavedAddressPicker) {
+            showSavedAddressPicker = true
+            onSavedAddressPickerHandled()
+        }
+    }
+
+    /**
+     * Copies a saved address into the form. Coordinates and the formatted address
+     * are deliberately NOT copied — the pin the user already dropped on this screen
+     * is the location they mean. Only the details they'd otherwise retype come over.
+     */
+    fun applySavedAddress(saved: SavedAddress) {
+        saved.contactName?.takeIf { it.isNotBlank() }?.let {
+            contactName = it; nameTouched = true; serverNameError = null
+        }
+        saved.contactPhone?.takeIf { it.isNotBlank() }?.let {
+            contactPhone = it.filter { c -> c.isDigit() }.takeLast(10)
+            phoneTouched = true; serverPhoneError = null
+        }
+        saved.buildingDetails?.takeIf { it.isNotBlank() }?.let {
+            buildingDetails = it; buildingTouched = true
+        }
+        saved.landmark?.takeIf { it.isNotBlank() }?.let { landmark = it }
+        saved.pincode?.takeIf { it.isNotBlank() }?.let {
+            pincode = it.filter { c -> c.isDigit() }.take(6); pincodeTouched = true
+        }
+        useMyDetails = false
+        showSavedAddressPicker = false
+    }
+
+    // ── ITEM 5: pick from the phonebook ──────────────────────────────────────
+    val pickContact = rememberContactPicker { contact ->
+        contactName  = contact.name
+        contactPhone = contact.phone
+        useMyDetails = false
+        nameTouched  = true
+        phoneTouched = true
+        serverNameError  = null
+        serverPhoneError = null
+    }
+
+    LaunchedEffect(useMyDetails) {
+        if (useMyDetails) {
+            userName?.takeIf { it.isNotBlank() }?.let {
+                contactName = it
+                nameTouched = true
+                serverNameError = null
+            }
+            userPhoneNumber?.let {
+                contactPhone = it.filter { c -> c.isDigit() }.takeLast(10)
+                phoneTouched = true
+                serverPhoneError = null
+            }
         }
     }
 
@@ -215,8 +312,45 @@ fun AddressConfirmationScreen(
         locationType == "pickup"     -> stringResource(R.string.sender_name_required)
         else                         -> stringResource(R.string.receiver_name_required)
     }
-    val enterContactNameError = stringResource(R.string.enter_contact_name_error)
-    val enterValidPhoneError  = stringResource(R.string.enter_valid_phone_error)
+    // enterContactNameError / enterValidPhoneError removed — Validators owns
+    // these messages now, so there's one source of truth per rule.
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ITEMS 1 & 4 — validation
+    //
+    // Building details used to be optional and the header literally said so.
+    // A driver standing outside a twelve-floor building with only "MG Road" to
+    // go on has to phone the customer, which is exactly what the field exists to
+    // prevent. It is required now, along with pincode.
+    //
+    // Errors are computed live rather than only on submit, so the Confirm button
+    // reflects the true state of the form at all times.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    val nameRule     = Validators.contactName(contactName)
+    val phoneRule    = Validators.mobile(contactPhone)
+    val buildingRule = Validators.buildingDetails(buildingDetails)
+    val pincodeRule  = Validators.pincode(pincode)
+    val labelRule    = if (isSaveAddressMode && selectedType == "Other") {
+        Validators.label(customLabel)
+    } else null
+
+    val nameErrorShown     = serverNameError  ?: if (nameTouched) nameRule else null
+    val phoneErrorShown    = serverPhoneError ?: if (phoneTouched) phoneRule else null
+    val buildingErrorShown = if (buildingTouched) buildingRule else null
+    val pincodeErrorShown  = if (pincodeTouched) pincodeRule else null
+    val labelErrorShown    = if (labelTouched) labelRule else null
+
+    val isFormValid = nameRule == null &&
+            phoneRule == null &&
+            buildingRule == null &&
+            pincodeRule == null &&
+            labelRule == null
+
+    // How many required fields are still blocking the button. Shown above the
+    // CTA so a disabled button is never a mystery.
+    val missingCount = listOf(nameRule, phoneRule, buildingRule, pincodeRule, labelRule)
+        .count { it != null }
 
     // ── Location accent colours ────────────────────────────────────────────────
     val accentColor = when {
@@ -337,15 +471,137 @@ fun AddressConfirmationScreen(
                         modifier = Modifier.padding(bottom = 14.dp)
                     )
 
+                    // ══════════════════════════════════════════════════════
+                    // HOW DO YOU WANT TO FILL THIS IN?
+                    //
+                    // Three ways to answer, offered before the empty fields rather
+                    // than after them. Previously "I'm the sender" sat underneath
+                    // the inputs, so most people had already typed their own name
+                    // and number by the time they saw it.
+                    //
+                    // Order is deliberate: the most common case first.
+                    // ══════════════════════════════════════════════════════
+
+                    // 1 — It's me
+                    if (userPhoneNumber != null || !userName.isNullOrBlank()) {
+                        Surface(
+                            onClick = { useMyDetails = !useMyDetails },
+                            shape   = RoundedCornerShape(10.dp),
+                            color   = if (useMyDetails) AppColors.Primary.copy(alpha = 0.08f)
+                                      else AppColors.Surface,
+                            border  = BorderStroke(
+                                width = if (useMyDetails) 1.5.dp else 1.dp,
+                                color = if (useMyDetails) AppColors.Primary else AppColors.Border
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier          = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked         = useMyDetails,
+                                    onCheckedChange = { useMyDetails = it },
+                                    colors          = CheckboxDefaults.colors(
+                                        checkedColor   = AppColors.Primary,
+                                        checkmarkColor = Color.White
+                                    ),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (locationType == "pickup")
+                                            stringResource(R.string.im_the_sender)
+                                        else
+                                            stringResource(R.string.im_the_receiver),
+                                        style      = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color      = AppColors.TextPrimary
+                                    )
+                                    val mine = listOfNotNull(
+                                        userName?.takeIf { it.isNotBlank() },
+                                        userPhoneNumber?.filter { it.isDigit() }?.takeLast(10)
+                                            ?.takeIf { it.isNotEmpty() }
+                                    ).joinToString("  ·  ")
+                                    if (mine.isNotBlank()) {
+                                        Text(
+                                            text  = mine,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = AppColors.TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // 2 & 3 — pick from the phonebook, or from an address already saved
+                    Row(
+                        modifier              = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick  = { pickContact() },
+                            modifier = Modifier.weight(1f),
+                            shape    = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                            colors   = ButtonDefaults.outlinedButtonColors(
+                                contentColor = AppColors.Primary
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Contacts, null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text  = stringResource(R.string.choose_from_contacts),
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1
+                            )
+                        }
+
+                        // Only offered when there's actually something saved.
+                        // An empty picker is worse than no picker.
+                        if (savedAddresses.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick  = { showSavedAddressPicker = true },
+                                modifier = Modifier.weight(1f),
+                                shape    = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                                colors   = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = AppColors.Primary
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Bookmark, null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text  = stringResource(R.string.use_saved_address),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
                     // Name field
                     StyledTextField(
                         value         = contactName,
-                        onValueChange = { contactName = it; nameError = null },
+                        onValueChange = {
+                            contactName = Validators.nameInput(it)
+                            nameTouched = true
+                            serverNameError = null
+                        },
                         label         = nameLabel,
                         placeholder   = stringResource(R.string.enter_contact_name),
                         icon          = Icons.Default.Person,
-                        isError       = nameError != null,
-                        errorMessage  = nameError,
+                        isError       = nameErrorShown != null,
+                        errorMessage  = nameErrorShown,
                         imeAction     = ImeAction.Next,
                         onNext        = { focusManager.moveFocus(FocusDirection.Down) }
                     )
@@ -356,60 +612,62 @@ fun AddressConfirmationScreen(
                     StyledTextField(
                         value         = contactPhone,
                         onValueChange = {
-                            if (it.length <= 10 && it.all { c -> c.isDigit() }) {
-                                contactPhone = it; phoneError = null
-                            }
+                            contactPhone = Validators.digitsOnly(it, 10)
+                            phoneTouched = true
+                            serverPhoneError = null
                         },
                         label         = stringResource(R.string.contact_phone_required),
                         placeholder   = stringResource(R.string.enter_10_digit_mobile),
                         icon          = Icons.Default.Phone,
                         prefix        = stringResource(R.string.phone_prefix),
                         keyboardType  = KeyboardType.Phone,
-                        isError       = phoneError != null,
-                        errorMessage  = phoneError,
+                        isError       = phoneErrorShown != null,
+                        errorMessage  = phoneErrorShown,
                         imeAction     = ImeAction.Next,
                         onNext        = { focusManager.moveFocus(FocusDirection.Down) }
                     )
-
-                    // "Use my number" checkbox
-                    if (isSaveAddressMode && userPhoneNumber != null) {
-                        Row(
-                            modifier          = Modifier.fillMaxWidth().padding(top = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked         = useMyNumber,
-                                onCheckedChange = { useMyNumber = it },
-                                colors          = CheckboxDefaults.colors(
-                                    checkedColor   = AppColors.Primary,
-                                    checkmarkColor = Color.White
-                                )
-                            )
-                            Text(
-                                text  = stringResource(R.string.use_my_mobile_format, userPhoneNumber),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppColors.TextSecondary
-                            )
-                        }
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // ── 4. ADDRESS DETAILS CARD ────────────────────────────────
                 SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SectionHeader(
-                        title    = stringResource(R.string.address_details_optional),
-                        icon     = Icons.Default.Apartment,
-                        modifier = Modifier.padding(bottom = 14.dp)
-                    )
+                    // ── ITEM 1: these are required now, not optional ──────
+                    Row(
+                        modifier              = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        SectionHeader(
+                            title    = stringResource(R.string.address_details_required),
+                            icon     = Icons.Default.Apartment
+                        )
+                        // Jumps to the full address book — browse, edit, or add a
+                        // new one. The chosen address flows back and fills these
+                        // fields, so nothing has to be typed twice.
+                        Text(
+                            text       = stringResource(R.string.see_all),
+                            style      = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color      = AppColors.Primary,
+                            modifier   = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onSeeAllAddresses() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
 
                     StyledTextField(
                         value         = buildingDetails,
-                        onValueChange = { buildingDetails = it },
-                        label         = stringResource(R.string.building_details_label),
+                        onValueChange = {
+                            buildingDetails = it.take(100)
+                            buildingTouched = true
+                        },
+                        label         = stringResource(R.string.building_details_required),
                         placeholder   = stringResource(R.string.building_details_placeholder),
                         icon          = Icons.Default.Apartment,
+                        isError       = buildingErrorShown != null,
+                        errorMessage  = buildingErrorShown,
                         imeAction     = ImeAction.Next,
                         onNext        = { focusManager.moveFocus(FocusDirection.Down) }
                     )
@@ -431,12 +689,15 @@ fun AddressConfirmationScreen(
                     StyledTextField(
                         value         = pincode,
                         onValueChange = {
-                            if (it.length <= 6 && it.all { c -> c.isDigit() }) pincode = it
+                            pincode = Validators.digitsOnly(it, 6)
+                            pincodeTouched = true
                         },
-                        label         = stringResource(R.string.pincode_label),
+                        label         = stringResource(R.string.pincode_required),
                         placeholder   = stringResource(R.string.pincode_placeholder),
                         icon          = Icons.Default.PinDrop,
                         keyboardType  = KeyboardType.Number,
+                        isError       = pincodeErrorShown != null,
+                        errorMessage  = pincodeErrorShown,
                         imeAction     = ImeAction.Done,
                         onDone        = { focusManager.clearFocus() }
                     )
@@ -490,10 +751,15 @@ fun AddressConfirmationScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 StyledTextField(
                                     value         = customLabel,
-                                    onValueChange = { customLabel = it },
-                                    label         = stringResource(R.string.label_name_optional),
+                                    onValueChange = {
+                                        customLabel = it.take(25)
+                                        labelTouched = true
+                                    },
+                                    label         = stringResource(R.string.label_name_required),
                                     placeholder   = stringResource(R.string.label_placeholder),
                                     icon          = Icons.Default.Label,
+                                    isError       = labelErrorShown != null,
+                                    errorMessage  = labelErrorShown,
                                     imeAction     = ImeAction.Done,
                                     onDone        = { focusManager.clearFocus() }
                                 )
@@ -505,6 +771,15 @@ fun AddressConfirmationScreen(
                 Spacer(modifier = Modifier.height(100.dp))
             }
 
+            // ── Saved address picker ───────────────────────────────────────
+            if (showSavedAddressPicker) {
+                SavedAddressPickerSheet(
+                    addresses = savedAddresses,
+                    onPick    = { applySavedAddress(it) },
+                    onDismiss = { showSavedAddressPicker = false }
+                )
+            }
+
             // ── Sticky bottom CTA ──────────────────────────────────────────
             // navigationBarsPadding() pushes the button above the system
             // gesture bar / 3-button nav so it is never obscured.
@@ -513,14 +788,35 @@ fun AddressConfirmationScreen(
                 shadowElevation = 8.dp,
                 modifier        = Modifier.navigationBarsPadding()
             ) {
+                Column {
+                // A disabled button with no explanation is the worst kind of dead
+                // end. Because the button is genuinely disabled until the form is
+                // valid, its onClick can never fire to reveal the errors — so this
+                // line has to show unconditionally whenever the form is incomplete.
+                if (!isFormValid) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.fields_remaining, missingCount, missingCount
+                        ),
+                        style      = MaterialTheme.typography.labelMedium,
+                        color      = AppColors.Drop,
+                        fontWeight = FontWeight.Medium,
+                        modifier   = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                    )
+                }
+
                 PrimaryButton(
                     text    = buttonText,
+                    enabled = isFormValid,
                     onClick = {
-                        var isValid = true
-                        if (contactName.isBlank()) { nameError = enterContactNameError; isValid = false }
-                        if (contactPhone.length != 10) { phoneError = enterValidPhoneError; isValid = false }
+                        // Reveal every error at once for anyone who jumped straight
+                        // to the button.
+                        nameTouched = true; phoneTouched = true
+                        buildingTouched = true; pincodeTouched = true
+                        labelTouched = true
+                        focusManager.clearFocus()
 
-                        if (isValid) {
+                        if (isFormValid) {
                             val finalLabel = when (selectedType) {
                                 "Home"  -> "Home"
                                 "Shop"  -> "Shop"
@@ -533,9 +829,9 @@ fun AddressConfirmationScreen(
                                     label           = if (isSaveAddressMode) finalLabel else actualAddress.label.ifEmpty { "Address" },
                                     contactName     = contactName.trim(),
                                     contactPhone    = contactPhone.trim(),
-                                    buildingDetails = buildingDetails.trim().ifEmpty { null },
+                                    buildingDetails = buildingDetails.trim(),
                                     landmark        = landmark.trim().ifEmpty { null },
-                                    pincode         = pincode.trim().ifEmpty { null },
+                                    pincode         = pincode.trim(),
                                     latitude        = actualAddress.latitude,
                                     longitude       = actualAddress.longitude,
                                     address         = actualAddress.address
@@ -551,6 +847,100 @@ fun AddressConfirmationScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 )
+                }
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SavedAddressPickerSheet
+//
+// Reuses the addresses the customer has already saved rather than making them
+// retype a flat number and contact they've entered before. Picking one fills the
+// contact and building details; the map pin stays where they put it.
+// ══════════════════════════════════════════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SavedAddressPickerSheet(
+    addresses: List<SavedAddress>,
+    onPick: (SavedAddress) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor   = AppColors.Surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Text(
+                text       = stringResource(R.string.pick_saved_address),
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color      = AppColors.TextPrimary
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text  = stringResource(R.string.pick_saved_address_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+
+            addresses.forEach { saved ->
+                Surface(
+                    onClick  = { onPick(saved) },
+                    shape    = RoundedCornerShape(12.dp),
+                    color    = AppColors.Surface,
+                    border   = BorderStroke(1.dp, AppColors.Border),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier          = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = when (saved.addressType.lowercase()) {
+                                "home" -> Icons.Default.Home
+                                "shop" -> Icons.Default.Store
+                                else   -> Icons.Default.Place
+                            },
+                            contentDescription = null,
+                            tint     = AppColors.Primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text       = saved.label.ifBlank { saved.addressType },
+                                style      = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = AppColors.TextPrimary
+                            )
+                            val detail = listOfNotNull(
+                                saved.buildingDetails?.takeIf { it.isNotBlank() },
+                                saved.contactName?.takeIf { it.isNotBlank() }
+                            ).joinToString("  ·  ")
+                            if (detail.isNotBlank()) {
+                                Text(
+                                    text     = detail,
+                                    style    = MaterialTheme.typography.bodySmall,
+                                    color    = AppColors.TextSecondary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.Default.ArrowForward, null,
+                            tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }

@@ -196,3 +196,82 @@ data class SignalRError(
     val code: String? = null,
     val errorCode: String? = null
 )
+
+/**
+ * FIX #27 — merge, never replace.
+ *
+ * THE BUG
+ * Two different server paths send BookingStatusUpdate with different levels of
+ * detail:
+ *
+ *   NotifyBookingStatusChangeAsync  → full payload, includes DeliveredOtp
+ *   JoinBookingChannel              → GetBookingStatusAsync, a leaner payload
+ *                                     with deliveredOtp = null
+ *
+ * The connection in these logs was dropping every 20-30 seconds. Each reconnect
+ * re-joined the booking channel, which pushed the lean payload, which the app
+ * applied wholesale — wiping the delivery OTP the customer had just been given:
+ *
+ *   15:44:24  status=pickup_completed  deliveredOtp=null   ← rejoin, overwrote it
+ *   15:45:13  status=pickup_completed  deliveredOtp=1217   ← full payload, back again
+ *
+ * That flicker is exactly the "OTP takes time to appear" glitch.
+ *
+ * THE FIX
+ * A null field in a newer update means "not included", not "cleared". Only
+ * bookingId, status and timestamp are taken unconditionally — everything else
+ * keeps the last value we actually know.
+ *
+ * This makes the customer screen immune to whichever payload shape arrives, and
+ * to any ordering between them.
+ */
+fun BookingStatusUpdate.mergedWith(incoming: BookingStatusUpdate): BookingStatusUpdate {
+    // A different booking is not a merge — take the new one whole.
+    if (incoming.bookingId != this.bookingId) return incoming
+
+    return incoming.copy(
+        bookingNumber = incoming.bookingNumber ?: this.bookingNumber,
+        statusMessage = incoming.statusMessage ?: this.statusMessage,
+        messageAlt = incoming.messageAlt ?: this.messageAlt,
+        driverId = incoming.driverId ?: this.driverId,
+        driverName = incoming.driverName ?: this.driverName,
+        driverPhone = incoming.driverPhone ?: this.driverPhone,
+        driverRating = incoming.driverRating ?: this.driverRating,
+        driverPhoto = incoming.driverPhoto ?: this.driverPhoto,
+        vehicleNumber = incoming.vehicleNumber ?: this.vehicleNumber,
+        vehicleType = incoming.vehicleType ?: this.vehicleType,
+        vehiclePhoto = incoming.vehiclePhoto ?: this.vehiclePhoto,
+        pickupOtp = incoming.pickupOtp ?: this.pickupOtp,
+        deliveredOtp = incoming.deliveredOtp ?: this.deliveredOtp,
+        estimatedArrival = incoming.estimatedArrival ?: this.estimatedArrival,
+        etaMinutes = incoming.etaMinutes ?: this.etaMinutes,
+        driverLatitude = incoming.driverLatitude ?: this.driverLatitude,
+        driverLongitude = incoming.driverLongitude ?: this.driverLongitude,
+        cancellationReason = incoming.cancellationReason ?: this.cancellationReason,
+        cancelledBy = incoming.cancelledBy ?: this.cancelledBy,
+        baseFare = incoming.baseFare ?: this.baseFare,
+        distanceFare = incoming.distanceFare ?: this.distanceFare,
+        loadingCharges = incoming.loadingCharges ?: this.loadingCharges,
+        waitingCharges = incoming.waitingCharges ?: this.waitingCharges,
+        tollCharges = incoming.tollCharges ?: this.tollCharges,
+        platformFee = incoming.platformFee ?: this.platformFee,
+        surgeMultiplier = incoming.surgeMultiplier ?: this.surgeMultiplier,
+        surgeAmount = incoming.surgeAmount ?: this.surgeAmount,
+        subTotal = incoming.subTotal ?: this.subTotal,
+        gstPercentage = incoming.gstPercentage ?: this.gstPercentage,
+        gstAmount = incoming.gstAmount ?: this.gstAmount,
+        couponDiscount = incoming.couponDiscount ?: this.couponDiscount,
+        roundedFare = incoming.roundedFare ?: this.roundedFare,
+        totalFare = incoming.totalFare ?: this.totalFare,
+        paymentStatus = incoming.paymentStatus ?: this.paymentStatus,
+        paymentMethod = incoming.paymentMethod ?: this.paymentMethod,
+        additionalData = incoming.additionalData ?: this.additionalData
+        // message, distanceKm and rider are intentionally absent: they are
+        // computed getters in the class body, not constructor parameters, so
+        // copy() has no arguments for them. Nothing is lost — each is derived
+        // from fields the merge above already preserves:
+        //   message    ← statusMessage / messageAlt
+        //   distanceKm ← additionalData.distance
+        //   rider      ← driverName, driverPhone, vehicleNumber, lat/lng, etc.
+    )
+}

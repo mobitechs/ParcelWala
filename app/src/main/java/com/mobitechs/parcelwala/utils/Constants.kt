@@ -3,7 +3,8 @@ package com.mobitechs.parcelwala.utils
 
 object Constants {
     // API
-    const val BASE_URL = "https://parcelwala.azurewebsites.net/"
+//    const val BASE_URL = "https://parcelwala.azurewebsites.net/"
+    const val BASE_URL = "http://200.234.37.36:5000/"
     const val SIGNALR_HUB_URL = "${BASE_URL}Hubs/BookingHub"
     const val USE_MOCK_DATA = false
     const val USE_MOCK_DATA_RIder = false

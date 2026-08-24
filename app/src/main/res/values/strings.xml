@@ -785,4 +785,50 @@
     <string name="required_to_book">Required for booking</string>
     <string name="save_more_with_coupon">Save more with a coupon code</string>
     <string name="select_goods_to_continue">Select Goods Type to Continue</string>
+
+
+    <string name="address_details_required">Address details</string>
+    <string name="building_details_required">Flat / house / floor</string>
+    <string name="pincode_required">Pincode</string>
+    <string name="label_name_required">Label name</string>
+
+    <!-- How many required fields are still blocking the button -->
+    <plurals name="fields_remaining">
+        <item quantity="one">%d required field left</item>
+        <item quantity="other">%d required fields left</item>
+    </plurals>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         ITEM 3 — "these are my details"
+         ══════════════════════════════════════════════════════════════════ -->
+    <string name="im_the_sender">I\'m the sender</string>
+    <string name="im_the_receiver">I\'m the receiver</string>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         ITEM 5 — pick from the phonebook
+         ══════════════════════════════════════════════════════════════════ -->
+    <string name="choose_from_contacts">Choose from contacts</string>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         ITEM 6 — goods type, in plain language
+
+         The old copy said "Select Goods Type / Required for booking", which
+         restates the demand without answering the user's actual question:
+         what am I choosing between?
+         ══════════════════════════════════════════════════════════════════ -->
+    <string name="goods_question">What are you sending?</string>
+    <string name="goods_question_hint">Pick the closest match. It helps the driver pack and handle your parcel.</string>
+    <string name="goods_see_all">See all</string>
+    <string name="goods_error_actionable">Tap one of the options above to continue</string>
+
+    <string name="action_change">Change</string>
+    <string name="action_view">View</string>
+
+
+    <!-- Round 6 — saved-address shortcut on pickup/drop -->
+    <string name="use_saved_address">Saved address</string>
+    <string name="pick_saved_address">Use a saved address</string>
+    <string name="pick_saved_address_hint">Fills the contact and flat details. Your pin on the map stays where it is.</string>
+
+
 </resources>

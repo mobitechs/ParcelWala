@@ -13,6 +13,7 @@ import com.microsoft.signalr.HubConnectionState
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.realtime.BookingCancelledNotification
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusUpdate
+import com.mobitechs.parcelwala.data.model.realtime.mergedWith
 import com.mobitechs.parcelwala.data.model.realtime.RealTimeConnectionState
 import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
 import com.mobitechs.parcelwala.data.model.realtime.SignalRError
@@ -84,6 +85,13 @@ class RealTimeRepository @Inject constructor(
         // OLD: no limit → retried forever, battery drain, user sees spinner indefinitely
         // NEW: give up after 10 attempts and emit a terminal Error state
         private const val MAX_RETRY_ATTEMPTS = 10
+
+        /**
+         * Interval for the patient retry once fast backoff is spent. Runs for as
+         * long as the screen wants a connection, so a customer watching a trip is
+         * never silently abandoned.
+         */
+        private const val SLOW_RETRY_DELAY_MS = 15000L
 
         // FIX #4 — ensureConnected timeout
         // OLD: while (!isConnected() && attempts < 5) { delay(500) } → 2.5s stall
@@ -222,6 +230,9 @@ class RealTimeRepository @Inject constructor(
     //   These were accepted but never used inside the function body → dead API surface.
     // NEW: clean signature. Add them back only when the server call actually needs them.
     override fun connectAndSubscribe(bookingId: String, customerId: String?) {
+        // FIX #20 — a new booking must never inherit the previous booking's last event.
+        clearStaleEvents()
+
         shouldBeConnected.set(true)
         currentBookingId = bookingId
         currentCustomerId = customerId
@@ -235,7 +246,7 @@ class RealTimeRepository @Inject constructor(
     override fun disconnect() {
         Log.d(TAG, "🔌 Disconnecting...")
         shouldBeConnected.set(false)
-        lastKnownUpdate = null
+        clearStaleEvents()          // FIX #20 — don't leave a terminal event in the cache
         reconnectJob?.cancel()
         heartbeatJob?.cancel()
         scope.launch {
@@ -262,6 +273,84 @@ class RealTimeRepository @Inject constructor(
 
     override fun isConnected(): Boolean =
         hubConnection?.connectionState == HubConnectionState.CONNECTED
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX #20 — STALE EVENT GUARD  (the phantom "booking cancelled" bug)
+    //
+    // _bookingUpdates and _riderLocationUpdates are MutableSharedFlow(replay = 1).
+    // A replay cache hands its last value to every NEW collector the instant it
+    // subscribes, and this repository is a @Singleton, so that value survives for
+    // the entire app process.
+    //
+    // OLD: nothing ever cleared the cache and no event was checked against the
+    //   booking it belonged to. So a fresh booking's tracking screen immediately
+    //   received the PREVIOUS booking's final event — usually "cancelled" — and
+    //   acted on it. The customer saw a cancellation for a booking no driver had
+    //   even been offered yet.
+    //
+    // NEW: the cache is emptied whenever a booking starts or ends, and every
+    //   inbound event must belong to the booking we are actually tracking.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun clearStaleEvents() {
+        _bookingUpdates.resetReplayCache()
+        _riderLocationUpdates.resetReplayCache()
+        lastKnownUpdate = null
+        Log.d(TAG, "🧹 Replay caches cleared")
+    }
+
+    /**
+     * FIX #25 — booking ids arrive as "26.0", not "26".
+     *
+     * SignalR serialises the id as a JSON number, so by the time it reaches us it
+     * is a decimal string. Kotlin's toIntOrNull() returns null for "26.0", which
+     * made my guard treat every location and status event as unreadable and throw
+     * it away:
+     *
+     *     ⚠️ Dropped event with unreadable booking id: 26.0
+     *
+     * That is why driver updates stopped reaching the customer mid-trip.
+     */
+    private fun parseBookingId(raw: String?): Int? {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        return trimmed.toIntOrNull()
+            ?: trimmed.toDoubleOrNull()?.takeIf { it > 0 }?.toInt()
+    }
+
+    /**
+     * FIX #25 — this guard now fails OPEN.
+     *
+     * If the id can't be read, or we aren't tracking anything yet, the event is
+     * delivered anyway and the oddity is logged. The trade is deliberate: a stale
+     * event causes a cosmetic glitch, a dropped event breaks the entire trip.
+     * Protection against the old phantom-cancellation comes from resetting the
+     * replay caches, which is unaffected by this.
+     *
+     * Only a definite mismatch — both ids parsed, and different — drops anything.
+     */
+    private fun isForCurrentBooking(incomingBookingId: Int): Boolean {
+        val expected = parseBookingId(currentBookingId)
+        if (expected == null) {
+            Log.w(TAG, "⚠️ Not tracking a booking yet — passing event for $incomingBookingId through")
+            return true
+        }
+        if (incomingBookingId != expected) {
+            Log.w(TAG, "⚠️ Dropped event for booking $incomingBookingId — tracking $expected")
+            return false
+        }
+        return true
+    }
+
+    /** String overload — RiderLocationUpdate carries its booking id as text. */
+    private fun isForCurrentBooking(incomingBookingId: String?): Boolean {
+        val parsed = parseBookingId(incomingBookingId)
+        if (parsed == null) {
+            Log.w(TAG, "⚠️ Unreadable booking id '$incomingBookingId' — passing event through")
+            return true
+        }
+        return isForCurrentBooking(parsed)
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // CANCEL / STATUS UPDATE
@@ -413,7 +502,14 @@ class RealTimeRepository @Inject constructor(
             scope.launch {
                 try {
                     Log.d(TAG, "📥 BOOKING STATUS UPDATE: $data")
-                    val update = parseBookingStatusUpdate(data) ?: return@launch
+                    val parsed = parseBookingStatusUpdate(data) ?: return@launch
+                    if (!isForCurrentBooking(parsed.bookingId)) return@launch  // FIX #20
+
+                    // FIX #27 — merge with what we already know instead of replacing.
+                    // The rejoin payload (GetBookingStatusAsync) omits deliveredOtp and
+                    // the fare breakdown, so applying it wholesale wiped values the
+                    // customer had already been shown. See mergedWith() for the detail.
+                    val update = lastKnownUpdate?.mergedWith(parsed) ?: parsed
                     lastKnownUpdate = update
                     Log.d(TAG, "📊 Status: ${update.status} | Driver: ${update.driverName}")
                     _bookingUpdates.emit(update)
@@ -427,6 +523,7 @@ class RealTimeRepository @Inject constructor(
             scope.launch {
                 try {
                     val location = parseRiderLocationUpdate(data) ?: return@launch
+                    if (!isForCurrentBooking(location.bookingId)) return@launch  // FIX #20
                     Log.d(TAG, "📍 ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}m")
                     _riderLocationUpdates.emit(location)
                 } catch (e: Exception) {
@@ -440,6 +537,7 @@ class RealTimeRepository @Inject constructor(
                 try {
                     Log.d(TAG, "📥 BOOKING CANCELLED: $data")
                     val notification = parseBookingCancelled(data) ?: return@launch
+                    if (!isForCurrentBooking(notification.bookingId)) return@launch  // FIX #20
                     _bookingCancelled.emit(notification)
                     _bookingUpdates.emit(
                         BookingStatusUpdate(
@@ -515,22 +613,32 @@ class RealTimeRepository @Inject constructor(
         //   network came back. User had to restart the app to recover.
         // NEW: Reset counter and backoff, emit error state, but keep shouldBeConnected=true
         //   so the network callback can trigger a fresh reconnect when connectivity returns.
+        // FIX #25 — keep trying instead of parking until the network changes.
+        //
+        // Waiting for a ConnectivityManager callback only helps when the PHONE lost
+        // connectivity. In these logs the server was refusing connections while
+        // Wi-Fi stayed up, so no callback ever fired and the customer was left on a
+        // tracking screen that had quietly stopped updating — no driver movement,
+        // no status changes, no explanation.
+        //
+        // Same slow-retry treatment the driver app got.
         if (attempt > MAX_RETRY_ATTEMPTS) {
-            Log.e(TAG, "💀 Max retries ($MAX_RETRY_ATTEMPTS) reached. Waiting for network recovery...")
-            _connectionState.value =
-                RealTimeConnectionState.Error("Connection failed. Will retry when network is available.")
-            scope.launch {
-                _errors.emit(
-                    SignalRError(
-                        "Max reconnection attempts reached",
-                        SignalRErrorCode.MAX_RETRIES_EXCEEDED.name
-                    )
-                )
-            }
-            // Reset so next network-available event starts a fresh cycle
+            Log.w(TAG, "⏳ $MAX_RETRY_ATTEMPTS fast retries exhausted — switching to slow retry")
+            _connectionState.value = RealTimeConnectionState.Error(
+                "Reconnecting… live updates are paused until this comes back."
+            )
+
             reconnectAttempt.set(0)
             lastRetryDelayMs = INITIAL_RETRY_DELAY_MS
-            // shouldBeConnected stays true — network callback will retry when connectivity returns
+
+            reconnectJob?.cancel()
+            reconnectJob = scope.launch {
+                delay(SLOW_RETRY_DELAY_MS)
+                if (shouldBeConnected.get()) {
+                    Log.d(TAG, "🔄 Slow retry firing")
+                    reconnectIfNeeded()
+                }
+            }
             return
         }
 

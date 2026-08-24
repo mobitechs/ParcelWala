@@ -294,7 +294,7 @@ class RiderTrackingViewModel @Inject constructor(
                 )
             }
 
-            val bookingIdInt = bookingId.toIntOrNull() ?: return@launch
+            val bookingIdInt = bookingId.asBookingId() ?: return@launch
             realTimeRepository.updateBookingStatus(
                 bookingIdInt,
                 Constants.SignalREvents.STATUS_PAYMENT_SUCCESS
@@ -390,27 +390,59 @@ class RiderTrackingViewModel @Inject constructor(
         clearState()
     }
 
+    /**
+     * FIX #23 — retry must start a NEW booking, not re-subscribe to the dead one.
+     *
+     * THE BUG (visible in the logs)
+     *
+     *   📡 CONNECTING | Booking: 23
+     *   📥 BOOKING STATUS UPDATE: bookingId=23, status=cancelled,
+     *                             cancellationReason=auto cancelled
+     *   📊 Status: cancelled
+     *
+     * When the 3-minute search elapses the server auto-cancels the booking. That's
+     * correct and final — booking 23 is dead. But retrySearch() called
+     * connectAndSubscribe() with that same booking id, so the server immediately
+     * and truthfully replied "cancelled", and the customer got a scary "Booking
+     * cancelled" for a booking they had only asked to retry.
+     *
+     * A retry is a new booking. This clears the expired one and tells the screen to
+     * re-run the booking request instead of resurrecting a corpse.
+     */
     fun retrySearch() {
-        val bookingId = _uiState.value.currentBookingId ?: return
-        val activeBooking = activeBookingManager.activeBooking.value ?: return
-        Log.d(TAG, "🔄 Retrying search...")
+        val expiredBookingId = _uiState.value.currentBookingId
+        Log.d(TAG, "🔄 Retry requested — discarding expired booking $expiredBookingId")
+
+        // Stop listening to the dead booking before anything else, so its terminal
+        // "cancelled" can't land on the fresh search.
+        realTimeRepository.disconnect()
+        activeBookingManager.clearActiveBooking()
 
         _uiState.update {
             it.copy(
+                currentBookingId = null,
                 currentStatus = BookingStatusType.SEARCHING,
-                statusMessage = "Looking for nearby riders...",
-                isNoRiderAvailable = false
+                statusMessage = "Starting a new search...",
+                isNoRiderAvailable = false,
+                connectionError = null
             )
         }
-        realTimeRepository.connectAndSubscribe(
-            bookingId = bookingId
-        )
-        activeBookingManager.retrySearch()
+
+        // The screen owns booking creation (it has the addresses, vehicle and fare),
+        // so it re-submits rather than this ViewModel guessing at the payload.
+        viewModelScope.launch { _rebookRequested.emit(Unit) }
     }
+
+    /**
+     * Emitted when the customer asks to search again. SearchingRiderScreen collects
+     * this and calls BookingViewModel.confirmBooking() to create a fresh booking.
+     */
+    private val _rebookRequested = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val rebookRequested: SharedFlow<Unit> = _rebookRequested.asSharedFlow()
 
     fun cancelBooking(reason: String) {
         viewModelScope.launch {
-            val bookingId = _uiState.value.currentBookingId?.toIntOrNull()
+            val bookingId = _uiState.value.currentBookingId.asBookingId()
             Log.d(TAG, "🚫 cancelBooking() — bookingId=$bookingId, reason=$reason")
 
             if (bookingId != null && bookingId > 0) {
@@ -459,7 +491,28 @@ class RiderTrackingViewModel @Inject constructor(
     // STATUS UPDATE HANDLER
     // ═══════════════════════════════════════════════════════════════════════
 
+
+    /**
+     * FIX #25 — booking ids arrive from SignalR as "26.0", not "26".
+     * toIntOrNull() returns null for a decimal string, so a plain parse silently
+     * turned valid ids into nulls and skipped the code that depended on them.
+     */
+    private fun String?.asBookingId(): Int? {
+        val t = this?.trim().orEmpty()
+        if (t.isEmpty()) return null
+        return t.toIntOrNull() ?: t.toDoubleOrNull()?.takeIf { it > 0 }?.toInt()
+    }
+
     private fun handleBookingStatusUpdate(update: BookingStatusUpdate) {
+        // FIX #20 — defence in depth against the phantom-cancellation bug.
+        // Even if a stale event leaks past the repository guard, this screen only
+        // ever reacts to the booking it was actually opened for.
+        val expectedBookingId = _uiState.value.currentBookingId.asBookingId()
+        if (expectedBookingId != null && update.bookingId != expectedBookingId) {
+            Log.w(TAG, "⚠️ Ignoring update for booking ${update.bookingId} — tracking $expectedBookingId")
+            return
+        }
+
         val status = update.getStatusType()
         logStatusUpdate(update, status)
 

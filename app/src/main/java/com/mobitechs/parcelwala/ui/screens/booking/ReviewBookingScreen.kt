@@ -11,6 +11,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +49,8 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,6 +62,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -74,7 +80,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -180,7 +185,14 @@ fun ReviewBookingScreen(
                                 selectedGoodsType  = selectedGoodsType,
                                 showError          = showGoodsError,
                                 onSelectGoodsType  = { showGoodsTypeSheet = true },
-                                onViewRestrictions = onViewRestrictions
+                                onViewRestrictions = onViewRestrictions,
+                                // First six types are shown inline as chips so the
+                                // user can see what they're choosing between.
+                                quickOptions       = goodsTypes.take(6),
+                                onQuickPick        = { goods ->
+                                    viewModel.setGoodsType(goods)
+                                    showGoodsError = false
+                                }
                             )
                         }
 
@@ -518,130 +530,255 @@ private fun SectionCard(
 
 // ─── Goods Type Content ───────────────────────────────────────────────────────
 
+/**
+ * ITEM 6 — the goods picker.
+ *
+ * THE PROBLEM
+ * The old card showed a wallet icon, the words "Select Goods Type / Required for
+ * booking", and a small grey "Select" link on the right. Nothing on screen told
+ * the user what a "goods type" even was or what the options might be, so the
+ * error message "Please select goods type" just repeated a demand without
+ * explaining it. People got stuck on a screen where the only blocked action gave
+ * no hint about how to unblock it.
+ *
+ * THE FIX
+ * Show the actual options. The common types render as tappable chips right in
+ * the card, so the answer to "what am I supposed to pick?" is visible without
+ * opening anything. A plain-language question sits above them, and the sheet is
+ * still one tap away for the full list.
+ *
+ * Once something is chosen the card collapses to a compact summary with a Change
+ * action, so it stops taking up space for the rest of the booking.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GoodsTypeContent(
     selectedGoodsType: GoodsTypeResponse?,
     showError: Boolean,
     onSelectGoodsType: () -> Unit,
-    onViewRestrictions: () -> Unit
+    onViewRestrictions: () -> Unit,
+    quickOptions: List<GoodsTypeResponse> = emptyList(),
+    onQuickPick: (GoodsTypeResponse) -> Unit = {}
 ) {
-    AnimatedVisibility(
-        visible = showError && selectedGoodsType == null,
-        enter   = fadeIn() + expandVertically(),
-        exit    = fadeOut() + shrinkVertically()
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(AppColors.ErrorLight, RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.Default.Info, null, tint = AppColors.Drop, modifier = Modifier.size(16.dp))
-                Text(
-                    text       = stringResource(R.string.select_goods_type_error),
-                    style      = MaterialTheme.typography.bodySmall,
-                    color      = AppColors.Drop,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-    }
+    // ── Nothing chosen yet: ask a real question and show real answers ────────
+    if (selectedGoodsType == null) {
+        Text(
+            text       = stringResource(R.string.goods_question),
+            style      = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color      = AppColors.TextPrimary
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text  = stringResource(R.string.goods_question_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.TextSecondary
+        )
+        Spacer(modifier = Modifier.height(12.dp))
 
-    Row(
-        modifier              = Modifier.fillMaxWidth().clickable(onClick = onSelectGoodsType),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier              = Modifier.weight(1f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        if (selectedGoodsType != null) AppColors.Primary.copy(alpha = 0.1f)
-                        else AppColors.ErrorLight,
-                        RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
+        if (quickOptions.isEmpty()) {
+            // Types haven't loaded yet — fall back to opening the sheet.
+            OutlinedButton(
+                onClick  = onSelectGoodsType,
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(10.dp)
             ) {
-                val iconText = selectedGoodsType?.icon?.trim() ?: ""
-                if (iconText.isNotBlank() && iconText != "??" && iconText != "?") {
-                    Text(iconText, style = MaterialTheme.typography.titleMedium)
-                } else {
-                    Icon(
-                        imageVector        = Icons.Default.Wallet,
-                        contentDescription = null,
-                        tint               = if (selectedGoodsType != null) AppColors.Primary else AppColors.Drop,
-                        modifier           = Modifier.size(22.dp)
+                Text(stringResource(R.string.select_goods_type))
+            }
+        } else {
+            FlowRow(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement   = Arrangement.spacedBy(8.dp)
+            ) {
+                quickOptions.forEach { goods ->
+                    GoodsChip(goods = goods, onClick = { onQuickPick(goods) })
+                }
+                // Escape hatch to the full list.
+                Surface(
+                    onClick = onSelectGoodsType,
+                    shape   = RoundedCornerShape(20.dp),
+                    color   = AppColors.Primary.copy(alpha = 0.08f),
+                    border  = BorderStroke(1.dp, AppColors.Primary.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier              = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text       = stringResource(R.string.goods_see_all),
+                            style      = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color      = AppColors.Primary
+                        )
+                        Icon(
+                            Icons.Default.KeyboardArrowRight, null,
+                            tint = AppColors.Primary, modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // The error only ever appears under the options, where the fix is.
+        AnimatedVisibility(
+            visible = showError,
+            enter   = fadeIn() + expandVertically(),
+            exit    = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AppColors.ErrorLight, RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, null, tint = AppColors.Drop, modifier = Modifier.size(16.dp))
+                    Text(
+                        text       = stringResource(R.string.goods_error_actionable),
+                        style      = MaterialTheme.typography.bodySmall,
+                        color      = AppColors.Drop,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
-            Column {
-                Text(
-                    text       = selectedGoodsType?.name ?: stringResource(R.string.select_goods_type),
-                    style      = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = if (selectedGoodsType != null) AppColors.TextPrimary else AppColors.TextSecondary
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        RestrictedItemsRow(onViewRestrictions)
+        return
+    }
+
+    // ── Something is chosen: collapse to a summary ───────────────────────────
+    GoodsSelectedSummary(
+        goods              = selectedGoodsType,
+        onChange           = onSelectGoodsType,
+        onViewRestrictions = onViewRestrictions
+    )
+}
+
+/** One tappable goods option. Icon plus name, nothing else to decode. */
+@Composable
+private fun GoodsChip(
+    goods: GoodsTypeResponse,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape   = RoundedCornerShape(20.dp),
+        color   = AppColors.Surface,
+        border  = BorderStroke(1.dp, AppColors.Border)
+    ) {
+        Row(
+            modifier              = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val iconText = goods.icon.trim()
+            if (iconText.isNotBlank() && iconText != "??" && iconText != "?") {
+                Text(iconText, style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Icon(
+                    Icons.Default.Inventory2, null,
+                    tint = AppColors.TextSecondary, modifier = Modifier.size(16.dp)
                 )
-                selectedGoodsType?.let { goods ->
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text  = "${goods.defaultWeight} kg  ·  ${goods.defaultPackages.toString().padStart(2, '0')} pkg  ·  ₹${goods.defaultValue}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.TextSecondary
-                    )
-                } ?: Text(
-                    text  = stringResource(R.string.required_to_book),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.Drop
+            }
+            Text(
+                text       = goods.name,
+                style      = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color      = AppColors.TextPrimary
+            )
+        }
+    }
+}
+
+/** Compact confirmation once a type is picked. */
+@Composable
+private fun GoodsSelectedSummary(
+    goods: GoodsTypeResponse,
+    onChange: () -> Unit,
+    onViewRestrictions: () -> Unit
+) {
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .background(AppColors.Pickup.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            val iconText = goods.icon.trim()
+            if (iconText.isNotBlank() && iconText != "??" && iconText != "?") {
+                Text(iconText, style = MaterialTheme.typography.titleMedium)
+            } else {
+                Icon(
+                    Icons.Default.Check, null,
+                    tint = AppColors.Pickup, modifier = Modifier.size(20.dp)
                 )
             }
         }
-        Text(
-            text       = if (selectedGoodsType != null) stringResource(R.string.change) else stringResource(R.string.select_label),
-            style      = MaterialTheme.typography.labelMedium,
-            color      = AppColors.Primary,
-            fontWeight = FontWeight.SemiBold
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text       = goods.name,
+                style      = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color      = AppColors.TextPrimary
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text  = "${goods.defaultWeight} kg  ·  ${goods.defaultPackages} pkg",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary
+            )
+        }
+        TextButton(onClick = onChange) {
+            Text(
+                text       = stringResource(R.string.action_change),
+                style      = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color      = AppColors.Primary
+            )
+        }
     }
 
     Spacer(modifier = Modifier.height(12.dp))
+    RestrictedItemsRow(onViewRestrictions)
+}
 
+@Composable
+private fun RestrictedItemsRow(onViewRestrictions: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.AmberLight, RoundedCornerShape(10.dp))
+            .background(AppColors.Warning.copy(alpha = 0.10f), RoundedCornerShape(10.dp))
             .clickable(onClick = onViewRestrictions)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment     = Alignment.CenterVertically
+            .padding(10.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier              = Modifier.weight(1f)
-        ) {
-            Icon(Icons.Default.Warning, null, tint = AppColors.Warning, modifier = Modifier.size(16.dp))
-            Text(
-                text     = stringResource(R.string.do_not_send_restricted),
-                style    = MaterialTheme.typography.bodySmall,
-                color    = AppColors.OrangeDark,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Icon(
+            Icons.Default.Warning, null,
+            tint = AppColors.Warning, modifier = Modifier.size(16.dp)
+        )
         Text(
-            text       = stringResource(R.string.view_label),
-            style      = MaterialTheme.typography.labelMedium,
-            color      = AppColors.Primary,
-            fontWeight = FontWeight.SemiBold
+            text     = stringResource(R.string.do_not_send_restricted),
+            style    = MaterialTheme.typography.bodySmall,
+            color    = AppColors.TextSecondary,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text       = stringResource(R.string.action_view),
+            style      = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color      = AppColors.Primary
         )
     }
 }

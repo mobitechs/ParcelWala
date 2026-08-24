@@ -141,6 +141,20 @@ class AccountViewModel @Inject constructor(
                     }
 
                     is NetworkResult.Success -> {
+                        // ITEM 2 — put the new address in the list right now.
+                        // Don't wait for a refetch that may never run: if this
+                        // ViewModel is cleared by navigation, the reload below
+                        // dies with it, but the emitted state has already been
+                        // observed by the screen.
+                        result.data?.let { saved ->
+                            _savedAddresses.update { current ->
+                                if (current.any { it.addressId == saved.addressId }) {
+                                    current.map { if (it.addressId == saved.addressId) saved else it }
+                                } else {
+                                    current + saved
+                                }
+                            }
+                        }
                         _uiState.update {
                             it.copy(
                                 isSavingAddress = false,
@@ -148,7 +162,8 @@ class AccountViewModel @Inject constructor(
                                 error = null
                             )
                         }
-                        // ✅ FIX 3: Reload addresses after save
+                        // Still refetch so the list matches the server exactly
+                        // (server-assigned ids, ordering, defaults).
                         loadSavedAddresses()
                     }
 
@@ -177,6 +192,13 @@ class AccountViewModel @Inject constructor(
                     }
 
                     is NetworkResult.Success -> {
+                        // ITEM 2 — reflect the edit in the list immediately,
+                        // for the same reason as saveAddress() above.
+                        result.data?.let { updated ->
+                            _savedAddresses.update { current ->
+                                current.map { if (it.addressId == updated.addressId) updated else it }
+                            }
+                        }
                         _uiState.update {
                             it.copy(
                                 isSavingAddress = false,
@@ -184,7 +206,6 @@ class AccountViewModel @Inject constructor(
                                 error = null
                             )
                         }
-                        // ✅ FIX 3: Reload addresses after update
                         loadSavedAddresses()
                     }
 

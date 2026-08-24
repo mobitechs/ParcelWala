@@ -7,6 +7,8 @@ import com.mobitechs.parcelwala.data.model.response.LoginData
 import com.mobitechs.parcelwala.data.model.response.OtpData
 import com.mobitechs.parcelwala.data.repository.AuthRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
+import com.mobitechs.parcelwala.utils.Validators
+import com.mobitechs.parcelwala.utils.fieldErrors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +20,12 @@ import javax.inject.Inject
 data class AuthUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
+    /**
+     * Per-field validation errors straight from the server, e.g.
+     *   { "full_name": ["Full name is required", "Full name must be at least 3 characters"] }
+     * The screen maps these onto the matching inputs instead of showing a popup.
+     */
+    val fieldErrors: Map<String, List<String>> = emptyMap(),
     val otpSent: Boolean = false,
     val otpData: OtpData? = null,
     val loginSuccess: Boolean = false,
@@ -138,13 +146,15 @@ class AuthViewModel @Inject constructor(
         email: String?,
         referralCode: String?
     ) {
-        if (fullName.isBlank()) {
-            _uiState.update { it.copy(error = "Please enter your name") }
+        // Client-side rules mirror the backend's, so an obviously bad value never
+        // costs a round trip. The screen already gates its button on the same rules;
+        // this is the backstop for programmatic callers.
+        Validators.fullName(fullName)?.let { message ->
+            _uiState.update { it.copy(error = message, fieldErrors = mapOf("full_name" to listOf(message))) }
             return
         }
-
-        if (!email.isNullOrBlank() && !isValidEmail(email)) {
-            _uiState.update { it.copy(error = "Please enter a valid email") }
+        Validators.emailOptional(email)?.let { message ->
+            _uiState.update { it.copy(error = message, fieldErrors = mapOf("email" to listOf(message))) }
             return
         }
 
@@ -152,7 +162,9 @@ class AuthViewModel @Inject constructor(
             authRepository.completeProfile(fullName, email, referralCode).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
-                        _uiState.update { it.copy(isLoading = true, error = null) }
+                        _uiState.update {
+                            it.copy(isLoading = true, error = null, fieldErrors = emptyMap())
+                        }
                     }
 
                     is NetworkResult.Success -> {
@@ -160,16 +172,20 @@ class AuthViewModel @Inject constructor(
                             it.copy(
                                 isLoading = false,
                                 profileCompleted = true,
-                                error = null
+                                error = null,
+                                fieldErrors = emptyMap()
                             )
                         }
                     }
 
                     is NetworkResult.Error -> {
+                        // Carry the server's per-field map through so the screen can
+                        // underline the exact input that was rejected.
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                error = result.message
+                                error = result.message,
+                                fieldErrors = result.fieldErrors
                             )
                         }
                     }
@@ -179,7 +195,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.update { it.copy(error = null) }
+        _uiState.update { it.copy(error = null, fieldErrors = emptyMap()) }
     }
 
     fun resetOtpState() {
@@ -190,13 +206,7 @@ class AuthViewModel @Inject constructor(
         currentPhoneNumber = phoneNumber
     }
 
-    private fun isValidPhoneNumber(phone: String): Boolean {
-        val phoneRegex = "^[6-9]\\d{9}$".toRegex()
-        return phone.matches(phoneRegex)
-    }
-
-    private fun isValidEmail(email: String): Boolean {
-        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
-        return email.matches(emailRegex)
-    }
+    // Phone and email rules now live in Validators so the screens, the ViewModel
+    // and the backend all agree on what "valid" means.
+    private fun isValidPhoneNumber(phone: String): Boolean = Validators.mobile(phone) == null
 }

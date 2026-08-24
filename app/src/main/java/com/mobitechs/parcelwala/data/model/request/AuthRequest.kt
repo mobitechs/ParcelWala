@@ -36,4 +36,26 @@ data class CompleteProfileRequest(
 
     @SerializedName("referral_code")
     val referralCode: String?
-)
+) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // ⚠️ TEMPORARY — remove once the backend contract is confirmed.
+    //
+    // The server rejected a perfectly valid name with BOTH
+    //   "Full name is required" AND "Full name must be at least 3 characters"
+    // at the same time. Neither can be true for "Pratik sonawane", so the property
+    // bound as null — meaning the JSON key never matched.
+    //
+    // ASP.NET's model binder is case-insensitive but does NOT map snake_case, so
+    // `full_name` never reaches a `FullName` property. It wants camelCase.
+    //
+    // Sending both spellings works whichever way the DTO is defined, because
+    // ASP.NET ignores properties it doesn't recognise. Ask the backend team which
+    // casing that endpoint expects, then delete the two fields below.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @SerializedName("fullName")
+    val fullNameCamel: String = fullName
+
+    @SerializedName("referralCode")
+    val referralCodeCamel: String? = referralCode
+}

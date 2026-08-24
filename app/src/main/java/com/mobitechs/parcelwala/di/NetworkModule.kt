@@ -1,5 +1,6 @@
 package com.mobitechs.parcelwala.di
 
+import com.mobitechs.parcelwala.BuildConfig
 import com.mobitechs.parcelwala.data.api.ApiService
 import com.mobitechs.parcelwala.data.api.TokenAuthenticator
 import com.mobitechs.parcelwala.data.local.PreferencesManager
@@ -23,7 +24,10 @@ object NetworkModule {
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // FIX — this was unconditional, so release builds logged full request and
+            // response bodies including the bearer token on every call.
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
         }
     }
 

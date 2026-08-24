@@ -325,22 +325,38 @@ fun NavGraph(
                 val user = preferencesManager.getUser()
                 val selectedAddress = pendingAccountAddress ?: addressToEdit
 
+                // ITEM 2 — wait for the save to finish before navigating.
+                //
+                // The old code navigated in the same breath as calling save.
+                // popUpTo("saved_addresses") { inclusive = true } tears down the
+                // account_flow entry that owns this AccountViewModel, which
+                // cancelled the in-flight POST and left the rebuilt list screen
+                // fetching before the write had landed.
+                val accountState by viewModel.uiState.collectAsState()
+
+                // Both saveAddress() and updateAddress() set addressSaveSuccess.
+                LaunchedEffect(accountState.addressSaveSuccess) {
+                    if (accountState.addressSaveSuccess) {
+                        addressToEdit = null
+                        pendingAccountAddress = null
+                        navController.popBackStack("saved_addresses", inclusive = false)
+                    }
+                }
+
                 AddressConfirmationScreen(
                     address = selectedAddress,
                     locationType = "save",
                     onConfirm = { confirmedAddress ->
+                        // Navigation now happens in the LaunchedEffect above,
+                        // once the server has confirmed the write.
                         if (addressToEdit != null) viewModel.updateAddress(confirmedAddress)
                         else viewModel.saveAddress(confirmedAddress)
-                        addressToEdit = null
-                        pendingAccountAddress = null
-                        navController.navigate("saved_addresses") {
-                            popUpTo("saved_addresses") { inclusive = true }
-                        }
                     },
                     onChangeLocation = { pendingAccountAddress = null; navController.navigate("address_search") },
                     onBack = { addressToEdit = null; pendingAccountAddress = null; navController.popBackStack() },
                     isEditMode = addressToEdit != null,
                     userPhoneNumber = user?.phoneNumber,
+                    userName = user?.fullName,
                     showSaveLocationBadge = true
                 )
             }
@@ -451,9 +467,32 @@ fun NavGraph(
                 val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
                 val viewModel: BookingViewModel = hiltViewModel(parentEntry)
 
+                // ITEM 3 — the "these are my details" shortcut needs the
+                // signed-in user's name and number to fill in.
+                val bookingUser = preferencesManager.getUser()
+                // Saved addresses power the "Saved address" shortcut on the
+                // pickup/drop screen. Scoped to booking_flow so it's fetched once.
+                val addressVm: AccountViewModel = hiltViewModel(parentEntry)
+                val savedForBooking by addressVm.savedAddresses.collectAsState()
+                var showAllSavedAddresses by remember { mutableStateOf(false) }
+
                 AddressConfirmationScreen(
                     address = null, locationType = locationType,
                     isEditMode = isEdit || isChange, viewModel = viewModel,
+                    userPhoneNumber = bookingUser?.phoneNumber,
+                    userName = bookingUser?.fullName,
+                    savedAddresses = savedForBooking,
+                    openSavedAddressPicker = showAllSavedAddresses,
+                    onSavedAddressPickerHandled = { showAllSavedAddresses = false },
+                    // "See all" opens the full address book. The picked address is
+                    // returned through the back stack's savedStateHandle, which is
+                    // the standard Compose Navigation way to send a result back to
+                    // the previous screen without a shared ViewModel.
+                    // "See all" opens the saved-address list in place. A separate
+                    // full-page picker would need SavedAddressesScreen to support a
+                    // pick mode (its current signature is onEditAddress, which opens
+                    // the row for editing rather than returning it) — see the notes.
+                    onSeeAllAddresses = { showAllSavedAddresses = true },
                     onConfirm = { confirmedAddress ->
                         if (locationType == "pickup") viewModel.setPickupAddress(confirmedAddress)
                         else viewModel.setDropAddress(confirmedAddress)

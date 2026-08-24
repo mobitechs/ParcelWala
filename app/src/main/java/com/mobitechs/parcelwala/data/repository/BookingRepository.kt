@@ -193,19 +193,39 @@ class BookingRepository @Inject constructor(
         }
     }
 
+    /**
+     * FIX #28 — the add-address endpoint returns `data` as an array.
+     *
+     *   { "success": true, "data": [ { "address_id": "6", ... } ] }
+     *
+     * The old signature expected a single object, so Gson threw
+     * "Expected BEGIN_OBJECT but was BEGIN_ARRAY", this method caught it as a
+     * generic "Network error", and the screen never learned the save had worked.
+     * The address WAS saved — the user just stayed on the form staring at it.
+     *
+     * Takes the first entry, which is the address that was just created. Falls back
+     * to the one we sent if the server ever returns an empty array, so a successful
+     * save is never reported as a failure.
+     */
     fun saveAddress(address: SavedAddress): Flow<NetworkResult<SavedAddress>> = flow {
         emit(NetworkResult.Loading())
 
         try {
             val response = apiService.saveAddress(address)
-            if (response.success && response.data != null) {
-                cachedSavedAddresses?.add(response.data)
-                emit(NetworkResult.Success(response.data))
+            if (response.success) {
+                val saved = response.data?.firstOrNull() ?: address
+                cachedSavedAddresses?.removeAll { it.addressId == saved.addressId }
+                cachedSavedAddresses?.add(saved)
+                emit(NetworkResult.Success(saved))
             } else {
-                emit(NetworkResult.Error(response.message ?: "Failed to save address"))
+                emit(NetworkResult.Error(response.message ?: "Couldn't save the address. Please try again."))
             }
         } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
+            Log.e("BookingRepository", "saveAddress failed", e)
+            emit(NetworkResult.Error(
+                e.message?.takeIf { it.isNotBlank() && !it.startsWith("{") }
+                    ?: "Couldn't save the address. Please try again."
+            ))
         }
     }
 

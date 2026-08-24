@@ -96,7 +96,18 @@ interface ApiService {
 
     //    Save new address
     @POST("customer/addresses") // working
-    suspend fun saveAddress(@Body address: SavedAddress): ApiResponse<SavedAddress>
+    /**
+     * FIX #28 — the server returns `data` as an ARRAY, not a single object:
+     *
+     *   { "success": true, "message": "Address added successfully",
+     *     "data": [ { "address_id": "6", ... } ] }
+     *
+     * Declaring ApiResponse<SavedAddress> made Gson throw
+     * "Expected BEGIN_OBJECT but was BEGIN_ARRAY", the repository caught it as a
+     * generic failure, addressSaveSuccess never flipped — and the screen sat there
+     * even though the address had saved perfectly well.
+     */
+    suspend fun saveAddress(@Body address: SavedAddress): ApiResponse<List<SavedAddress>>
 
     @PUT("customer/addresses/{addressId}")  // working
     suspend fun updateAddress(

@@ -780,4 +780,32 @@
     <string name="required_to_book">बुकिंगसाठी आवश्यक</string>
     <string name="save_more_with_coupon">कूपन कोडने अधिक बचत करा</string>
     <string name="select_goods_to_continue">पुढे जाण्यासाठी माल निवडा</string>
+
+    <string name="address_details_required">पत्त्याचा तपशील</string>
+    <string name="building_details_required">फ्लॅट / घर / मजला</string>
+    <string name="pincode_required">पिनकोड</string>
+    <string name="label_name_required">लेबलचे नाव</string>
+
+    <plurals name="fields_remaining">
+        <item quantity="one">%d आवश्यक माहिती बाकी आहे</item>
+        <item quantity="other">%d आवश्यक माहिती बाकी आहेत</item>
+    </plurals>
+
+    <string name="im_the_sender">मीच पाठवत आहे</string>
+    <string name="im_the_receiver">मीच स्वीकारणार आहे</string>
+
+    <string name="choose_from_contacts">संपर्क यादीतून निवडा</string>
+
+    <string name="goods_question">तुम्ही काय पाठवत आहात?</string>
+    <string name="goods_question_hint">सर्वात जवळचा पर्याय निवडा. यामुळे ड्रायव्हरला सामान नीट हाताळता येईल.</string>
+    <string name="goods_see_all">सर्व पहा</string>
+    <string name="goods_error_actionable">पुढे जाण्यासाठी वरीलपैकी एक पर्याय निवडा</string>
+
+    <string name="action_change">बदला</string>
+    <string name="action_view">पहा</string>
+
+
+    <string name="use_saved_address">जतवलेला पत्ता</string>
+    <string name="pick_saved_address">जतवलेला पत्ता निवडा</string>
+    <string name="pick_saved_address_hint">संपर्क आणि फ्लॅटची माहिती भरली जाईल. नकाशावरील तुमचा पिन तिथेच राहील.</string>
 </resources>
