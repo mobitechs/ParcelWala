@@ -12,6 +12,11 @@ import com.mobitechs.parcelwala.data.model.response.OtpData
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.utils.NetworkResult
 import kotlinx.coroutines.flow.Flow
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -69,19 +74,45 @@ class AuthRepository @Inject constructor(
         }
     }
 
+//    fun completeProfile(
+//        fullName: String,
+//        email: String?,
+//        referralCode: String?
+//    ): Flow<NetworkResult<User>> = apiFlow {
+//        apiCall {
+//            apiService.completeProfile(
+//                CompleteProfileRequest(
+//                    fullName = fullName.trim(),
+//                    email = email?.trim()?.takeIf { it.isNotEmpty() },
+//                    referralCode = referralCode?.trim()?.takeIf { it.isNotEmpty() }
+//                )
+//            )
+//        }.also { result ->
+//            if (result is NetworkResult.Success) {
+//                result.data?.let { preferencesManager.saveUser(it) }
+//            }
+//        }
+//    }
+
     fun completeProfile(
         fullName: String,
         email: String?,
-        referralCode: String?
+        referralCode: String?,
+        profilePhoto: File? = null   // not wired to UI yet — pass a File when you add photo picking
     ): Flow<NetworkResult<User>> = apiFlow {
         apiCall {
-            apiService.completeProfile(
-                CompleteProfileRequest(
-                    fullName = fullName.trim(),
-                    email = email?.trim()?.takeIf { it.isNotEmpty() },
-                    referralCode = referralCode?.trim()?.takeIf { it.isNotEmpty() }
-                )
-            )
+            val textType = "text/plain".toMediaTypeOrNull()
+
+            val namePart = fullName.trim().toRequestBody(textType)
+            val emailPart = email?.trim()?.takeIf { it.isNotEmpty() }?.toRequestBody(textType)
+            val referralPart = referralCode?.trim()?.takeIf { it.isNotEmpty() }?.toRequestBody(textType)
+
+            val photoPart = profilePhoto?.let { file ->
+                val fileBody = file.asRequestBody("image/*".toMediaTypeOrNull())
+                MultipartBody.Part.createFormData("profile_photo", file.name, fileBody)
+            }
+
+            apiService.completeProfile(namePart, emailPart, referralPart, photoPart)
         }.also { result ->
             if (result is NetworkResult.Success) {
                 result.data?.let { preferencesManager.saveUser(it) }

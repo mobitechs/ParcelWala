@@ -488,10 +488,10 @@
     <string name="use_my_mobile_format">माझा मोबाइल नंबर वापरा: %s</string>
     <string name="address_details_optional">पत्ता तपशील (ऐच्छिक)</string>
     <string name="building_details_label">इमारत तपशील</string>
-    <string name="building_details_placeholder">फ्लॅट क्र., इमारतीचे नाव</string>
-    <string name="landmark_label">लँडमार्क</string>
+    <string name="building_details_placeholder">फ्लॅट क्र., इमारतीचे नाव*</string>
+    <string name="landmark_label">लँडमार्क*</string>
     <string name="landmark_placeholder">उदा., पेट्रोल पंपाजवळ, मॉलसमोर</string>
-    <string name="pincode_label">पिनकोड</string>
+    <string name="pincode_label">पिनकोड*</string>
     <string name="pincode_placeholder">6 अंकी पिनकोड टाका</string>
     <string name="save_address_as">पत्ता म्हणून सेव्ह करा</string>
     <!-- home_type / shop_type / other_type removed — use label_home / label_shop / label_other -->

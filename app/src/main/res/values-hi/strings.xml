@@ -489,9 +489,9 @@
     <string name="address_details_optional">पता विवरण (वैकल्पिक)</string>
     <string name="building_details_label">बिल्डिंग विवरण</string>
     <string name="building_details_placeholder">फ्लैट नं., बिल्डिंग का नाम</string>
-    <string name="landmark_label">लैंडमार्क</string>
+    <string name="landmark_label">लैंडमार्क*</string>
     <string name="landmark_placeholder">जैसे, पेट्रोल पंप के पास, मॉल के सामने</string>
-    <string name="pincode_label">पिनकोड</string>
+    <string name="pincode_label">पिनकोड*</string>
     <string name="pincode_placeholder">6 अंकों का पिनकोड दर्ज करें</string>
     <string name="save_address_as">पता इस रूप में सेव करें</string>
     <!-- home_type / shop_type / other_type removed — use label_home / label_shop / label_other -->

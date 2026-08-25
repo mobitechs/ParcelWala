@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 data class AuthUiState(
@@ -144,11 +145,9 @@ class AuthViewModel @Inject constructor(
     fun completeProfile(
         fullName: String,
         email: String?,
-        referralCode: String?
+        referralCode: String?,
+        profilePhoto: File? = null
     ) {
-        // Client-side rules mirror the backend's, so an obviously bad value never
-        // costs a round trip. The screen already gates its button on the same rules;
-        // this is the backstop for programmatic callers.
         Validators.fullName(fullName)?.let { message ->
             _uiState.update { it.copy(error = message, fieldErrors = mapOf("full_name" to listOf(message))) }
             return
@@ -159,7 +158,7 @@ class AuthViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            authRepository.completeProfile(fullName, email, referralCode).collect { result ->
+            authRepository.completeProfile(fullName, email, referralCode, profilePhoto).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update {
@@ -193,6 +192,59 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
+//    fun completeProfile(
+//        fullName: String,
+//        email: String?,
+//        referralCode: String?
+//    ) {
+//        // Client-side rules mirror the backend's, so an obviously bad value never
+//        // costs a round trip. The screen already gates its button on the same rules;
+//        // this is the backstop for programmatic callers.
+//        Validators.fullName(fullName)?.let { message ->
+//            _uiState.update { it.copy(error = message, fieldErrors = mapOf("full_name" to listOf(message))) }
+//            return
+//        }
+//        Validators.emailOptional(email)?.let { message ->
+//            _uiState.update { it.copy(error = message, fieldErrors = mapOf("email" to listOf(message))) }
+//            return
+//        }
+//
+//        viewModelScope.launch {
+//            authRepository.completeProfile(fullName, email, referralCode).collect { result ->
+//                when (result) {
+//                    is NetworkResult.Loading -> {
+//                        _uiState.update {
+//                            it.copy(isLoading = true, error = null, fieldErrors = emptyMap())
+//                        }
+//                    }
+//
+//                    is NetworkResult.Success -> {
+//                        _uiState.update {
+//                            it.copy(
+//                                isLoading = false,
+//                                profileCompleted = true,
+//                                error = null,
+//                                fieldErrors = emptyMap()
+//                            )
+//                        }
+//                    }
+//
+//                    is NetworkResult.Error -> {
+//                        // Carry the server's per-field map through so the screen can
+//                        // underline the exact input that was rejected.
+//                        _uiState.update {
+//                            it.copy(
+//                                isLoading = false,
+//                                error = result.message,
+//                                fieldErrors = result.fieldErrors
+//                            )
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     fun clearError() {
         _uiState.update { it.copy(error = null, fieldErrors = emptyMap()) }

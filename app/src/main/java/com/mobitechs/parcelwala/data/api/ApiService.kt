@@ -37,13 +37,17 @@ import com.mobitechs.parcelwala.data.model.response.OtpData
 import com.mobitechs.parcelwala.data.model.response.RestrictedItemResponse
 import com.mobitechs.parcelwala.data.model.response.User
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+import okhttp3.RequestBody
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -60,9 +64,18 @@ interface ApiService {
     ): Response<ApiResponse<LoginData>>
 
 
+//    @PUT("customer/complete-profile")
+//    suspend fun completeProfile(
+//        @Body request: CompleteProfileRequest
+//    ): Response<ApiResponse<User>>
+
+    @Multipart
     @PUT("customer/complete-profile")
     suspend fun completeProfile(
-        @Body request: CompleteProfileRequest
+        @Part("full_name") fullName: RequestBody,
+        @Part("email") email: RequestBody?,
+        @Part("referral_code") referralCode: RequestBody?,
+        @Part profilePhoto: MultipartBody.Part?
     ): Response<ApiResponse<User>>
 
 

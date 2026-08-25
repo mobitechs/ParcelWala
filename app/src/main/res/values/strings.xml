@@ -491,10 +491,10 @@
     <string name="use_my_mobile_format">Use my mobile number: %s</string>
     <string name="address_details_optional">Address Details (Optional)</string>
     <string name="building_details_label">Building Details</string>
-    <string name="building_details_placeholder">Flat no, Building name</string>
-    <string name="landmark_label">Landmark</string>
+    <string name="building_details_placeholder">Flat no, Building name*</string>
+    <string name="landmark_label">Landmark*</string>
     <string name="landmark_placeholder">e.g., Near petrol pump, Opposite mall</string>
-    <string name="pincode_label">Pincode</string>
+    <string name="pincode_label">Pincode*</string>
     <string name="pincode_placeholder">Enter 6 digit pincode</string>
     <string name="save_address_as">Save address as</string>
     <!-- home_type / shop_type / other_type removed — use label_home / label_shop / label_other -->
@@ -788,8 +788,8 @@
 
 
     <string name="address_details_required">Address details</string>
-    <string name="building_details_required">Flat / house / floor</string>
-    <string name="pincode_required">Pincode</string>
+    <string name="building_details_required">Flat / house / floor*</string>
+    <string name="pincode_required">Pincode*</string>
     <string name="label_name_required">Label name</string>
 
     <!-- How many required fields are still blocking the button -->
