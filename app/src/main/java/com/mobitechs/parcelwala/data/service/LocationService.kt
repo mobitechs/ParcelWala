@@ -45,12 +45,31 @@ class LocationService(
         private val MAHARASHTRA_NORTHEAST = LatLng(22.0278, 80.9089)
     }
 
+    /**
+     * The device's current position, or null if it genuinely cannot be found.
+     *
+     * TWO SOURCES, IN ORDER. `getCurrentLocation()` asks for a FRESH fix and is
+     * the accurate one, but it returns null more often than its name suggests:
+     * indoors, on a cold GPS, in battery saver, and on emulators fed a location
+     * through `geo fix` rather than a live provider. That null was the whole of
+     * "the pickup just stays empty" — the caller had nothing to show and no
+     * reason to explain, so the field sat there looking like a bug.
+     *
+     * `lastLocation` is the fix the system already has cached from any app that
+     * asked recently. It can be minutes old and a few hundred metres out, which
+     * is completely fine for the job here: seeding a pickup the customer is
+     * about to confirm on a map anyway. A slightly stale starting point they can
+     * correct beats an empty field they have to fill from scratch.
+     */
     suspend fun getCurrentLocation(): Location? {
         if (!hasLocationPermission()) {
             throw SecurityException("Location permission not granted")
         }
+        return requestFreshLocation() ?: lastKnownLocation()
+    }
 
-        return suspendCancellableCoroutine { continuation ->
+    private suspend fun requestFreshLocation(): Location? =
+        suspendCancellableCoroutine { continuation ->
             val cancellationToken = CancellationTokenSource()
 
             try {
@@ -59,28 +78,36 @@ class LocationService(
                     Priority.PRIORITY_HIGH_ACCURACY,
                     cancellationToken.token
                 ).addOnSuccessListener { location ->
-                    if (location != null) {
-                        continuation.resume(
-                            Location(
-                                latitude = location.latitude,
-                                longitude = location.longitude
-                            )
-                        )
-                    } else {
-                        continuation.resume(null)
-                    }
-                }.addOnFailureListener { exception ->
-                    continuation.resumeWithException(exception)
+                    continuation.resume(
+                        location?.let { Location(it.latitude, it.longitude) }
+                    )
+                }.addOnFailureListener {
+                    // Fall through to the cached fix rather than throwing. A
+                    // failure here is not a failure of the whole lookup.
+                    continuation.resume(null)
                 }
             } catch (e: SecurityException) {
                 continuation.resumeWithException(e)
             }
 
-            continuation.invokeOnCancellation {
-                cancellationToken.cancel()
+            continuation.invokeOnCancellation { cancellationToken.cancel() }
+        }
+
+    private suspend fun lastKnownLocation(): Location? =
+        suspendCancellableCoroutine { continuation ->
+            try {
+                @Suppress("MissingPermission")
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        continuation.resume(
+                            location?.let { Location(it.latitude, it.longitude) }
+                        )
+                    }
+                    .addOnFailureListener { continuation.resume(null) }
+            } catch (e: SecurityException) {
+                continuation.resumeWithException(e)
             }
         }
-    }
 
     suspend fun searchPlaces(
         query: String,

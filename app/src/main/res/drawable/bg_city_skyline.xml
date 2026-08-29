@@ -1,0 +1,125 @@
+<!--
+  City skyline, outline only, for the Home header background.
+
+  Authored as a vector rather than sourced as a bitmap: it is ~2 KB instead of
+  a PNG per density, stays sharp on any screen, and carries no third-party
+  licence into the app.
+
+  Strokes only, no fills. It sits behind the app title and the search bar, so
+  anything solid would fight the text for contrast. The caller draws it at low
+  alpha; these paths are white so it tints correctly against the header
+  gradient.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp"
+    android:height="120dp"
+    android:viewportWidth="360"
+    android:viewportHeight="120">
+
+    <!-- Ground line -->
+    <path
+        android:pathData="M0,116 L360,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.9" />
+
+    <!-- Far-left low block -->
+    <path
+        android:pathData="M6,116 L6,80 L44,80 L44,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M16,90 L16,98 M26,90 L26,98 M36,90 L36,98"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Tower with antenna -->
+    <path
+        android:pathData="M54,116 L54,46 L88,46 L88,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M71,46 L71,32"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:pathData="M62,58 L62,66 M80,58 L80,66 M62,76 L62,84 M80,76 L80,84 M62,94 L62,102 M80,94 L80,102"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Mid block, stepped roof -->
+    <path
+        android:pathData="M98,116 L98,68 L118,68 L118,56 L142,56 L142,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M106,78 L106,86 M126,68 L126,76 M134,68 L134,76 M126,88 L126,96 M134,88 L134,96"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Tall centre tower -->
+    <path
+        android:pathData="M152,116 L152,28 L184,28 L184,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M160,40 L160,48 M176,40 L176,48 M160,58 L160,66 M176,58 L176,66 M160,76 L160,84 M176,76 L176,84 M160,94 L160,102 M176,94 L176,102"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Domed building -->
+    <path
+        android:pathData="M194,116 L194,72 L232,72 L232,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M198,72 Q213,52 228,72"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M204,86 L204,96 M222,86 L222,96"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Narrow tower -->
+    <path
+        android:pathData="M242,116 L242,50 L264,50 L264,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M249,62 L249,70 M249,80 L249,88 M257,62 L257,70 M257,80 L257,88"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Wide right block -->
+    <path
+        android:pathData="M274,116 L274,64 L318,64 L318,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M284,76 L284,84 M296,76 L296,84 M308,76 L308,84 M284,94 L284,102 M296,94 L296,102 M308,94 L308,102"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7" />
+
+    <!-- Far-right low block -->
+    <path
+        android:pathData="M328,116 L328,86 L356,86 L356,116"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+</vector>

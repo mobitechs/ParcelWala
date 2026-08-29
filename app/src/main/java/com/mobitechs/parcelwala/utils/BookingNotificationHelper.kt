@@ -37,7 +37,7 @@ class BookingNotificationHelper @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private const val TAG = "BookingNotification"
+        private const val TAG = "PW-Notif"
 
         // Channel IDs
         const val CHANNEL_BOOKING_STATUS = "booking_status_channel"
@@ -130,6 +130,54 @@ class BookingNotificationHelper @Inject constructor(
         // This ensures the new notification REPLACES the old one
         notificationManager.notify(NOTIFICATION_BOOKING_STATUS, builder.build())
         Log.d(TAG, "📱 Notification updated: $title")
+    }
+
+    /**
+     * Ongoing tracking notification WITH a progress bar.
+     *
+     * WHY THIS IS WORTH THE EXTRA METHOD
+     * Most tracking attention does not happen in the app. The customer books,
+     * locks their phone, and waits — so the notification shade IS the tracking
+     * screen for the majority of the trip. A plain text line makes them unlock
+     * and reopen the app to learn anything; a progress bar and a live ETA in
+     * the title answers the question from the lock screen.
+     *
+     * [progressPercent] is the journey completion for the ACTIVE leg (0-100).
+     * Pass a negative value for an indeterminate bar (e.g. while searching).
+     */
+    fun showTrackingProgressNotification(
+        bookingId: String,
+        title: String,
+        body: String,
+        progressPercent: Int,
+        isSilent: Boolean = true
+    ) {
+        val pendingIntent = createPendingIntent(bookingId)
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_BOOKING_STATUS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body.lines().firstOrNull() ?: body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            // Critical: without this, every 3-second location update would
+            // re-alert and buzz the phone for the whole trip.
+            .setOnlyAlertOnce(true)
+            .setSilent(isSilent)
+
+        if (progressPercent < 0) {
+            builder.setProgress(0, 0, true)
+        } else {
+            builder.setProgress(100, progressPercent.coerceIn(0, 100), false)
+        }
+
+        // Same notification ID as the sticky status, so this REPLACES it rather
+        // than stacking a second card in the shade.
+        notificationManager.notify(NOTIFICATION_BOOKING_STATUS, builder.build())
     }
 
     // ═══════════════════════════════════════════════════════════════════════

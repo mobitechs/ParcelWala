@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.SectionLabel
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
 import com.mobitechs.parcelwala.ui.theme.AppSpacing
@@ -345,20 +346,6 @@ private fun SectionCard(
             content()
         }
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 10.sp,
-            letterSpacing = 0.8.sp
-        ),
-        color = AppColors.TextSecondary,
-        modifier = Modifier.padding(bottom = AppSpacing.SM)
-    )
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

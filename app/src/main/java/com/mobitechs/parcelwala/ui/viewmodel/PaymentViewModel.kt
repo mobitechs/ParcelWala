@@ -83,9 +83,15 @@ class PaymentViewModel @Inject constructor(
     private val _paymentEvent = MutableSharedFlow<PaymentEvent>()
     val paymentEvent: SharedFlow<PaymentEvent> = _paymentEvent.asSharedFlow()
 
-    init {
-        loadWalletBalance()
-    }
+    // NO init-time load.
+    //
+    // This ViewModel is scoped to MainActivity, so it outlives every screen that
+    // uses it. PaymentsScreen ALREADY calls loadWalletBalance() when it appears,
+    // which is the correct trigger — the balance must be current when it is
+    // being looked at, not when the activity happens to construct a ViewModel.
+    //
+    // Having both meant two identical wallet requests on the first open of the
+    // Payments tab, one of which nobody was waiting for.
 
     // ============================================================
     // BOOKING PAYMENT FLOW

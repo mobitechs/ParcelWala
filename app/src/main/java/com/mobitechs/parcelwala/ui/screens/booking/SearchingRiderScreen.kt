@@ -75,7 +75,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -120,6 +120,7 @@ import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.theme.AppColors
+import com.mobitechs.parcelwala.ui.tracking.TrackingPhase
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
 import com.mobitechs.parcelwala.ui.viewmodel.RiderTrackingViewModel
 import kotlinx.coroutines.delay
@@ -141,12 +142,15 @@ fun SearchingRiderScreen(
 ) {
     var showCancelSheet by remember { mutableStateOf(false) }
 
-    val routeInfo by bookingViewModel.routeInfo.collectAsState()
-    val isRouteLoading by bookingViewModel.isRouteLoading.collectAsState()
-    val activeBooking by bookingViewModel.activeBooking.collectAsState()
-    val bookingUiState by bookingViewModel.uiState.collectAsState()
-    val trackingUiState by riderTrackingViewModel.uiState.collectAsState()
-    val currentStatus = trackingUiState.currentStatus
+    val routeInfo by bookingViewModel.routeInfo.collectAsStateWithLifecycle()
+    val isRouteLoading by bookingViewModel.isRouteLoading.collectAsStateWithLifecycle()
+    val activeBooking by bookingViewModel.activeBooking.collectAsStateWithLifecycle()
+    val bookingUiState by bookingViewModel.uiState.collectAsStateWithLifecycle()
+    val trackingUiState by riderTrackingViewModel.ui.collectAsStateWithLifecycle()
+    // The ViewModel now exposes a TrackingPhase rather than a raw status enum.
+    // SEARCHING is the only phase this screen cares about; anything else means
+    // a driver was found and NavGraph is already moving us on.
+    val trackingPhase = trackingUiState.phase
 
 
     LaunchedEffect(bookingId) {
@@ -161,8 +165,11 @@ fun SearchingRiderScreen(
     val fallbackStartTime = remember { System.currentTimeMillis() }
     val searchStartTime = activeBooking?.searchStartTime ?: fallbackStartTime
     val searchAttempt = activeBooking?.searchAttempts ?: 1
-    val isSearching = currentStatus == BookingStatusType.SEARCHING
-    val isRiderAssigned = currentStatus == BookingStatusType.RIDER_ASSIGNED
+    // Derived from TrackingPhase now. DRIVER_COMING covers both RIDER_ASSIGNED
+    // and RIDER_ENROUTE, which is what this screen means by "rider found" —
+    // it only stays up long enough to hand over to the tracking screen.
+    val isSearching = trackingPhase == TrackingPhase.SEARCHING
+    val isRiderAssigned = trackingPhase == TrackingPhase.DRIVER_COMING
 
     var remainingTimeMs by remember(searchStartTime) {
         val elapsed = System.currentTimeMillis() - searchStartTime
@@ -172,7 +179,17 @@ fun SearchingRiderScreen(
         val elapsed = System.currentTimeMillis() - searchStartTime
         mutableStateOf(elapsed >= totalTimeMs)
     }
-    val showRetryUi = isTimedOut || trackingUiState.isNoRiderAvailable
+    // FIX (ss4/ss5) — "No riders available" appeared during a live delivery.
+    //
+    // isTimedOut is computed from activeBooking.searchStartTime. For a booking
+    // that is already out for delivery, that timestamp is minutes or hours old,
+    // so isTimedOut is true the instant this screen composes. Re-entering the
+    // booking from Home therefore showed "All drivers are busy right now" for a
+    // parcel that was already on a bike — and offered a Try Again button that
+    // would have started a SECOND booking.
+    //
+    // The timeout only means anything while we are still searching.
+    val showRetryUi = isTimedOut && isSearching
 
     LaunchedEffect(searchStartTime, isSearching) {
         if (!isSearching) return@LaunchedEffect
@@ -312,7 +329,26 @@ fun SearchingRiderScreen(
                             totalTimeMs = totalTimeMs,
                             timeText = timeText,
                             searchAttempt = searchAttempt,
-                            onRetry = { riderTrackingViewModel.retrySearch() },
+                            onRetry = {
+                                // FIX — "Try Again" did nothing.
+                                //
+                                // retrySearch() clears local state and emits
+                                // `rebookRequested`, but NOTHING in the app ever
+                                // collected that flow — the event went nowhere.
+                                // Worse, clearing alone could never have worked:
+                                // the old booking is dead server-side, so a retry
+                                // has to CREATE A NEW ONE.
+                                //
+                                // Order matters. retrySearch() first, so the dead
+                                // booking is dropped and the socket released;
+                                // then confirmBooking() re-submits the identical
+                                // details (both addresses, contacts, vehicle and
+                                // fare are still in BookingViewModel) and the
+                                // usual NavigateToSearchingRider event takes us
+                                // to the new booking.
+                                riderTrackingViewModel.retrySearch()
+                                bookingViewModel.confirmBooking()
+                            },
                             onContactSupport = onContactSupport,
                             onCancelBooking = { showCancelSheet = true }
                         )
@@ -704,254 +740,92 @@ private fun SearchingAnimationCard(
     searchAttempt: Int,
     onRetry: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "search_anim")
+    // ═══════════════════════════════════════════════════════════════════════
+    // REDESIGNED
+    //
+    // The old version was a 220dp card built around a large pulsing circle with
+    // a truck in it, plus "Searching for drivers…", plus "Checking nearby
+    // drivers · Attempt N", plus a countdown labelled "remaining".
+    //
+    // Four problems:
+    //  - The circle occupied a third of the sheet and carried no information.
+    //  - The headline and the subtitle said the same thing twice.
+    //  - "Attempt 1" is an internal implementation detail; a customer reading
+    //    it learns only that something has already failed.
+    //  - A prominent COUNTDOWN creates anxiety during a wait the customer
+    //    cannot influence.
+    //
+    // The pulse now lives on the MAP, over the real pickup point with nearby
+    // rider markers, so the animation carries meaning. What remains here is one
+    // headline, one honest expectation, and a quiet progress bar.
+    // ═══════════════════════════════════════════════════════════════════════
+    val progress = if (totalTimeMs > 0) {
+        1f - (remainingTimeMs.toFloat() / totalTimeMs).coerceIn(0f, 1f)
+    } else 0f
 
-    val ring1Scale by infiniteTransition.animateFloat(
-        initialValue = 0.6f, targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, easing = FastOutSlowInEasing),
-            RepeatMode.Restart
-        ),
-        label = "ring1"
-    )
-    val ring1Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            tween(2000, easing = FastOutSlowInEasing),
-            RepeatMode.Restart
-        ),
-        label = "ring1a"
-    )
-    val ring2Scale by infiniteTransition.animateFloat(
-        initialValue = 0.6f, targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            tween(
-                2000,
-                delayMillis = 600,
-                easing = FastOutSlowInEasing
-            ), RepeatMode.Restart
-        ),
-        label = "ring2"
-    )
-    val ring2Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            tween(
-                2000,
-                delayMillis = 600,
-                easing = FastOutSlowInEasing
-            ), RepeatMode.Restart
-        ),
-        label = "ring2a"
-    )
-
-    val bgColor = when {
-        isRiderAssigned -> AppColors.GreenLight
-        isTimedOut -> AppColors.PrimaryLight
-        else -> AppColors.LightGray50
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(modifier = Modifier.size(100.dp), contentAlignment = Alignment.Center) {
-                when {
-                    isRiderAssigned -> {
-                        Box(
-                            Modifier
-                                .size(80.dp)
-                                .background(AppColors.Pickup.copy(0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                null,
-                                tint = AppColors.Pickup,
-                                modifier = Modifier.size(44.dp)
-                            )
-                        }
-                    }
-
-                    isTimedOut -> {
-                        Box(
-                            Modifier
-                                .size(80.dp)
-                                .background(AppColors.Warning.copy(0.15f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.SearchOff,
-                                null,
-                                tint = AppColors.OrangeDark,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                    }
-
-                    else -> {
-                        Box(
-                            Modifier
-                                .size(100.dp)
-                                .scale(ring1Scale)
-                                .alpha(ring1Alpha)
-                                .background(AppColors.Primary.copy(alpha = 0.3f), CircleShape)
-                        )
-                        Box(
-                            Modifier
-                                .size(100.dp)
-                                .scale(ring2Scale)
-                                .alpha(ring2Alpha)
-                                .background(AppColors.Primary.copy(alpha = 0.2f), CircleShape)
-                        )
-                        Box(
-                            Modifier
-                                .size(56.dp)
-                                .background(AppColors.Primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.LocalShipping,
-                                null,
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (isTimedOut) {
             Text(
-                text = when {
-                    isRiderAssigned -> stringResource(R.string.label_rider_found_title)
-                    isTimedOut -> stringResource(R.string.label_no_riders_available)
-                    else -> stringResource(R.string.label_searching_for_drivers)
-                },
-                style = MaterialTheme.typography.titleLarge,
+                text = "No riders nearby",
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = when {
-                    isRiderAssigned -> AppColors.Pickup
-                    isTimedOut -> AppColors.OrangeDark
-                    else -> AppColors.TextPrimary
-                }
+                fontSize = 22.sp,
+                color = AppColors.TextPrimary
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
+            Spacer(Modifier.height(3.dp))
             Text(
-                text = when {
-                    isRiderAssigned -> stringResource(R.string.label_connecting_driver)
-                    isTimedOut -> stringResource(R.string.label_all_drivers_busy)
-                    else -> stringResource(R.string.label_checking_drivers, searchAttempt)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextSecondary,
-                textAlign = TextAlign.Center
+                // Says what happened AND what to expect from acting — rather
+                // than "All drivers are busy right now", which reads as final.
+                text = "We looked for a couple of minutes. Trying again often works.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.TextSecondary
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            when {
-                isRiderAssigned -> {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = AppColors.Pickup,
-                        trackColor = AppColors.Pickup.copy(alpha = 0.2f)
-                    )
-                }
-
-                isTimedOut -> {
-                    Button(
-                        onClick = onRetry,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
-                    ) {
-                        Icon(Icons.Default.Refresh, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.try_again),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        stringResource(R.string.label_attempt_completed, searchAttempt),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.TextHint,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                else -> {
-                    val progress =
-                        ((totalTimeMs - remainingTimeMs).toFloat() / totalTimeMs).coerceIn(0f, 1f)
-                    val progressColor = when {
-                        progress > 0.66f -> AppColors.Drop
-                        progress > 0.33f -> AppColors.Warning
-                        else -> AppColors.Primary
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Timer,
-                                null,
-                                tint = progressColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                timeText,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = progressColor
-                            )
-                        }
-                        Text(
-                            stringResource(R.string.remaining),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppColors.TextHint
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = progressColor,
-                        trackColor = AppColors.Border,
-                        strokeCap = StrokeCap.Round
-                    )
-                }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onRetry,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+            ) {
+                Icon(Icons.Default.Refresh, null, Modifier.size(19.dp), tint = Color.White)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Search again",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.White
+                )
             }
+        } else {
+            Text(
+                text = if (isRiderAssigned) "Rider found" else "Finding a rider",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = AppColors.TextPrimary
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = if (isRiderAssigned) {
+                    "Getting their details…"
+                } else {
+                    // An honest expectation beats a countdown. The customer
+                    // cannot speed this up, so a ticking clock only adds stress.
+                    "Usually under 2 minutes"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.TextSecondary
+            )
+            Spacer(Modifier.height(14.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = AppColors.Primary,
+                trackColor = AppColors.Border
+            )
         }
     }
 }

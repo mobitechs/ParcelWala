@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Top-down (bird's eye) bike marker.
+
+  MUST stay top-down: TrackingMap draws this with flat=true and rotates it by
+  the driver's heading. A side-profile icon looks broken the moment it rotates.
+  Nose points UP (north / 0 degrees) so rotation maps directly to bearing.
+
+  Replace with 3x PNG artwork when you have it — same orientation, square.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="44dp"
+    android:height="44dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#33000000"
+        android:pathData="M24,45C12.4,45 3,35.6 3,24S12.4,3 24,3s21,9.4 21,21S35.6,45 24,45z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M24,44C12.95,44 4,35.05 4,24S12.95,4 24,4s20,8.95 20,20S35.05,44 24,44z" />
+    <path
+        android:fillColor="#FF2D2B69"
+        android:pathData="M24,10.5l3.6,5.2h-2.2v5.6h4.4c1,0 1.8,0.8 1.8,1.8v8.4c0,1 -0.8,1.8 -1.8,1.8h-3.1v2.4h-5.4v-2.4h-3.1c-1,0 -1.8,-0.8 -1.8,-1.8v-8.4c0,-1 0.8,-1.8 1.8,-1.8h4.4v-5.6h-2.2L24,10.5z" />
+    <path
+        android:fillColor="#FF1A1A2E"
+        android:pathData="M18.6,24.4h10.8v3.2H18.6z" />
+</vector>

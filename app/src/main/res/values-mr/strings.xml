@@ -808,4 +808,16 @@
     <string name="use_saved_address">जतवलेला पत्ता</string>
     <string name="pick_saved_address">जतवलेला पत्ता निवडा</string>
     <string name="pick_saved_address_hint">संपर्क आणि फ्लॅटची माहिती भरली जाईल. नकाशावरील तुमचा पिन तिथेच राहील.</string>
+
+    <!-- ═══ Home: "Why choose Parcel Wala?" ═══ -->
+    <string name="why_choose_title">पार्सल वाला का निवड करावी?</string>
+    <string name="why_safe_title">सुरक्षित</string>
+    <string name="why_safe_subtitle">तुमची सुरक्षा आमचे प्राधान्य</string>
+    <string name="why_fast_title">जलद डिलिव्हरी</string>
+    <string name="why_fast_subtitle">वेळेवर डिलिव्हरीची हमी</string>
+    <string name="why_affordable_title">परवडणारे</string>
+    <string name="why_affordable_subtitle">बाजारातील सर्वोत्तम दर</string>
+    <string name="why_support_title">24/7 मदत</string>
+    <string name="why_support_subtitle">आम्ही नेहमी तुमच्यासोबत आहोत</string>
+    <string name="content_desc_delivery_rider">डिलिव्हरी रायडर चित्र</string>
 </resources>

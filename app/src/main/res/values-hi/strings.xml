@@ -811,4 +811,16 @@
 
 
 
+
+    <!-- ═══ Home: "Why choose Parcel Wala?" ═══ -->
+    <string name="why_choose_title">पार्सल वाला क्यों चुनें?</string>
+    <string name="why_safe_title">सुरक्षित</string>
+    <string name="why_safe_subtitle">आपकी सुरक्षा हमारी प्राथमिकता</string>
+    <string name="why_fast_title">तेज़ डिलीवरी</string>
+    <string name="why_fast_subtitle">समय पर डिलीवरी की गारंटी</string>
+    <string name="why_affordable_title">किफ़ायती</string>
+    <string name="why_affordable_subtitle">बाज़ार में सबसे अच्छे दाम</string>
+    <string name="why_support_title">24/7 सहायता</string>
+    <string name="why_support_subtitle">हम हमेशा आपके साथ हैं</string>
+    <string name="content_desc_delivery_rider">डिलीवरी राइडर चित्र</string>
 </resources>

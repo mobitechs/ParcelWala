@@ -16,7 +16,7 @@ class FCMTokenManager @Inject constructor(
     private val preferencesManager: PreferencesManager
 ) {
     companion object {
-        private const val TAG = "FCMTokenManager"
+        private const val TAG = "PW-FCMToken"
     }
 
     /**

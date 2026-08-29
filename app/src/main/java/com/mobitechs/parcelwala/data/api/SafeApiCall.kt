@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import retrofit2.Response
 
-private const val TAG = "ApiCall"
+private const val TAG = "PW-Api"
 
 /**
  * One place where a network call turns into a NetworkResult.

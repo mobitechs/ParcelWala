@@ -24,6 +24,12 @@ import androidx.compose.ui.unit.sp
 import com.mobitechs.parcelwala.R
 import kotlinx.coroutines.delay
 
+/**
+ * How long the splash stays up before navigating. Was 2000 ms of dead time on
+ * every cold start; see the note in [SplashScreen].
+ */
+private const val SPLASH_MIN_VISIBLE_MS = 450L
+
 @Composable
 fun SplashScreen(
     onNavigateToLogin: () -> Unit,
@@ -31,7 +37,17 @@ fun SplashScreen(
     isLoggedIn: Boolean
 ) {
     LaunchedEffect(Unit) {
-        delay(2000) // 2 seconds splash
+        // PERFORMANCE — this was a flat `delay(2000)`.
+        //
+        // The splash does no work: the login check is a synchronous
+        // SharedPreferences read that has already happened by the time this
+        // composes. The two seconds were pure, unconditional dead time added to
+        // every single cold start, and they were the largest component of
+        // "the app is slow to open".
+        //
+        // Kept as a brief brand beat so the logo does not flash past, but short
+        // enough that the app feels immediate. Set to 0 to remove it entirely.
+        delay(SPLASH_MIN_VISIBLE_MS)
         if (isLoggedIn) {
             onNavigateToHome()
         } else {

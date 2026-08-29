@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.SupportAgent
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,7 +76,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,6 +90,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -123,8 +131,8 @@ fun HomeScreen(
     onNavigateToActiveBooking: (ActiveBooking) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val activeBooking by viewModel.activeBooking.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activeBooking by viewModel.activeBooking.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -229,6 +237,12 @@ fun HomeScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
+                    // Why choose Parcel Wala — trust signals, above the fold
+                    // on a first visit but below the thing people came to do.
+                    WhyChooseSection()
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
 
                     // Announcements
                     AnnouncementsSection()
@@ -238,7 +252,8 @@ fun HomeScreen(
                     // Marketing Text
                     MarketingText()
 
-                    Spacer(modifier = Modifier.height(100.dp))
+                    // Bottom-bar clearance now comes from MainScreen's Scaffold inset.
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
 
@@ -286,6 +301,40 @@ private fun HomeHeader(
             )
             .padding(top = statusBarHeight + 12.dp, bottom = 20.dp)
     ) {
+        // ═══ Header artwork ═══
+        //
+        // Both are vectors authored for this app rather than sourced bitmaps:
+        // one file covers every density, they total a few KB, and nothing
+        // third-party is redistributed inside the APK.
+        //
+        // Drawn FIRST so everything below stacks on top of them, and both are
+        // held well back in opacity — this is texture behind a search field
+        // people need to read, not an illustration competing with it.
+
+        // City skyline, pinned to the bottom edge of the header so the
+        // buildings sit on the header's lower rounded corners.
+        Image(
+            painter = painterResource(id = R.drawable.bg_city_skyline),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            alpha = 0.10f,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(96.dp)
+        )
+
+        // Rider, top-right, tucked behind the notification bell.
+        Image(
+            painter = painterResource(id = R.drawable.ic_delivery_rider),
+            contentDescription = stringResource(R.string.content_desc_delivery_rider),
+            alpha = 0.28f,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 4.dp, end = 62.dp)
+                .size(width = 104.dp, height = 78.dp)
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1286,6 +1335,137 @@ private fun AnnouncementsSection() {
             }
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHY CHOOSE PARCEL WALA
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The four reassurances, as one row of equal columns.
+ *
+ * WHY A ROW AND NOT A GRID OR A CARD LIST
+ *
+ * These are not actions and not content — nothing here is tappable, and nobody
+ * reads them twice. They are there to answer "can I trust this app with my
+ * parcel" on a first visit, which means they need to be seen together, at a
+ * glance, without scrolling past four separate cards.
+ *
+ * Equal `weight(1f)` columns rather than fixed widths so the row survives long
+ * translations: the Hindi and Marathi strings are noticeably longer than the
+ * English, and a fixed-width layout would clip them on a narrow screen.
+ */
+@Composable
+private fun WhyChooseSection() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.why_choose_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.TextPrimary,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(0.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            WhyChooseItem(
+                icon = Icons.Outlined.VerifiedUser,
+                tint = AppColors.Pickup,
+                title = stringResource(R.string.why_safe_title),
+                subtitle = stringResource(R.string.why_safe_subtitle),
+                modifier = Modifier.weight(1f)
+            )
+            WhyChooseDivider()
+            WhyChooseItem(
+                icon = Icons.Outlined.History,
+                tint = AppColors.Primary,
+                title = stringResource(R.string.why_fast_title),
+                subtitle = stringResource(R.string.why_fast_subtitle),
+                modifier = Modifier.weight(1f)
+            )
+            WhyChooseDivider()
+            WhyChooseItem(
+                icon = Icons.Outlined.AccountBalanceWallet,
+                tint = AppColors.Primary,
+                title = stringResource(R.string.why_affordable_title),
+                subtitle = stringResource(R.string.why_affordable_subtitle),
+                modifier = Modifier.weight(1f)
+            )
+            WhyChooseDivider()
+            WhyChooseItem(
+                icon = Icons.Outlined.SupportAgent,
+                tint = AppColors.WarningAmberDark,
+                title = stringResource(R.string.why_support_title),
+                subtitle = stringResource(R.string.why_support_subtitle),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WhyChooseItem(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .background(tint.copy(alpha = 0.10f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.TextPrimary,
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.TextSecondary,
+            textAlign = TextAlign.Center,
+            fontSize = 11.sp,
+            lineHeight = 14.sp
+        )
+    }
+}
+
+/** Hairline between columns. Short, and inset, so it separates without ruling. */
+@Composable
+private fun WhyChooseDivider() {
+    Box(
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .width(1.dp)
+            .height(64.dp)
+            .background(AppColors.Divider)
+    )
 }
 
 /**

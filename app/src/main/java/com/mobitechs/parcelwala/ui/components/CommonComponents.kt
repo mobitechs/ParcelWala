@@ -177,6 +177,39 @@ fun IconButtonWithBackground(
 }
 
 /**
+ * The small grey caption above a group of rows — "SAVED ADDRESSES", "RECENT".
+ *
+ * There were THREE private copies of this, in AccountScreen, AddressSearchScreen
+ * and OrderDetailsScreen, identical apart from their padding and whether they
+ * uppercased. Three copies of one label style is how a design drifts: the
+ * letter-spacing was already 0.6sp in two of them and 0.8sp in the third, which
+ * nobody chose — it just happened.
+ *
+ * The 6dp bottom gap is built in because all three copies had it (6, 6 and 8dp)
+ * — it is part of what the label IS, not a per-screen decision. Anything a
+ * screen genuinely needs on top of that it adds through [modifier], which
+ * composes after, so callers can still inset horizontally without losing the
+ * gap underneath.
+ */
+@Composable
+fun SectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    uppercase: Boolean = true
+) {
+    Text(
+        text = if (uppercase) text.uppercase() else text,
+        style = MaterialTheme.typography.labelSmall.copy(
+            letterSpacing = 0.6.sp,
+            fontSize = 10.sp
+        ),
+        fontWeight = FontWeight.SemiBold,
+        color = AppColors.TextSecondary,
+        modifier = Modifier.padding(bottom = 6.dp).then(modifier)
+    )
+}
+
+/**
  * Section Header Text
  */
 @Composable

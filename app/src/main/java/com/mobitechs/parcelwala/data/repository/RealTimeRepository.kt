@@ -75,7 +75,7 @@ class RealTimeRepository @Inject constructor(
 ) : IRealTimeRepository {
 
     companion object {
-        private const val TAG = "CustomerRealTimeRepo"
+        private const val TAG = "PW-RealTime"
         private const val INITIAL_RETRY_DELAY_MS = 1000L
         private const val MAX_RETRY_DELAY_MS = 30000L
         private const val RETRY_MULTIPLIER = 1.5

@@ -52,7 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,7 +101,7 @@ fun PostDeliveryPaymentScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-    val uiState by paymentViewModel.uiState.collectAsState()
+    val uiState by paymentViewModel.uiState.collectAsStateWithLifecycle()
     val totalFare = roundedFare
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 

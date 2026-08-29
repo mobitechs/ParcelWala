@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.SectionLabel
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
 
@@ -41,7 +43,7 @@ fun AccountScreen(
     onLogout: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showGSTBottomSheet by remember { mutableStateOf(false) }
     var showEditProfileSheet by remember { mutableStateOf(false) }
@@ -120,7 +122,10 @@ fun AccountScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ── "My Account" group ─────────────────────────────────────────
-            SectionLabel(text = stringResource(R.string.my_account_section))
+            SectionLabel(
+                text = stringResource(R.string.my_account_section),
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
 
             MenuCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                 MenuItemRow(
@@ -145,7 +150,10 @@ fun AccountScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ── "More" group ───────────────────────────────────────────────
-            SectionLabel(text = stringResource(R.string.more_section))
+            SectionLabel(
+                text = stringResource(R.string.more_section),
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
 
             MenuCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                 MenuItemRow(
@@ -340,17 +348,6 @@ private fun StatCard(value: String, label: String, modifier: Modifier = Modifier
 // ══════════════════════════════════════════════════════════════════════════════
 // Reusable menu components
 // ══════════════════════════════════════════════════════════════════════════════
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp, fontSize = 10.sp),
-        fontWeight = FontWeight.SemiBold,
-        color = AppColors.TextSecondary,
-        modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 6.dp)
-    )
-}
 
 @Composable
 private fun MenuCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {

@@ -46,7 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,7 +84,7 @@ fun LanguageSelectionScreen(
     viewModel: LanguageViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val selectedLanguage by viewModel.selectedLanguage.collectAsState()
+    val selectedLanguage by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     var showRestartDialog by remember { mutableStateOf(false) }
     var pendingLanguage by remember { mutableStateOf<String?>(null) }
 

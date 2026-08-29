@@ -1,0 +1,136 @@
+<!--
+  Delivery rider on a scooter, for the top-right of the Home header.
+
+  Filled shapes rather than strokes, because unlike the skyline behind it this
+  is meant to read as a subject at a glance at ~90dp. Drawn light against the
+  dark header gradient, with the parcel picked out in the brand amber so the
+  eye lands on what the app is actually for.
+
+  Vector, not a bitmap: one file for every density, ~3 KB, and no third-party
+  image licence pulled into the app.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="90dp"
+    android:viewportWidth="120"
+    android:viewportHeight="90">
+
+    <!-- Rear wheel -->
+    <path
+        android:pathData="M28,74m-13,0a13,13 0 1,0 26,0a13,13 0 1,0 -26,0"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M28,74m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85" />
+
+    <!-- Front wheel -->
+    <path
+        android:pathData="M92,74m-13,0a13,13 0 1,0 26,0a13,13 0 1,0 -26,0"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M92,74m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85" />
+
+    <!-- Scooter body / floorboard -->
+    <path
+        android:pathData="M36,72 L58,72 Q64,72 66,66 L72,50 L84,50 Q88,50 88,54 L88,66 Q88,72 82,72 L80,72"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Rear body panel -->
+    <path
+        android:pathData="M36,72 L30,72 Q24,72 24,66 L24,58 Q24,52 30,52 L44,52 Q50,52 50,58 L50,64"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Handlebar column and bars -->
+    <path
+        android:pathData="M84,50 L92,26 L104,26"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Headlamp -->
+    <path
+        android:pathData="M92,34 L102,38"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.8" />
+
+    <!-- Parcel on the rear rack — the brand accent -->
+    <path
+        android:pathData="M20,50 L20,32 L48,32 L48,50 Z"
+        android:fillColor="#F5A524" />
+    <path
+        android:pathData="M34,32 L34,50"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.9" />
+    <path
+        android:pathData="M20,41 L48,41"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.9" />
+
+    <!-- Rider: torso -->
+    <path
+        android:pathData="M58,54 L64,32 L76,32 L80,48"
+        android:strokeWidth="7"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Rider: arm to the handlebar -->
+    <path
+        android:pathData="M74,36 L92,28"
+        android:strokeWidth="5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+
+    <!-- Rider: leg -->
+    <path
+        android:pathData="M62,50 L68,62 L78,62"
+        android:strokeWidth="5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Rider: head -->
+    <path
+        android:pathData="M70,22m-9,0a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Helmet -->
+    <path
+        android:pathData="M60,20 Q60,8 70,8 Q80,8 80,20 Z"
+        android:fillColor="#F5A524" />
+    <path
+        android:pathData="M78,20 L84,22"
+        android:strokeWidth="3"
+        android:strokeColor="#F5A524"
+        android:strokeLineCap="round" />
+
+    <!-- Motion lines -->
+    <path
+        android:pathData="M4,40 L16,40 M0,52 L12,52 M6,64 L14,64"
+        android:strokeWidth="3"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.45"
+        android:strokeLineCap="round" />
+</vector>

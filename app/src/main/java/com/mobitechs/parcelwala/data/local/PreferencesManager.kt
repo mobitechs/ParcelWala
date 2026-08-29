@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "PreferencesManager"
+private const val TAG = "PW-Prefs"
 
 @Singleton
 class PreferencesManager @Inject constructor(

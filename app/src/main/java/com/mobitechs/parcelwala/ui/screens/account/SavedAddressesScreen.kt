@@ -38,7 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,8 +85,8 @@ fun SavedAddressesScreen(
     onEditAddress: (SavedAddress) -> Unit,
     viewModel: AccountViewModel = hiltViewModel()
 ) {
-    val uiState         by viewModel.uiState.collectAsState()
-    val savedAddresses  by viewModel.savedAddresses.collectAsState()
+    val uiState         by viewModel.uiState.collectAsStateWithLifecycle()
+    val savedAddresses  by viewModel.savedAddresses.collectAsStateWithLifecycle()
     var addressToDelete by remember { mutableStateOf<SavedAddress?>(null) }
 
     // ── Delete confirmation dialog ─────────────────────────────────────────

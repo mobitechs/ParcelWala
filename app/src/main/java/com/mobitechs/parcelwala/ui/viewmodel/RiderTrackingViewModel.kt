@@ -5,17 +5,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
-import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusUpdate
 import com.mobitechs.parcelwala.data.model.realtime.RealTimeConnectionState
 import com.mobitechs.parcelwala.data.model.realtime.RiderInfo
 import com.mobitechs.parcelwala.data.model.realtime.RiderLocationUpdate
 import com.mobitechs.parcelwala.data.model.response.FareDetails
-import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.data.repository.DirectionsRepository
 import com.mobitechs.parcelwala.data.repository.RealTimeRepository
+import com.mobitechs.parcelwala.ui.tracking.Leg
+import com.mobitechs.parcelwala.ui.tracking.MapFocus
+import com.mobitechs.parcelwala.ui.tracking.MapGeometry
+import com.mobitechs.parcelwala.ui.tracking.TrackingPhase
+import com.mobitechs.parcelwala.ui.tracking.TrackingUiModel
 import com.mobitechs.parcelwala.utils.BookingNotificationHelper
 import com.mobitechs.parcelwala.utils.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,9 +31,52 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * RIDER TRACKING VIEWMODEL
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * WHAT CHANGED FROM THE PREVIOUS VERSION
+ *
+ * FIX A — per-leg state. There used to be one _etaMinutes, one _distanceKm and
+ *   one routeFetchJob shared by the driver→pickup and pickup→drop legs.
+ *   fetchRoute() opened with `routeFetchJob?.cancel()`, so calling it twice in
+ *   handleDriverAssigned() meant the second call killed the first, then wrote
+ *   the PICKUP→DROP distance into the number the customer was reading while the
+ *   driver was still on the way to pickup. Legs now own separate state, jobs
+ *   and throttles; the UI only ever reads the ACTIVE leg.
+ *
+ * FIX B — no straight-line fallback. The driver→pickup polyline used to never
+ *   arrive (see FIX A), so the map fell through to a dashed straight line drawn
+ *   through buildings. We now expose isRouteLoading instead and draw nothing.
+ *
+ * FIX C — waiting timer anchored to the server. It used to count up from the
+ *   moment the ARRIVED event was RECEIVED. A 40-second socket drop silently
+ *   lost 40 seconds of billable waiting, and a cold start reset it to zero.
+ *   It is now computed from a persisted arrival timestamp, so it survives
+ *   backgrounding, doze and process death.
+ *
+ * FIX D — the timer job is actually cancelled. clearState() used to do
+ *   `waitingTimerJob = null` with no cancel(), leaking a coroutine that kept
+ *   writing to _waitingState. On a retry you got two timers racing on one
+ *   StateFlow and the displayed time flickered between two values.
+ *
+ * FIX E — blank OTPs never reach the UI. The screen checked `!= null`, but the
+ *   OTP card pads with '-', so an empty-string payload rendered a card of
+ *   dashes. OTPs are validated here, at the source.
+ *
+ * FIX F — payment no longer navigates away. ARRIVED_DELIVERY used to push a
+ *   full-screen payment route, destroying the map at the most anxious moment
+ *   of the trip, then popped back for the rating. It is now a sheet flag.
+ *
+ * FIX G — bad GPS is filtered, routes refetch on deviation rather than a timer,
+ *   and route fetching stops entirely once the driver has arrived.
+ */
 @HiltViewModel
 class RiderTrackingViewModel @Inject constructor(
     private val realTimeRepository: RealTimeRepository,
@@ -41,41 +87,63 @@ class RiderTrackingViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private const val TAG = "RiderTrackingVM"
-        private const val ROUTE_FETCH_INTERVAL_MS = 30_000L
+        private const val TAG = "PW-Tracking"
+
+        /**
+         * ═══════════════════════════════════════════════════════════════════
+         * SHARED CONNECTION OWNERSHIP — fixes the permanent "Reconnecting…"
+         * ═══════════════════════════════════════════════════════════════════
+         *
+         * `booking_flow` and `active_booking_flow` each scope their OWN
+         * RiderTrackingViewModel. Opening a live booking from Home therefore
+         * creates a second instance while the first is still alive, and both
+         * call connectToBooking() on the SAME singleton RealTimeRepository.
+         *
+         * Two things then went wrong:
+         *
+         *  1. The second instance tore down a perfectly good connection and
+         *     rebuilt it, so the customer saw "Reconnecting…" for no reason.
+         *  2. Worse, when the first graph was popped its onCleared() called
+         *     realTimeRepository.disconnect() — killing the connection the
+         *     SECOND instance was actively using. That is why the banner in the
+         *     screenshots stayed up while data was clearly still arriving: the
+         *     socket was being closed underneath the screen that owned it.
+         *
+         * Ownership is a token. Connecting claims it; only the current holder
+         * may disconnect. A superseded instance shutting down leaves the live
+         * connection alone.
+         */
+        private val connectionOwner = java.util.concurrent.atomic.AtomicReference<String?>(null)
+        private val connectedBookingId = java.util.concurrent.atomic.AtomicReference<String?>(null)
+
+        /** Hard floor between route refetches, even if the driver deviates. */
+        private const val MIN_ROUTE_REFETCH_MS = 20_000L
+
+        /** Refetch anyway after this long, to pick up traffic changes. */
+        private const val MAX_ROUTE_AGE_MS = 120_000L
+
         private const val ASSUMED_SPEED_KMH = 25.0
+
+        /** No movement beyond this within STALL_WINDOW_MS means the driver is stuck. */
+        private const val STALL_DISTANCE_M = 50.0
+        private const val STALL_WINDOW_MS = 180_000L
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STATE FLOWS
+    // PUBLIC STATE — the screen reads `ui` for everything structural
     // ═══════════════════════════════════════════════════════════════════════
 
-    private val _uiState = MutableStateFlow(RiderTrackingUiState())
-    val uiState: StateFlow<RiderTrackingUiState> = _uiState.asStateFlow()
+    private val _ui = MutableStateFlow(TrackingUiModel())
+    val ui: StateFlow<TrackingUiModel> = _ui.asStateFlow()
 
     private val _assignedRider = MutableStateFlow<RiderInfo?>(null)
     val assignedRider: StateFlow<RiderInfo?> = _assignedRider.asStateFlow()
 
-    private val _riderLocation = MutableStateFlow<RiderLocationUpdate?>(null)
-    val riderLocation: StateFlow<RiderLocationUpdate?> = _riderLocation.asStateFlow()
-
-    private val _bookingOtp = MutableStateFlow<String?>(null)
-    val bookingOtp: StateFlow<String?> = _bookingOtp.asStateFlow()
+    private val _pickupOtp = MutableStateFlow<String?>(null)
+    val pickupOtp: StateFlow<String?> = _pickupOtp.asStateFlow()
 
     private val _deliveryOtp = MutableStateFlow<String?>(null)
-    val deliveredOtp: StateFlow<String?> = _deliveryOtp.asStateFlow()
-
-    private val _etaMinutes = MutableStateFlow<Int?>(null)
-    val etaMinutes: StateFlow<Int?> = _etaMinutes.asStateFlow()
-
-    private val _distanceKm = MutableStateFlow<Double?>(null)
-    val distanceKm: StateFlow<Double?> = _distanceKm.asStateFlow()
-
-    private val _driverToPickupRoute = MutableStateFlow<List<LatLng>>(emptyList())
-    val driverToPickupRoute: StateFlow<List<LatLng>> = _driverToPickupRoute.asStateFlow()
-
-    private val _pickupToDropRoute = MutableStateFlow<List<LatLng>>(emptyList())
-    val pickupToDropRoute: StateFlow<List<LatLng>> = _pickupToDropRoute.asStateFlow()
+    val deliveryOtp: StateFlow<String?> = _deliveryOtp.asStateFlow()
 
     private val _waitingState = MutableStateFlow(WaitingTimerState())
     val waitingState: StateFlow<WaitingTimerState> = _waitingState.asStateFlow()
@@ -94,144 +162,705 @@ class RiderTrackingViewModel @Inject constructor(
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
+    private val _rebookRequested = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val rebookRequested: SharedFlow<Unit> = _rebookRequested.asSharedFlow()
+
     // ═══════════════════════════════════════════════════════════════════════
-    // INTERNAL STATE
+    // INTERNAL — per-leg, never shared
     // ═══════════════════════════════════════════════════════════════════════
 
-    private var routeFetchJob: Job? = null
+    private val legEta = mutableMapOf<Leg, Int>()
+    private val legDistanceKm = mutableMapOf<Leg, Double>()
+    private val legRoute = mutableMapOf<Leg, List<LatLng>>()
+    private val legJob = mutableMapOf<Leg, Job>()
+    private val legFetchedAt = mutableMapOf<Leg, Long>()
+    private val legHasServerEta = mutableMapOf<Leg, Boolean>()
+
+    /** Distance at the moment each leg began — the denominator for progress. */
+    private val legStartDistanceKm = mutableMapOf<Leg, Double>()
+
     private var waitingTimerJob: Job? = null
-    private var initialDistanceMeters: Double? = null
-    private var lastRouteFetchTime = 0L
-    private var hasServerEta = false
-    private var cachedBookingFare = 0.0
+    private var stallWatchJob: Job? = null
 
+    private var currentStatus: BookingStatusType = BookingStatusType.SEARCHING
+    private var currentBookingId: String? = null
+
+    /** Identity for connection ownership. See the companion object. */
+    private val instanceToken: String = java.util.UUID.randomUUID().toString()
+
+    private var lastFix: LatLng? = null
+    private var lastFixAtMs: Long = 0L
+    private var lastMovedAtMs: Long = 0L
+    private var lastMovedFrom: LatLng? = null
+    private var smoothedBearing: Float = 0f
+
+    /** Last content posted to the ongoing tracking notification. See publish site. */
+    private var lastNotificationSignature: String? = null
+
+    private var cachedBookingFare = 0.0
     private var freeWaitingSeconds: Int = FareDetails.DEFAULT_FREE_WAITING_MINS * 60
     private var chargePerMinute: Double = FareDetails.DEFAULT_CHARGE_PER_MIN
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // COMPUTED PROPERTIES
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private val currentStatus: BookingStatusType
-        get() = _uiState.value.currentStatus
-
-    val isPrePickupPhase: Boolean
-        get() = currentStatus in PRE_PICKUP_STATUSES
-
-    val isPostPickupPhase: Boolean
-        get() = currentStatus in POST_PICKUP_STATUSES
-
-    val canCancel: Boolean
-        get() = isPrePickupPhase
-
-    val showPickupOtp: Boolean
-        get() = isPrePickupPhase && _bookingOtp.value != null
-
-    val showDeliveryOtp: Boolean
-        get() = isPostPickupPhase && _deliveryOtp.value != null
-
-    val isDelivered: Boolean
-        get() = currentStatus == BookingStatusType.DELIVERED
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════════════
 
     init {
         observeRealTimeUpdates()
     }
 
-    private fun observeRealTimeUpdates() {
-        collectFlow { realTimeRepository.bookingUpdates.collect { handleBookingStatusUpdate(it) } }
-        collectFlow { realTimeRepository.riderLocationUpdates.collect { handleRiderLocationUpdate(it) } }
-        collectFlow {
-            realTimeRepository.bookingCancelled.collect { notification ->
-                Log.d(TAG, "📥 BOOKING_CANCELLED: cancelledBy=${notification.cancelledBy} | reason=${notification.reason}")
+    // ═══════════════════════════════════════════════════════════════════════
+    // CONNECTION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    fun connectToBooking(bookingId: String, pickupLatitude: Double, pickupLongitude: Double) {
+        Log.d(TAG, "📡 Connecting to booking $bookingId")
+
+        // FIX — do NOT wipe state when we are already on this booking.
+        //
+        // SearchingRiderScreen and RiderFoundScreen both call connectToBooking()
+        // from a LaunchedEffect, and inside one nav graph they share this
+        // ViewModel. Moving from searching -> rider_found therefore called this
+        // a second time, and the unconditional clearState() threw away the
+        // rider, both OTPs and the waiting-timer anchor. Whether the customer
+        // got them back depended entirely on the next payload being the FULL
+        // one rather than the lean rejoin payload — which is a coin flip, and
+        // exactly the "delivery OTP never appeared" symptom.
+        val isSameBooking = currentBookingId == bookingId
+        if (!isSameBooking) {
+            clearState()
+        } else {
+            Log.d(TAG, "♻️ Same booking, preserving rider / OTP / timer state")
+        }
+
+        currentBookingId = bookingId
+        _ui.update { it.copy(bookingId = bookingId) }
+
+        activeBookingManager.activeBooking.value?.let { booking ->
+            if (booking.fare > 0) cachedBookingFare = booking.fare
+            _paymentState.update { it.copy(paymentMethod = booking.paymentMethod) }
+            freeWaitingSeconds = booking.freeWaitingSeconds
+            chargePerMinute = booking.waitingChargePerMin
+
+            // Restore the last known server state before SignalR delivers
+            // anything, so a cold start does not show an empty screen.
+            booking.lastSignalRUpdate?.let { cached ->
+                Log.d(TAG, "🔁 Restoring from persisted state: ${cached.status}")
+                handleBookingStatusUpdate(cached)
             }
         }
-        collectFlow {
+
+        // Only rebuild the socket if we are not already subscribed to this
+        // exact booking. Re-subscribing to a healthy connection is what made
+        // the reconnect banner flash every time the screen was re-entered.
+        val alreadyLive = connectedBookingId.get() == bookingId &&
+                realTimeRepository.connectionState.value is RealTimeConnectionState.Connected
+
+        connectionOwner.set(instanceToken)
+        connectedBookingId.set(bookingId)
+
+        if (alreadyLive) {
+            Log.d(TAG, "♻️ Reusing live connection for $bookingId")
+            _ui.update { it.copy(isConnected = true) }
+        } else {
+            realTimeRepository.connectAndSubscribe(bookingId = bookingId)
+        }
+    }
+
+    fun disconnect() {
+        stopWaitingTimer()
+        releaseConnection()
+        clearState()
+    }
+
+    /**
+     * Close the shared socket ONLY if this instance still owns it. A superseded
+     * instance being cleared must not disconnect the screen that took over.
+     */
+    private fun releaseConnection() {
+        if (connectionOwner.compareAndSet(instanceToken, null)) {
+            connectedBookingId.set(null)
+            realTimeRepository.disconnect()
+        } else {
+            Log.d(TAG, "⏭️ Not the connection owner, leaving socket open")
+        }
+    }
+
+    private fun observeRealTimeUpdates() {
+        viewModelScope.launch {
+            realTimeRepository.bookingUpdates.collect { handleBookingStatusUpdate(it) }
+        }
+        viewModelScope.launch {
+            realTimeRepository.riderLocationUpdates.collect { handleRiderLocationUpdate(it) }
+        }
+        viewModelScope.launch {
+            // FIX — connection state used to be stored in uiState.connectionError
+            // and then never rendered anywhere, so a silent socket drop just
+            // froze the marker with no explanation to the customer.
             realTimeRepository.connectionState.collect { state ->
-                when (state) {
-                    is RealTimeConnectionState.Connected -> _uiState.update { it.copy(connectionError = null) }
-                    is RealTimeConnectionState.Error -> _uiState.update { it.copy(connectionError = state.message) }
-                    else -> {}
+                _ui.update { it.copy(isConnected = state is RealTimeConnectionState.Connected) }
+            }
+        }
+        viewModelScope.launch {
+            realTimeRepository.errors.collect { _toastMessage.emit(it.message) }
+        }
+        // PERFORMANCE — "last updated Ns ago".
+        //
+        // This used to be an unconditional `while (isActive) { delay(1000) }`
+        // that wrote a new value into _ui every second for the entire life of
+        // the ViewModel — including the whole time the connection was perfectly
+        // healthy, and including when no booking was being tracked at all.
+        // TrackingUiModel is the screen's single source of truth, so each of
+        // those writes recomposed the map screen once per second for a number
+        // that ConnectionBanner only ever renders while DISCONNECTED.
+        //
+        // The counter now runs only while the banner is actually on screen, and
+        // the field is reset on reconnect so it never shows a stale age.
+        viewModelScope.launch {
+            realTimeRepository.connectionState.collect { state ->
+                if (state is RealTimeConnectionState.Connected) {
+                    if (_ui.value.secondsSinceLastFix != 0) {
+                        _ui.update { it.copy(secondsSinceLastFix = 0) }
+                    }
+                    return@collect
+                }
+                while (isActive &&
+                    realTimeRepository.connectionState.value !is RealTimeConnectionState.Connected
+                ) {
+                    if (lastFixAtMs > 0) {
+                        val secs = ((System.currentTimeMillis() - lastFixAtMs) / 1000).toInt()
+                        _ui.update { it.copy(secondsSinceLastFix = secs) }
+                    }
+                    delay(1_000)
                 }
             }
         }
-        collectFlow {
-            realTimeRepository.errors.collect { error ->
-                Log.e(TAG, "❌ SignalR Error: ${error.message}")
-                _toastMessage.emit(error.message)
-            }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STATUS UPDATES
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun handleBookingStatusUpdate(update: BookingStatusUpdate) {
+        // Defence in depth — this screen only ever reacts to the booking it was
+        // opened for, even if a stale event leaks past the repository guard.
+        val expected = currentBookingId.asBookingId()
+        if (expected != null && update.bookingId != expected) {
+            Log.w(TAG, "⚠️ Ignoring update for ${update.bookingId}, tracking $expected")
+            return
         }
+
+        val status = update.getStatusType()
+        currentStatus = status
+        activeBookingManager.updateFromSignalR(update)
+
+        restoreRiderIfNeeded(update)
+        cacheFareIfAvailable(update)
+        setPickupOtp(update.pickupOtp)
+        setDeliveryOtp(update.deliveredOtp)
+
+        viewModelScope.launch {
+            when (status) {
+                BookingStatusType.SEARCHING -> Unit
+                BookingStatusType.RIDER_ASSIGNED -> handleDriverAssigned(update)
+                BookingStatusType.RIDER_ENROUTE -> handleRiderEnroute(update)
+                BookingStatusType.ARRIVED -> handleDriverArrived(update)
+                BookingStatusType.PICKED_UP -> handleParcelPickedUp(update)
+                BookingStatusType.IN_TRANSIT -> handleInTransit(update)
+                BookingStatusType.ARRIVED_DELIVERY -> handleArrivedAtDelivery(update)
+                BookingStatusType.PAYMENT_SUCCESS -> handlePaymentSuccess(update)
+                BookingStatusType.DELIVERED -> handleDeliveryCompleted(update)
+                BookingStatusType.NO_RIDER -> handleNoRider(update)
+                BookingStatusType.CANCELLED -> handleCancelled(update)
+            }
+            publish()
+        }
+        publish()
     }
 
-    private fun collectFlow(block: suspend () -> Unit) {
-        viewModelScope.launch { block() }
+    private suspend fun handleDriverAssigned(update: BookingStatusUpdate) {
+        val rider = resolveRiderFromUpdate(update)
+        _assignedRider.value = rider
+
+        val driverLat = update.driverLatitude ?: rider.currentLatitude
+        val driverLng = update.driverLongitude ?: rider.currentLongitude
+        val driver = LatLng(driverLat, driverLng)
+        val pickup = pickupLatLng()
+        val drop = dropLatLng()
+
+        // Seed the driver→pickup leg from what the server already told us, so
+        // the customer sees a number immediately rather than a blank.
+        if (MapGeometry.isValid(driver) && pickup != null) {
+            lastFix = driver
+            lastFixAtMs = System.currentTimeMillis()
+            val metres = MapGeometry.distanceMeters(driver, pickup)
+            legDistanceKm[Leg.DRIVER_TO_PICKUP] = metres / 1000.0
+            legEta[Leg.DRIVER_TO_PICKUP] =
+                update.etaMinutes ?: rider.etaMinutes ?: etaFromMetres(metres)
+            fetchRoute(driver, pickup, Leg.DRIVER_TO_PICKUP, force = true)
+        }
+
+        // Pre-fetch the trip leg for its POLYLINE ONLY. Because legs no longer
+        // share state, this can no longer overwrite the numbers above — which
+        // was the entire "wrong KM/time before the ride starts" bug.
+        if (pickup != null && drop != null) {
+            fetchRoute(pickup, drop, Leg.PICKUP_TO_DROP, force = true)
+        }
+
+        if (cachedBookingFare <= 0.0) {
+            activeBookingManager.activeBooking.value?.fare
+                ?.takeIf { it > 0 }?.let { cachedBookingFare = it }
+        }
+
+        notify(
+            update.bookingId, "Driver assigned",
+            buildString {
+                append(rider.riderName).append(" is on the way")
+                legEta[Leg.DRIVER_TO_PICKUP]?.let { if (it > 0) append("\n⏱️ Arriving in ~$it min") }
+                rider.vehicleType?.let { append("\n🚚 $it") }
+                _pickupOtp.value?.let { append("\n🔐 Pickup OTP: $it") }
+            }
+        )
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.RiderAssigned(
+                update.bookingId.toString(), rider, _pickupOtp.value
+            )
+        )
+        startStallWatch()
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FARE EXTRACTION
-    // ═══════════════════════════════════════════════════════════════════════
+    private suspend fun handleRiderEnroute(update: BookingStatusUpdate) {
+        notify(
+            update.bookingId, "Driver on the way",
+            buildString {
+                append(riderName).append(" is heading to pickup")
+                legEta[Leg.DRIVER_TO_PICKUP]?.let { if (it > 0) append("\n⏱️ ~$it min away") }
+            }
+        )
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.RiderEnroute(update.bookingId.toString())
+        )
+        startStallWatch()
+    }
 
-    private fun extractFareFromUpdate(update: BookingStatusUpdate): FareBreakdown {
-        val finalFare = update.roundedFare
-            ?: update.totalFare
-            ?: update.subTotal
-            ?: update.baseFare
-            ?: update.additionalData?.fare
-            ?: cachedBookingFare.takeIf { it > 0.0 }
-            ?: activeBookingManager.activeBooking.value?.fare
-            ?: 0.0
+    private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
+        stopStallWatch()
 
-        return FareBreakdown(
-            baseFare = update.baseFare ?: 0.0,
-            waitingCharge = update.waitingCharges ?: 0.0,
-            platformFee = update.platformFee ?: 0.0,
-            gst = update.gstAmount ?: 0.0,
-            discount = update.couponDiscount ?: 0.0,
-            totalFare = finalFare
+        // FIX C — anchor to the server's arrival time, not "now". Order matters:
+        // a previously persisted anchor always wins, so reconnects and cold
+        // starts never restart the clock.
+        val arrivedAt = activeBookingManager.activeBooking.value?.arrivedAtPickupMs
+            ?: parseTimestamp(update.timestamp)
+            ?: System.currentTimeMillis()
+        activeBookingManager.markArrivedAtPickup(arrivedAt)
+        startWaitingTimer(arrivedAt)
+
+        // The driver is here — there is no meaningful distance left on this leg.
+        legEta[Leg.DRIVER_TO_PICKUP] = 0
+        legDistanceKm[Leg.DRIVER_TO_PICKUP] = 0.0
+        legJob[Leg.DRIVER_TO_PICKUP]?.cancel()
+
+        notify(
+            update.bookingId, "📍 Driver has arrived",
+            buildString {
+                append(riderName).append(" is at your pickup location")
+                _pickupOtp.value?.let { append("\n🔐 Share OTP: $it") }
+            }
+        )
+        _toastMessage.emit(update.message ?: "Rider has arrived at pickup")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.RiderArrived(
+                update.bookingId.toString(), update.message ?: "Rider has arrived"
+            )
         )
     }
 
-    private fun cacheFareIfAvailable(update: BookingStatusUpdate) {
-        val fare = extractFareFromUpdate(update)
-        if (fare.totalFare <= 0) return
+    private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
+        val finalCharge = _waitingState.value.waitingCharge
+        stopWaitingTimer()
+        Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
 
+        val pickup = pickupLatLng()
+        val drop = dropLatLng()
+        if (pickup != null && drop != null) {
+            val metres = MapGeometry.distanceMeters(pickup, drop)
+            legDistanceKm[Leg.PICKUP_TO_DROP] = metres / 1000.0
+            legEta[Leg.PICKUP_TO_DROP] = etaFromMetres(metres)
+            fetchRoute(lastFix ?: pickup, drop, Leg.PICKUP_TO_DROP, force = true)
+        }
+
+        notify(
+            update.bookingId, "📦 Parcel picked up",
+            buildString {
+                append("Your parcel is on the way to delivery")
+                _deliveryOtp.value?.let { append("\n🔐 Delivery OTP: $it") }
+            }
+        )
+        _toastMessage.emit("Parcel picked up")
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString())
+        )
+        startStallWatch()
+    }
+
+    private fun handleInTransit(update: BookingStatusUpdate) {
+        notify(update.bookingId, "Parcel in transit", "Your parcel is on the way to delivery")
+    }
+
+    private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
+        stopStallWatch()
+        // FIX G — stop burning Directions quota on a zero-length route. The old
+        // code kept fetching every 30 s because ARRIVED_DELIVERY was inside
+        // POST_PICKUP_STATUSES, and the degenerate polyline it got back is part
+        // of what made the map look broken at the drop.
+        legJob[Leg.PICKUP_TO_DROP]?.cancel()
+
+        val fare = extractFare(update)
+        val method = update.paymentMethod
+            ?: activeBookingManager.activeBooking.value?.paymentMethod
+            ?: "cash"
+
+        // FIX F — a flag, NOT a navigation event. The map stays alive behind a
+        // sheet instead of being destroyed and rebuilt.
         _paymentState.update {
             it.copy(
+                showPaymentScreen = true,
+                bookingId = update.bookingId.toString(),
                 baseFare = fare.baseFare,
                 waitingCharge = fare.waitingCharge,
                 platformFee = fare.platformFee,
                 gst = fare.gst,
                 discount = fare.discount,
-                totalFare = fare.totalFare
+                totalFare = fare.totalFare,
+                driverName = riderName,
+                paymentMethod = method
             )
         }
-        if (cachedBookingFare == 0.0) cachedBookingFare = fare.baseFare
-        Log.d(TAG, "💰 Cached fare: ₹${fare.totalFare}")
+
+        notify(
+            update.bookingId, "🏠 Driver arrived at delivery",
+            buildString {
+                append("Driver has arrived at the delivery location")
+                _deliveryOtp.value?.let { append("\n🔐 Delivery OTP: $it") }
+                if (fare.totalFare > 0) append("\n💰 Total: ₹${fare.totalFare}")
+            }
+        )
+        _toastMessage.emit("Rider arrived at the delivery location")
+    }
+
+    private suspend fun handlePaymentSuccess(update: BookingStatusUpdate) {
+        _paymentState.update {
+            it.copy(showPaymentScreen = false, isPaymentCompleted = true, isVerifyingPayment = true)
+        }
+        notify(update.bookingId, "💳 Payment successful", "Payment confirmed. Completing delivery…")
+        _toastMessage.emit("Payment confirmed")
+    }
+
+    private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
+        stopWaitingTimer()
+        stopStallWatch()
+        _paymentState.update {
+            it.copy(showPaymentScreen = false, isVerifyingPayment = false, isPaymentCompleted = true)
+        }
+
+        val fare = extractFare(update)
+        val total = fare.totalFare.takeIf { it > 0 } ?: _paymentState.value.totalFare
+        val waiting = fare.waitingCharge.takeIf { fare.totalFare > 0 }
+            ?: _paymentState.value.waitingCharge
+
+        notify(
+            update.bookingId, "✅ Delivery completed",
+            buildString {
+                append("Your parcel has been delivered")
+                if (total > 0) append("\n💰 Total: ₹$total")
+            },
+            isFinal = true
+        )
+        _toastMessage.emit("Delivery completed")
+
+        _ratingState.update {
+            it.copy(
+                showRatingDialog = true,
+                bookingId = update.bookingId.toString(),
+                driverName = riderName,
+                driverPhoto = _assignedRider.value?.photoUrl,
+                vehicleType = _assignedRider.value?.vehicleType,
+                totalFare = total,
+                waitingCharge = waiting
+            )
+        }
+        releaseConnection()
+    }
+
+    private suspend fun handleNoRider(update: BookingStatusUpdate) {
+        _navigationEvent.emit(
+            RiderTrackingNavigationEvent.NoRiderAvailable(update.message ?: "No riders available")
+        )
+    }
+
+    private suspend fun handleCancelled(update: BookingStatusUpdate) {
+        stopWaitingTimer()
+        stopStallWatch()
+        if (update.cancelledBy?.lowercase() == "driver") {
+            handleDriverCancelled(update)
+        } else {
+            handleCustomerOrSystemCancelled(update)
+        }
+    }
+
+    private suspend fun handleDriverCancelled(update: BookingStatusUpdate) {
+        notify(
+            update.bookingId, "Driver cancelled",
+            buildString {
+                append("Driver cancelled the booking")
+                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
+                append("\nSearching for another driver…")
+            }
+        )
+        _assignedRider.value = null
+        _pickupOtp.value = null
+        _deliveryOtp.value = null
+        clearLegs()
+        lastFix = null
+        currentStatus = BookingStatusType.SEARCHING
+        activeBookingManager.retrySearch()
+
+        val msg = update.message ?: "Driver cancelled, searching for another driver"
+        _toastMessage.emit(msg)
+        _navigationEvent.emit(RiderTrackingNavigationEvent.DriverCancelledRetrySearch(msg))
+    }
+
+    private suspend fun handleCustomerOrSystemCancelled(update: BookingStatusUpdate) {
+        val label = when (update.cancelledBy?.lowercase()) {
+            "system" -> "Booking was cancelled by system"
+            "customer" -> "You cancelled the booking"
+            else -> "Booking has been cancelled"
+        }
+        notify(
+            update.bookingId, "❌ Booking cancelled",
+            buildString {
+                append(label)
+                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
+            },
+            isFinal = true
+        )
+        activeBookingManager.clearActiveBooking()
+        releaseConnection()
+        val msg = update.message ?: "Booking cancelled"
+        _toastMessage.emit(msg)
+        _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(msg))
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOCATION UPDATES
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
+        val incoming = LatLng(location.latitude, location.longitude)
+        val now = System.currentTimeMillis()
+
+        // FIX G — one bad fix used to teleport the marker across the city and
+        // trigger a route refetch to nowhere.
+        if (!MapGeometry.isPlausibleFix(lastFix, lastFixAtMs, incoming, now, location.accuracy)) {
+            Log.w(TAG, "⚠️ Dropped implausible fix ${location.latitude},${location.longitude}")
+            return
+        }
+
+        smoothedBearing = MapGeometry.smoothBearing(
+            previous = smoothedBearing,
+            incoming = location.heading
+                ?: lastFix?.let { MapGeometry.bearingBetween(it, incoming).toDouble() },
+            speedMs = location.speed
+        )
+
+        // Stall detection anchor — only reset when the driver genuinely moves.
+        if (lastMovedFrom == null ||
+            MapGeometry.distanceMeters(lastMovedFrom!!, incoming) > STALL_DISTANCE_M
+        ) {
+            lastMovedFrom = incoming
+            lastMovedAtMs = now
+        }
+
+        lastFix = incoming
+        lastFixAtMs = now
+
+        val phase = TrackingPhase.from(currentStatus)
+        val leg = Leg.activeFor(phase)
+        if (leg != null) {
+            val target = if (leg == Leg.DRIVER_TO_PICKUP) pickupLatLng() else dropLatLng()
+            if (target != null) {
+                val serverMetres = location.getRelevantDistanceMeters(leg == Leg.DRIVER_TO_PICKUP)
+                val metres = serverMetres?.takeIf { it > 0 }
+                    ?: MapGeometry.distanceMeters(incoming, target)
+                val km = metres / 1000.0
+                legDistanceKm[leg] = km
+                legStartDistanceKm.putIfAbsent(leg, km)
+                updateEtaForLeg(leg, location.etaMinutes, metres)
+
+                // FIX G — refetch on DEVIATION, not on a 30-second clock. Most of
+                // the time the driver is following the line we already have, so
+                // this cuts Directions calls by roughly an order of magnitude.
+                if (phase == TrackingPhase.DRIVER_COMING ||
+            phase == TrackingPhase.IN_TRANSIT ||
+            phase == TrackingPhase.AT_DROP
+        ) {
+                    val route = legRoute[leg].orEmpty()
+                    val age = now - (legFetchedAt[leg] ?: 0L)
+                    val deviated = MapGeometry.hasLeftRoute(route, incoming)
+                    if ((deviated && age > MIN_ROUTE_REFETCH_MS) || age > MAX_ROUTE_AGE_MS) {
+                        fetchRoute(incoming, target, leg)
+                    }
+                }
+            }
+        }
+
+        // NOTE: we deliberately do NOT copy() the live position onto
+        // _assignedRider any more. That produced a second StateFlow emission and
+        // a full recomposition on every 3-second ping, for data the map already
+        // receives via ui.driverLatLng.
+
+        // Ongoing notification with a live progress bar. Most tracking attention
+        // happens on the lock screen, not in the app — the customer books, locks
+        // the phone and waits. This is the tracking screen for that stretch.
+        if (phase == TrackingPhase.DRIVER_COMING || phase == TrackingPhase.IN_TRANSIT) {
+            currentBookingId?.let { id ->
+                val title = when (phase) {
+                    TrackingPhase.DRIVER_COMING ->
+                        legEta[Leg.DRIVER_TO_PICKUP]?.takeIf { it > 0 }
+                            ?.let { "🚗 Arriving in $it min" }
+                            ?: "🚗 $riderName is on the way"
+                    TrackingPhase.AT_DROP ->
+                        _deliveryOtp.value?.takeIf { it.isNotBlank() }
+                            ?.let { "🔐 Share OTP $it to complete" }
+                            ?: "🏠 Driver has arrived at delivery"
+                    else ->
+                        legEta[Leg.PICKUP_TO_DROP]?.takeIf { it > 0 }
+                            ?.let { "📦 $it min to delivery" }
+                            ?: "📦 Parcel in transit"
+                }
+                val body = buildString {
+                    // OTP FIRST. The notification is where most tracking
+                    // attention actually lives, and the collapsed shade
+                    // shows only the first line — so the OTP has to be on
+                    // it, not below a distance the customer can already see.
+                    val otp = if (phase == TrackingPhase.DRIVER_COMING) {
+                        _pickupOtp.value
+                    } else {
+                        _deliveryOtp.value
+                    }
+                    val otpLabel = if (phase == TrackingPhase.DRIVER_COMING) {
+                        "Pickup OTP"
+                    } else {
+                        "Delivery OTP"
+                    }
+                    if (!otp.isNullOrBlank()) append("🔐 $otpLabel: $otp\n")
+                    legDistanceKm[leg ?: Leg.DRIVER_TO_PICKUP]?.let {
+                        append("📍 ${formatDistance(it)} remaining")
+                    }
+                }
+                val progress = if (phase == TrackingPhase.AT_DROP) 100
+                else legProgressPercent(leg)
+
+                // PERFORMANCE — this used to rebuild and re-post the ongoing
+                // notification on EVERY location ping, i.e. every ~3 seconds for
+                // the whole trip. Each post is a synchronous binder call into
+                // system_server plus a full RemoteViews inflate, all on the main
+                // thread, and almost every one of them rendered text identical to
+                // the notification already on screen: the distance line only
+                // changes at 100 m granularity and the ETA only at whole minutes.
+                //
+                // Posting only when the visible content actually differs cuts
+                // this by roughly 90% with no change to what the customer sees.
+                val signature = "$title|$body|$progress"
+                if (signature != lastNotificationSignature) {
+                    lastNotificationSignature = signature
+                    notificationHelper.showTrackingProgressNotification(
+                        bookingId = id,
+                        title = title,
+                        body = body,
+                        progressPercent = progress
+                    )
+                }
+            }
+        }
+
+        publish()
+    }
+
+    private fun updateEtaForLeg(leg: Leg, serverEta: Int?, metres: Double) {
+        val calculated = etaFromMetres(metres)
+        if (serverEta != null && serverEta > 0) {
+            // Sanity-check the server against physics — an ETA implying more
+            // than 40 km/h through a city is optimistic enough to mistrust.
+            val floor = ((metres / 1000.0) / 40.0 * 60.0).toInt().coerceAtLeast(1)
+            if (serverEta >= floor) {
+                legEta[leg] = serverEta
+                legHasServerEta[leg] = true
+                return
+            }
+        }
+        legHasServerEta[leg] = false
+        legEta[leg] = calculated
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ROUTES — one job, one throttle, one polyline PER LEG
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun fetchRoute(from: LatLng, to: LatLng, leg: Leg, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - (legFetchedAt[leg] ?: 0L) < MIN_ROUTE_REFETCH_MS) return
+
+        // Cancels only THIS leg. The old code cancelled whichever fetch happened
+        // to be in flight, which is how the driver→pickup polyline kept getting
+        // killed by the pickup→drop prefetch.
+        legJob[leg]?.cancel()
+        legFetchedAt[leg] = now
+
+        legJob[leg] = viewModelScope.launch {
+            if (legRoute[leg].isNullOrEmpty()) {
+                _ui.update { it.copy(isRouteLoading = true) }
+            }
+            directionsRepository.getRouteInfo(
+                from.latitude, from.longitude, to.latitude, to.longitude
+            )
+                .onSuccess { info ->
+                    legRoute[leg] = info.polylinePoints
+                    legDistanceKm[leg] = info.distanceMeters / 1000.0
+                    if (legHasServerEta[leg] != true) {
+                        legEta[leg] = (info.durationSeconds / 60).coerceAtLeast(1)
+                    }
+                }
+                .onFailure { Log.w(TAG, "⚠️ Route fetch failed for $leg: ${it.message}") }
+            _ui.update { it.copy(isRouteLoading = false) }
+            publish()
+        }
+    }
+
+    private fun clearLegs() {
+        legJob.values.forEach { it.cancel() }
+        legJob.clear()
+        legEta.clear()
+        legDistanceKm.clear()
+        legRoute.clear()
+        legFetchedAt.clear()
+        legHasServerEta.clear()
+        legStartDistanceKm.clear()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // WAITING TIMER
     // ═══════════════════════════════════════════════════════════════════════
 
-    private fun startWaitingTimer() {
+    /**
+     * FIX C — computed from a wall-clock anchor rather than an incrementing
+     * counter. Correct across backgrounding, doze, reconnects and process death,
+     * and it always agrees with what the server will bill.
+     */
+    private fun startWaitingTimer(arrivedAtEpochMs: Long) {
         if (waitingTimerJob?.isActive == true) return
-        Log.d(TAG, "⏱️ Starting waiting timer | Free: ${freeWaitingSeconds}s | Charge: ₹$chargePerMinute/min")
-
-        _waitingState.value = WaitingTimerState(
-            isActive = true,
-            freeSecondsRemaining = freeWaitingSeconds,
-            chargePerMinute = chargePerMinute,
-            totalFreeSeconds = freeWaitingSeconds
-        )
+        Log.d(TAG, "⏱️ Waiting timer anchored at $arrivedAtEpochMs")
 
         waitingTimerJob = viewModelScope.launch {
-            var elapsed = 0
-            while (true) {
-                delay(1000L)
-                elapsed++
+            while (isActive) {
+                val elapsed = ((System.currentTimeMillis() - arrivedAtEpochMs) / 1000)
+                    .toInt().coerceAtLeast(0)
                 val freeRemaining = (freeWaitingSeconds - elapsed).coerceAtLeast(0)
                 val isFreeOver = elapsed > freeWaitingSeconds
                 val extraSeconds = if (isFreeOver) elapsed - freeWaitingSeconds else 0
@@ -248,15 +877,16 @@ class RiderTrackingViewModel @Inject constructor(
                     chargePerMinute = chargePerMinute,
                     totalFreeSeconds = freeWaitingSeconds
                 )
+                publish()
+                delay(1_000)
             }
         }
     }
 
     private fun stopWaitingTimer() {
-        val finalState = _waitingState.value
-        if (finalState.isActive) {
-            Log.d(TAG, "⏱️ Timer stopped — Total: ${finalState.totalWaitingSeconds}s | Charge: ₹${finalState.waitingCharge}")
-        }
+        // FIX D — the old code assigned null WITHOUT cancelling, leaking the
+        // coroutine. Two timers then raced on one StateFlow and the displayed
+        // time flickered between two values.
         waitingTimerJob?.cancel()
         waitingTimerJob = null
         _waitingState.update { it.copy(isActive = false) }
@@ -264,28 +894,92 @@ class RiderTrackingViewModel @Inject constructor(
 
     fun getFinalWaitingCharge(): Double = _waitingState.value.waitingCharge
 
-    fun getTotalFare(): Double {
-        val baseFare = activeBookingManager.activeBooking.value?.fare ?: 0.0
-        return baseFare + _waitingState.value.waitingCharge
+    fun getTotalFare(): Double =
+        (activeBookingManager.activeBooking.value?.fare ?: 0.0) + _waitingState.value.waitingCharge
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STALL DETECTION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Silence while the driver is stuck is a major driver of support calls. If
+     * nothing has moved 50 m in 3 minutes we say so and offer a call button,
+     * rather than letting the customer stare at a frozen marker.
+     */
+    private fun startStallWatch() {
+        if (stallWatchJob?.isActive == true) return
+        lastMovedAtMs = System.currentTimeMillis()
+        stallWatchJob = viewModelScope.launch {
+            while (isActive) {
+                delay(15_000)
+                val stalled = lastMovedAtMs > 0 &&
+                        System.currentTimeMillis() - lastMovedAtMs > STALL_WINDOW_MS
+                _ui.update { it.copy(isDriverStalled = stalled) }
+            }
+        }
+    }
+
+    private fun stopStallWatch() {
+        stallWatchJob?.cancel()
+        stallWatchJob = null
+        _ui.update { it.copy(isDriverStalled = false) }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // POST-DELIVERY PAYMENT
+    // PUBLISH — one emission, one recomposition
     // ═══════════════════════════════════════════════════════════════════════
 
-    fun onPaymentCompleted() {
-        sendPaymentConfirmation("💳 Online")
+    private fun publish() {
+        val phase = TrackingPhase.from(currentStatus)
+        val leg = Leg.activeFor(phase)
+
+        _ui.update { prev ->
+            prev.copy(
+                phase = phase,
+                bookingId = currentBookingId.orEmpty(),
+                // The ACTIVE leg only. This is the guarantee that the trip
+                // distance can never be shown while the driver is still on the
+                // way to pickup.
+                etaMinutes = leg?.let { legEta[it] },
+                distanceKm = leg?.let { legDistanceKm[it] },
+                mapFocus = when (phase) {
+                    TrackingPhase.DRIVER_COMING -> MapFocus.DRIVER_AND_PICKUP
+                    TrackingPhase.DRIVER_WAITING -> MapFocus.PICKUP_CLOSE
+                    TrackingPhase.IN_TRANSIT -> MapFocus.DRIVER_AND_DROP
+                    TrackingPhase.AT_DROP -> MapFocus.DROP_CLOSE
+                    else -> MapFocus.WHOLE_TRIP
+                },
+                activeRoute = leg?.let { legRoute[it] }.orEmpty(),
+                driverLatLng = lastFix,
+                driverBearing = smoothedBearing,
+                showPickupOtp = phase.atOrBefore(TrackingPhase.DRIVER_WAITING) &&
+                        phase != TrackingPhase.SEARCHING &&
+                        !_pickupOtp.value.isNullOrBlank(),
+                showDeliveryOtp = phase.atOrAfter(TrackingPhase.IN_TRANSIT) &&
+                        phase != TrackingPhase.COMPLETING &&
+                        !_deliveryOtp.value.isNullOrBlank(),
+                isDeliveryOtpPending = phase.atOrAfter(TrackingPhase.IN_TRANSIT) &&
+                        phase != TrackingPhase.COMPLETING &&
+                        _deliveryOtp.value.isNullOrBlank(),
+                showWaitingTimer = phase == TrackingPhase.DRIVER_WAITING &&
+                        _waitingState.value.isActive,
+                showPaymentSheet = _paymentState.value.showPaymentScreen,
+                canCancel = phase == TrackingPhase.DRIVER_COMING ||
+                        phase == TrackingPhase.DRIVER_WAITING
+            )
+        }
     }
 
-    fun onCashPaymentConfirmed() {
-        sendPaymentConfirmation("💵 Cash")
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // PAYMENT / RATING / CANCEL
+    // ═══════════════════════════════════════════════════════════════════════
+
+    fun onPaymentCompleted() = sendPaymentConfirmation("💳 Online")
+    fun onCashPaymentConfirmed() = sendPaymentConfirmation("💵 Cash")
 
     private fun sendPaymentConfirmation(tag: String) {
         viewModelScope.launch {
             val bookingId = _paymentState.value.bookingId
-            Log.d(TAG, "$tag payment confirmed for booking $bookingId")
-
             _paymentState.update {
                 it.copy(
                     showPaymentScreen = false,
@@ -293,54 +987,26 @@ class RiderTrackingViewModel @Inject constructor(
                     isVerifyingPayment = true
                 )
             }
-
-            val bookingIdInt = bookingId.asBookingId() ?: return@launch
+            publish()
+            val id = bookingId.asBookingId() ?: return@launch
             realTimeRepository.updateBookingStatus(
-                bookingIdInt,
-                Constants.SignalREvents.STATUS_PAYMENT_SUCCESS
-            )
-                .onSuccess { Log.d(TAG, "$tag SignalR: payment_success sent") }
-                .onFailure { e ->
-                    Log.e(TAG, "$tag SignalR: Failed to send payment_success: ${e.message}")
-                    if (tag.contains("Cash")) _toastMessage.emit("Retrying payment confirmation...")
-                }
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // RATING
-    // ═══════════════════════════════════════════════════════════════════════
-
-    fun submitRating(bookingId: String, rating: Int, feedback: String?) {
-        _ratingState.update { it.copy(showRatingDialog = false, isSubmitting = true) }
-        viewModelScope.launch {
-            try {
-                bookingRepository.submitRating(bookingId, rating, feedback)
-                    .onSuccess {
-                        Log.d(TAG, "⭐ Rating submitted: $rating stars")
-                        navigateHomeAfterCompletion()
-                    }
-                    .onFailure { e ->
-                        Log.e(TAG, "⭐ Rating failed: ${e.message}")
-                        navigateHomeAfterCompletion()
-                    }
-            } catch (e: Exception) {
-                Log.e(TAG, "⭐ Rating exception: ${e.message}")
-                navigateHomeAfterCompletion()
+                id, Constants.SignalREvents.STATUS_PAYMENT_SUCCESS
+            ).onFailure { e ->
+                Log.e(TAG, "$tag payment_success failed: ${e.message}")
+                _toastMessage.emit("Retrying payment confirmation…")
             }
         }
     }
 
+    fun submitRating(bookingId: String, rating: Int, feedback: String?) {
+        _ratingState.update { it.copy(showRatingDialog = false, isSubmitting = true) }
+        viewModelScope.launch {
+            runCatching { bookingRepository.submitRating(bookingId, rating, feedback) }
+            navigateHomeAfterCompletion()
+        }
+    }
+
     fun skipRating() {
-        _ratingState.update { it.copy(showRatingDialog = false) }
-        viewModelScope.launch { navigateHomeAfterCompletion() }
-    }
-
-    fun dismissRating() {
-        _ratingState.value = RatingUiState()
-    }
-
-    fun onRatingCompleted() {
         _ratingState.update { it.copy(showRatingDialog = false) }
         viewModelScope.launch { navigateHomeAfterCompletion() }
     }
@@ -351,636 +1017,150 @@ class RiderTrackingViewModel @Inject constructor(
         _navigationEvent.emit(RiderTrackingNavigationEvent.NavigateToHome)
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC METHODS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    fun connectToBooking(bookingId: String, pickupLatitude: Double, pickupLongitude: Double) {
-        Log.d(TAG, "📡 Connecting to booking: $bookingId")
-        clearState()
-        _uiState.update { it.copy(currentBookingId = bookingId) }
-
-        activeBookingManager.activeBooking.value?.let { booking ->
-            if (booking.fare > 0) {
-                cachedBookingFare = booking.fare
-                Log.d(TAG, "💰 Cached booking fare: ${formatRupee(booking.fare)}")
-            }
-            _paymentState.update { it.copy(paymentMethod = booking.paymentMethod) }
-            freeWaitingSeconds = booking.freeWaitingSeconds
-            chargePerMinute = booking.waitingChargePerMin
-            Log.d(TAG, "⏱️ Waiting config: free=${booking.freeWaitingTimeMins}min | charge=₹${booking.waitingChargePerMin}/min")
-
-            // Restore last known UI state immediately — before SignalR delivers anything.
-            // Handles app restart and long reconnects where the server hasn't re-sent an event yet.
-            booking.lastSignalRUpdate?.let { cachedUpdate ->
-                Log.d(TAG, "🔁 Restoring UI from persisted state: ${cachedUpdate.status}")
-                handleBookingStatusUpdate(cachedUpdate)
+    fun cancelBooking(reason: String) {
+        viewModelScope.launch {
+            val id = currentBookingId.asBookingId()
+            if (id != null && id > 0) {
+                realTimeRepository.cancelBooking(id, reason).onFailure { e ->
+                    activeBookingManager.clearActiveBooking()
+                    releaseConnection()
+                    _navigationEvent.emit(
+                        RiderTrackingNavigationEvent.BookingCancelled(
+                            e.message ?: "Booking cancelled"
+                        )
+                    )
+                }
+            } else {
+                activeBookingManager.clearActiveBooking()
+                releaseConnection()
+                _navigationEvent.emit(
+                    RiderTrackingNavigationEvent.BookingCancelled("Booking cancelled")
+                )
             }
         }
-
-        realTimeRepository.connectAndSubscribe(
-            bookingId = bookingId
-        )
     }
 
-    fun disconnect() {
-        Log.d(TAG, "🔌 Disconnecting...")
-        stopWaitingTimer()
-        realTimeRepository.disconnect()
-        clearState()
-    }
-
-    /**
-     * FIX #23 — retry must start a NEW booking, not re-subscribe to the dead one.
-     *
-     * THE BUG (visible in the logs)
-     *
-     *   📡 CONNECTING | Booking: 23
-     *   📥 BOOKING STATUS UPDATE: bookingId=23, status=cancelled,
-     *                             cancellationReason=auto cancelled
-     *   📊 Status: cancelled
-     *
-     * When the 3-minute search elapses the server auto-cancels the booking. That's
-     * correct and final — booking 23 is dead. But retrySearch() called
-     * connectAndSubscribe() with that same booking id, so the server immediately
-     * and truthfully replied "cancelled", and the customer got a scary "Booking
-     * cancelled" for a booking they had only asked to retry.
-     *
-     * A retry is a new booking. This clears the expired one and tells the screen to
-     * re-run the booking request instead of resurrecting a corpse.
-     */
+    /** A retry is a NEW booking — never re-subscribe to the expired one. */
     fun retrySearch() {
-        val expiredBookingId = _uiState.value.currentBookingId
-        Log.d(TAG, "🔄 Retry requested — discarding expired booking $expiredBookingId")
-
-        // Stop listening to the dead booking before anything else, so its terminal
-        // "cancelled" can't land on the fresh search.
-        realTimeRepository.disconnect()
+        releaseConnection()
         activeBookingManager.clearActiveBooking()
-
-        _uiState.update {
-            it.copy(
-                currentBookingId = null,
-                currentStatus = BookingStatusType.SEARCHING,
-                statusMessage = "Starting a new search...",
-                isNoRiderAvailable = false,
-                connectionError = null
-            )
-        }
-
-        // The screen owns booking creation (it has the addresses, vehicle and fare),
-        // so it re-submits rather than this ViewModel guessing at the payload.
+        currentBookingId = null
+        currentStatus = BookingStatusType.SEARCHING
+        publish()
         viewModelScope.launch { _rebookRequested.emit(Unit) }
     }
 
-    /**
-     * Emitted when the customer asks to search again. SearchingRiderScreen collects
-     * this and calls BookingViewModel.confirmBooking() to create a fresh booking.
-     */
-    private val _rebookRequested = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val rebookRequested: SharedFlow<Unit> = _rebookRequested.asSharedFlow()
-
-    fun cancelBooking(reason: String) {
-        viewModelScope.launch {
-            val bookingId = _uiState.value.currentBookingId.asBookingId()
-            Log.d(TAG, "🚫 cancelBooking() — bookingId=$bookingId, reason=$reason")
-
-            if (bookingId != null && bookingId > 0) {
-                realTimeRepository.cancelBooking(bookingId, reason)
-                    .onSuccess { Log.d(TAG, "✅ Cancel SUCCESS for booking $bookingId") }
-                    .onFailure { error ->
-                        Log.e(TAG, "❌ Cancel FAILED: ${error.message}")
-                        cleanupAndNavigate(error.message ?: "Booking cancelled")
-                    }
-            } else {
-                cleanupAndNavigate("Booking cancelled")
-            }
-        }
-    }
-
-    private suspend fun cleanupAndNavigate(reason: String) {
-        activeBookingManager.clearActiveBooking()
-        realTimeRepository.disconnect()
-        _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(reason))
-    }
-
     fun clearState() {
+        clearLegs()
+        stopWaitingTimer()
+        stopStallWatch()
         _assignedRider.value = null
-        _riderLocation.value = null
-        _bookingOtp.value = null
+        _pickupOtp.value = null
         _deliveryOtp.value = null
-        _etaMinutes.value = null
-        _distanceKm.value = null
-        _driverToPickupRoute.value = emptyList()
-        _pickupToDropRoute.value = emptyList()
         _waitingState.value = WaitingTimerState()
         _ratingState.value = RatingUiState()
         _paymentState.value = PostDeliveryPaymentState()
-        _uiState.value = RiderTrackingUiState()
-        routeFetchJob?.cancel()
-        waitingTimerJob = null
+        _ui.value = TrackingUiModel()
+        currentStatus = BookingStatusType.SEARCHING
+        currentBookingId = null
+        lastFix = null
+        lastFixAtMs = 0L
+        lastMovedFrom = null
+        lastMovedAtMs = 0L
+        smoothedBearing = 0f
+        lastNotificationSignature = null
         cachedBookingFare = 0.0
         freeWaitingSeconds = FareDetails.DEFAULT_FREE_WAITING_MINS * 60
         chargePerMinute = FareDetails.DEFAULT_CHARGE_PER_MIN
-        initialDistanceMeters = null
-        lastRouteFetchTime = 0L
-        hasServerEta = false
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STATUS UPDATE HANDLER
-    // ═══════════════════════════════════════════════════════════════════════
-
-
-    /**
-     * FIX #25 — booking ids arrive from SignalR as "26.0", not "26".
-     * toIntOrNull() returns null for a decimal string, so a plain parse silently
-     * turned valid ids into nulls and skipped the code that depended on them.
-     */
-    private fun String?.asBookingId(): Int? {
-        val t = this?.trim().orEmpty()
-        if (t.isEmpty()) return null
-        return t.toIntOrNull() ?: t.toDoubleOrNull()?.takeIf { it > 0 }?.toInt()
-    }
-
-    private fun handleBookingStatusUpdate(update: BookingStatusUpdate) {
-        // FIX #20 — defence in depth against the phantom-cancellation bug.
-        // Even if a stale event leaks past the repository guard, this screen only
-        // ever reacts to the booking it was actually opened for.
-        val expectedBookingId = _uiState.value.currentBookingId.asBookingId()
-        if (expectedBookingId != null && update.bookingId != expectedBookingId) {
-            Log.w(TAG, "⚠️ Ignoring update for booking ${update.bookingId} — tracking $expectedBookingId")
-            return
-        }
-
-        val status = update.getStatusType()
-        logStatusUpdate(update, status)
-
-        // Persist full server state first — one call, nothing lost
-        activeBookingManager.updateFromSignalR(update)
-
-        restoreRiderIfNeeded(update)
-        cacheFareIfAvailable(update)
-        _uiState.update { it.copy(currentStatus = status, statusMessage = update.message) }
-
-        viewModelScope.launch {
-            when (status) {
-                BookingStatusType.SEARCHING        -> { /* status already saved above */ }
-                BookingStatusType.RIDER_ASSIGNED   -> handleDriverAssigned(update)
-                BookingStatusType.RIDER_ENROUTE    -> handleRiderEnroute(update)
-                BookingStatusType.ARRIVED          -> handleDriverArrived(update)
-                BookingStatusType.PICKED_UP        -> handleParcelPickedUp(update)
-                BookingStatusType.IN_TRANSIT       -> handleInTransit(update)
-                BookingStatusType.ARRIVED_DELIVERY -> handleArrivedAtDelivery(update)
-                BookingStatusType.PAYMENT_SUCCESS  -> handlePaymentSuccess(update)
-                BookingStatusType.DELIVERED        -> handleDeliveryCompleted(update)
-                BookingStatusType.NO_RIDER         -> handleNoRider(update)
-                BookingStatusType.CANCELLED        -> handleCancelled(update)
-            }
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STATUS HANDLERS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private suspend fun handleDriverAssigned(update: BookingStatusUpdate) {
-        val rider = resolveRiderFromUpdate(update)
-        _assignedRider.value = rider
-        _bookingOtp.value = update.pickupOtp
-
-        val driverLat = update.driverLatitude ?: rider.currentLatitude
-        val driverLng = update.driverLongitude ?: rider.currentLongitude
-        val pickup = getPickupLatLng()
-        val drop = getDropLatLng()
-
-        if (isValidLatLng(driverLat, driverLng) && isValidLatLng(pickup)) {
-            val distMeters = haversineDistance(driverLat, driverLng, pickup.first, pickup.second)
-            _distanceKm.value = distMeters / 1000.0
-            initialDistanceMeters = distMeters
-            _etaMinutes.value = update.etaMinutes ?: rider.etaMinutes ?: estimateEtaFromDistance(distMeters)
-            fetchRoute(driverLat, driverLng, pickup.first, pickup.second, isDriverToPickup = true)
-        } else {
-            _etaMinutes.value = update.etaMinutes ?: rider.etaMinutes
-        }
-
-        if (isValidLatLng(pickup) && isValidLatLng(drop)) {
-            fetchRoute(pickup.first, pickup.second, drop.first, drop.second, isDriverToPickup = false)
-        }
-
-        cacheBookingFareIfNeeded()
-
-        showNotification(
-            update.bookingId, "Driver Assigned!",
-            buildString {
-                append(rider.riderName); append(" is on the way")
-                _etaMinutes.value?.let { if (it > 0) append("\n⏱️ Arriving in ~$it min") }
-                rider.vehicleType?.let { append("\n🚚 $it") }
-                rider.vehicleNumber.takeIf { it.isNotEmpty() }?.let { append(" • $it") }
-                update.pickupOtp?.let { append("\n🔐 Pickup OTP: $it") }
-            }
-        )
-
-        _navigationEvent.emit(
-            RiderTrackingNavigationEvent.RiderAssigned(update.bookingId.toString(), rider, update.pickupOtp)
-        )
-    }
-
-    private suspend fun handleRiderEnroute(update: BookingStatusUpdate) {
-        showNotification(
-            update.bookingId, "Driver on the way",
-            buildString {
-                append(riderName); append(" is heading to pickup")
-                _etaMinutes.value?.let { if (it > 0) append("\n⏱️ ~$it min away") }
-            }
-        )
-        _navigationEvent.emit(RiderTrackingNavigationEvent.RiderEnroute(update.bookingId.toString()))
-    }
-
-    private suspend fun handleDriverArrived(update: BookingStatusUpdate) {
-        startWaitingTimer()
-        _etaMinutes.value = 0
-        _distanceKm.value = 0.0
-
-        showNotification(
-            update.bookingId, "📍 Driver Has Arrived!",
-            buildString {
-                append(riderName); append(" is at your pickup location")
-                pickupOtpDisplay?.let { append("\n🔐 Share OTP: $it") }
-            }
-        )
-        _toastMessage.emit(update.message ?: "Rider has arrived at pickup!")
-        _navigationEvent.emit(
-            RiderTrackingNavigationEvent.RiderArrived(update.bookingId.toString(), update.message ?: "Rider has arrived!")
-        )
-    }
-
-    private suspend fun handleParcelPickedUp(update: BookingStatusUpdate) {
-        val finalCharge = getFinalWaitingCharge()
-        stopWaitingTimer()
-        Log.d(TAG, "💰 Final waiting charge at pickup: ₹$finalCharge")
-
-        update.deliveredOtp?.let { _deliveryOtp.value = it }
-
-        initialDistanceMeters = null
-        val pickup = getPickupLatLng()
-        val drop = getDropLatLng()
-
-        if (isValidLatLng(pickup) && isValidLatLng(drop)) {
-            val distMeters = haversineDistance(pickup.first, pickup.second, drop.first, drop.second)
-            _distanceKm.value = distMeters / 1000.0
-            _etaMinutes.value = estimateEtaFromDistance(distMeters)
-            initialDistanceMeters = distMeters
-            fetchRoute(pickup.first, pickup.second, drop.first, drop.second, isDriverToPickup = false)
-        } else {
-            _etaMinutes.value = null
-            _distanceKm.value = null
-        }
-
-        val dropAddress = activeBookingManager.activeBooking.value?.dropAddress?.address
-        showNotification(
-            update.bookingId, "📦 Parcel Picked Up!",
-            buildString {
-                append("Your parcel is on the way to delivery")
-                dropAddress?.let { append("\n📍 To: ${it.take(50)}${if (it.length > 50) "..." else ""}") }
-                _deliveryOtp.value?.let { append("\n🔐 Delivery OTP: $it") }
-            }
-        )
-        _toastMessage.emit("Parcel picked up!")
-        _navigationEvent.emit(RiderTrackingNavigationEvent.ParcelPickedUp(update.bookingId.toString()))
-    }
-
-    private suspend fun handleInTransit(update: BookingStatusUpdate) {
-        showNotification(update.bookingId, "Parcel in transit", "Your parcel is on the way to delivery")
-    }
-
-    private suspend fun handleArrivedAtDelivery(update: BookingStatusUpdate) {
-        update.deliveredOtp?.let { _deliveryOtp.value = it }
-
-        val fare = extractFareFromUpdate(update)
-        val paymentMethod = update.paymentMethod
-            ?: activeBookingManager.activeBooking.value?.paymentMethod
-            ?: "Cash"
-
-        showNotification(
-            update.bookingId, "🏠 Driver Arrived at Delivery!",
-            buildString {
-                append("Driver has arrived at delivery location")
-                (_deliveryOtp.value ?: update.deliveredOtp)?.let { append("\n🔐 Delivery OTP: $it") }
-                if (fare.totalFare > 0) append("\n💰 Total: ₹${fare.totalFare}")
-                append("\n💳 Complete payment to proceed")
-            }
-        )
-        _toastMessage.emit("Rider arrived at delivery location!")
-
-        _paymentState.update {
-            it.copy(
-                showPaymentScreen = true,
-                bookingId = update.bookingId.toString(),
-                baseFare = fare.baseFare,
-                waitingCharge = fare.waitingCharge,
-                platformFee = fare.platformFee,
-                gst = fare.gst,
-                discount = fare.discount,
-                totalFare = fare.totalFare,
-                driverName = riderName,
-                paymentMethod = paymentMethod
-            )
-        }
-
-        _navigationEvent.emit(
-            RiderTrackingNavigationEvent.ShowPaymentScreen(
-                bookingId = update.bookingId.toString(),
-                roundedFare = fare.totalFare,
-                waitingCharge = fare.waitingCharge,
-                discount = fare.discount,
-                driverName = riderName,
-                paymentMethod = paymentMethod
-            )
-        )
-    }
-
-    private suspend fun handlePaymentSuccess(update: BookingStatusUpdate) {
-        Log.d(TAG, "💳 PAYMENT_SUCCESS | booking=${update.bookingId} | method=${update.paymentMethod}")
-
-        _paymentState.update {
-            it.copy(
-                showPaymentScreen = false,
-                isPaymentCompleted = true,
-                isVerifyingPayment = true
-            )
-        }
-
-        showNotification(
-            update.bookingId,
-            "💳 Payment Successful!",
-            "Payment confirmed. Completing delivery..."
-        )
-        _toastMessage.emit("Payment confirmed! Completing delivery…")
-    }
-
-    private suspend fun handleDeliveryCompleted(update: BookingStatusUpdate) {
-        stopWaitingTimer()
-        _paymentState.update {
-            it.copy(
-                showPaymentScreen = false,
-                isVerifyingPayment = false,
-                isPaymentCompleted = true
-            )
-        }
-
-        val fare = extractFareFromUpdate(update)
-        val totalFare = fare.totalFare.takeIf { it > 0 } ?: _paymentState.value.totalFare
-        val waitingCharge = fare.waitingCharge.takeIf { fare.totalFare > 0 } ?: _paymentState.value.waitingCharge
-
-        showNotification(
-            update.bookingId, "✅ Delivery Completed!",
-            buildString {
-                append("Your parcel has been delivered successfully!")
-                if (totalFare > 0) append("\n💰 Total: ₹$totalFare")
-            },
-            isFinal = true
-        )
-        _toastMessage.emit("Delivery completed!")
-
-        _ratingState.update {
-            it.copy(
-                showRatingDialog = true,
-                bookingId = update.bookingId.toString(),
-                driverName = riderName,
-                driverPhoto = _assignedRider.value?.photoUrl,
-                vehicleType = _assignedRider.value?.vehicleType,
-                totalFare = totalFare,
-                waitingCharge = waitingCharge
-            )
-        }
-
-        realTimeRepository.disconnect()
-    }
-
-    private suspend fun handleNoRider(update: BookingStatusUpdate) {
-        _uiState.update { it.copy(isNoRiderAvailable = true) }
-        _navigationEvent.emit(RiderTrackingNavigationEvent.NoRiderAvailable(update.message ?: "No riders available"))
-    }
-
-    private suspend fun handleCancelled(update: BookingStatusUpdate) {
-        Log.d(TAG, "🚫 handleCancelled: cancelledBy=${update.cancelledBy} | reason=${update.cancellationReason}")
-        stopWaitingTimer()
-
-        if (update.cancelledBy?.lowercase() == "driver") {
-            handleDriverCancelled(update)
-        } else {
-            handleCustomerOrSystemCancelled(update)
-        }
-    }
-
-    private suspend fun handleDriverCancelled(update: BookingStatusUpdate) {
-        Log.d(TAG, "📋 Driver cancelled, re-entering search mode")
-
-        showNotification(
-            update.bookingId, "Driver Cancelled",
-            buildString {
-                append("Driver cancelled the booking")
-                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
-                append("\nSearching for another driver...")
-            }
-        )
-
-        _assignedRider.value = null
-        _riderLocation.value = null
-        _bookingOtp.value = null
-        _deliveryOtp.value = null
-        _etaMinutes.value = null
-        _distanceKm.value = null
-        _driverToPickupRoute.value = emptyList()
-        initialDistanceMeters = null
-        hasServerEta = false
-
-        _uiState.update {
-            it.copy(
-                currentStatus = BookingStatusType.SEARCHING,
-                statusMessage = "Driver cancelled. Searching for another driver..."
-            )
-        }
-        activeBookingManager.retrySearch()
-
-        val msg = update.message ?: "Driver cancelled, searching for another driver"
-        _toastMessage.emit(msg)
-        _navigationEvent.emit(RiderTrackingNavigationEvent.DriverCancelledRetrySearch(msg))
-    }
-
-    private suspend fun handleCustomerOrSystemCancelled(update: BookingStatusUpdate) {
-        Log.d(TAG, "📋 Customer/system cancelled, navigating home")
-
-        val cancelLabel = when (update.cancelledBy?.lowercase()) {
-            "system"   -> "Booking was cancelled by system"
-            "customer" -> "You cancelled the booking"
-            else       -> "Booking has been cancelled"
-        }
-
-        showNotification(
-            update.bookingId, "❌ Booking Cancelled",
-            buildString {
-                append(cancelLabel)
-                update.cancellationReason?.takeIf { it.isNotBlank() }?.let { append("\nReason: $it") }
-            },
-            isFinal = true
-        )
-
-        activeBookingManager.clearActiveBooking()
-        realTimeRepository.disconnect()
-
-        val msg = update.message ?: "Booking cancelled"
-        _toastMessage.emit(msg)
-        _navigationEvent.emit(RiderTrackingNavigationEvent.BookingCancelled(msg))
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // LOCATION UPDATE HANDLER
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private fun handleRiderLocationUpdate(location: RiderLocationUpdate) {
-        val isPrePickup = isPrePickupPhase
-        Log.d(TAG, "📍 LOCATION: ${location.latitude},${location.longitude} | ETA: ${location.etaMinutes}")
-
-        _riderLocation.value = location
-
-        val target = if (isPrePickup) getPickupLatLng() else getDropLatLng()
-        val serverDistMeters = location.getRelevantDistanceMeters(isPrePickup)
-
-        val calcDistKm = if (isValidLatLng(target)) {
-            haversineDistance(location.latitude, location.longitude, target.first, target.second) / 1000.0
-        } else null
-
-        val distanceKmValue = if (serverDistMeters != null && serverDistMeters > 0) {
-            serverDistMeters / 1000.0
-        } else calcDistKm
-
-        distanceKmValue?.let {
-            _distanceKm.value = it
-            if (initialDistanceMeters == null) initialDistanceMeters = (it * 1000.0).coerceAtLeast(1000.0)
-        }
-
-        updateEta(location.etaMinutes, distanceKmValue)
-
-        if (isValidLatLng(target)) {
-            val shouldFetchRoute = when {
-                isPrePickup && currentStatus != BookingStatusType.ARRIVED -> true
-                isPostPickupPhase -> true
-                else -> false
-            }
-            if (shouldFetchRoute) {
-                fetchRouteThrottled(location.latitude, location.longitude, target.first, target.second, isDriverToPickup = isPrePickup)
-            }
-        }
-
-        _assignedRider.update { rider ->
-            rider?.copy(
-                currentLatitude = location.latitude,
-                currentLongitude = location.longitude,
-                etaMinutes = location.etaMinutes ?: rider.etaMinutes
-            )
-        }
-
-        if (isPrePickup && currentStatus != BookingStatusType.ARRIVED) {
-            val bookingId = _uiState.value.currentBookingId ?: return
-            notificationHelper.showStickyStatusNotification(
-                bookingId = bookingId,
-                title = "🚗 $riderName is on the way",
-                body = buildString {
-                    _distanceKm.value?.let { append("📍 ${formatDistance(it)} away") }
-                    _etaMinutes.value?.let { if (it > 0) append(" • ~$it min") }
-                    _bookingOtp.value?.let { append("\n🔐 OTP: $it") }
-                },
-                isSilent = true
-            )
-        }
-    }
-
-    private fun updateEta(serverEta: Int?, distanceKmValue: Double?) {
-        val calculatedEta = distanceKmValue?.let { estimateEtaFromDistanceKm(it) }
-
-        if (serverEta != null && serverEta > 0) {
-            val actualDistKm = _distanceKm.value ?: distanceKmValue
-            val minReasonableEta = actualDistKm?.let { ((it / 40.0) * 60.0).toInt().coerceAtLeast(1) }
-
-            if (minReasonableEta == null || serverEta >= minReasonableEta) {
-                _etaMinutes.value = serverEta
-                hasServerEta = true
-            } else {
-                _etaMinutes.value = calculatedEta
-                hasServerEta = false
-            }
-        } else {
-            hasServerEta = false
-            _etaMinutes.value = calculatedEta
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ROUTE FETCHING
-    // ═══════════════════════════════════════════════════════════════════════
-
-    private fun fetchRoute(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double, isDriverToPickup: Boolean) {
-        routeFetchJob?.cancel()
-        routeFetchJob = viewModelScope.launch {
-            try {
-                directionsRepository.getRouteInfo(fromLat, fromLng, toLat, toLng)
-                    .onSuccess { routeInfo ->
-                        if (isDriverToPickup) _driverToPickupRoute.value = routeInfo.polylinePoints
-                        else _pickupToDropRoute.value = routeInfo.polylinePoints
-
-                        if (!hasServerEta) {
-                            _distanceKm.value = routeInfo.distanceMeters / 1000.0
-                            _etaMinutes.value = (routeInfo.durationSeconds / 60.0).toInt().coerceAtLeast(1)
-                        }
-                    }
-                    .onFailure { e -> Log.w(TAG, "⚠️ Route fetch failed: ${e.message}") }
-            } catch (e: Exception) {
-                Log.w(TAG, "⚠️ Route fetch error: ${e.message}")
-            }
-        }
-    }
-
-    private fun fetchRouteThrottled(fromLat: Double, fromLng: Double, toLat: Double, toLng: Double, isDriverToPickup: Boolean) {
-        val now = System.currentTimeMillis()
-        if (now - lastRouteFetchTime > ROUTE_FETCH_INTERVAL_MS) {
-            lastRouteFetchTime = now
-            fetchRoute(fromLat, fromLng, toLat, toLng, isDriverToPickup)
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════
 
-    private val riderName: String
-        get() = _assignedRider.value?.riderName ?: "Driver"
+    private val riderName: String get() = _assignedRider.value?.riderName ?: "Driver"
 
-    private val pickupOtpDisplay: String?
-        get() = _bookingOtp.value
-
-    private fun getPickupLatLng(): Pair<Double, Double> {
-        val addr = activeBookingManager.activeBooking.value?.pickupAddress
-        return Pair(addr?.latitude ?: 0.0, addr?.longitude ?: 0.0)
+    /**
+     * FIX E — validate at the source. The screen used to check `!= null` while
+     * OtpCard padded short strings with '-', so an empty payload rendered a card
+     * of dashes with no OTP in it. A partial value is also rejected rather than
+     * shown, and a good value is never overwritten by a later lean payload.
+     */
+    private fun setPickupOtp(raw: String?) {
+        val clean = raw?.trim()?.filter { it.isDigit() }.orEmpty()
+        if (clean.length >= 4) _pickupOtp.value = clean
     }
 
-    private fun getDropLatLng(): Pair<Double, Double> {
-        val addr = activeBookingManager.activeBooking.value?.dropAddress
-        return Pair(addr?.latitude ?: 0.0, addr?.longitude ?: 0.0)
+    private fun setDeliveryOtp(raw: String?) {
+        val clean = raw?.trim()?.filter { it.isDigit() }.orEmpty()
+        if (clean.length >= 4) _deliveryOtp.value = clean
     }
 
-    private fun isValidLatLng(lat: Double, lng: Double): Boolean = lat != 0.0 && lng != 0.0
-    private fun isValidLatLng(pair: Pair<Double, Double>): Boolean = pair.first != 0.0 && pair.second != 0.0
+    private fun pickupLatLng(): LatLng? =
+        activeBookingManager.activeBooking.value?.pickupAddress
+            ?.let { LatLng(it.latitude, it.longitude) }
+            ?.takeIf { MapGeometry.isValid(it) }
 
-    private fun estimateEtaFromDistance(distMeters: Double): Int =
-        ((distMeters / 1000.0) / ASSUMED_SPEED_KMH * 60.0).toInt().coerceAtLeast(1)
+    private fun dropLatLng(): LatLng? =
+        activeBookingManager.activeBooking.value?.dropAddress
+            ?.let { LatLng(it.latitude, it.longitude) }
+            ?.takeIf { MapGeometry.isValid(it) }
 
-    private fun estimateEtaFromDistanceKm(distKm: Double): Int =
-        ((distKm / ASSUMED_SPEED_KMH) * 60.0).toInt().coerceAtLeast(1)
+    /**
+     * Journey completion for the active leg, 0-100.
+     *
+     * Anchored to the distance we saw when the leg STARTED, because there is no
+     * other honest denominator — the route length changes as the driver
+     * deviates, and using the current route would make the bar jump backwards.
+     * Returns -1 (indeterminate) until we have an anchor.
+     */
+    private fun legProgressPercent(leg: Leg?): Int {
+        if (leg == null) return -1
+        val start = legStartDistanceKm[leg] ?: return -1
+        val now = legDistanceKm[leg] ?: return -1
+        if (start <= 0.0) return -1
+        val done = ((start - now) / start * 100).toInt()
+        return done.coerceIn(0, 100)
+    }
 
-    private fun resolveRiderFromUpdate(update: BookingStatusUpdate): RiderInfo {
-        return update.rider ?: RiderInfo(
+    private fun etaFromMetres(metres: Double): Int =
+        ((metres / 1000.0) / ASSUMED_SPEED_KMH * 60.0).toInt().coerceAtLeast(1)
+
+    /**
+     * Locale-explicit. The old code called String.format without a Locale, which
+     * emits "1,2 km" on devices set to e.g. German and breaks parsing.
+     */
+    fun formatDistance(distanceKm: Double?): String {
+        if (distanceKm == null) return ""
+        val metres = (distanceKm * 1000).toInt()
+        return if (metres < 1000) "$metres m"
+        else String.format(Locale.getDefault(), "%.1f km", distanceKm)
+    }
+
+    private fun parseTimestamp(raw: String?): Long? {
+        if (raw.isNullOrBlank()) return null
+        return runCatching {
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val cleaned = raw.substringBefore("Z").substringBefore(".")
+            fmt.parse(cleaned)?.time
+        }.getOrNull()
+    }
+
+    /** Booking ids arrive from SignalR as "26.0", which toIntOrNull() rejects. */
+    private fun String?.asBookingId(): Int? {
+        val t = this?.trim().orEmpty()
+        if (t.isEmpty()) return null
+        return t.toIntOrNull() ?: t.toDoubleOrNull()?.takeIf { it > 0 }?.toInt()
+    }
+
+    private fun restoreRiderIfNeeded(update: BookingStatusUpdate) {
+        if (_assignedRider.value != null || update.driverName.isNullOrEmpty()) return
+        _assignedRider.value = resolveRiderFromUpdate(update)
+    }
+
+    private fun resolveRiderFromUpdate(update: BookingStatusUpdate): RiderInfo =
+        update.rider ?: RiderInfo(
             riderId = update.driverId?.toString() ?: "0",
             riderName = update.driverName ?: "Driver",
             riderPhone = update.driverPhone ?: "",
@@ -993,90 +1173,64 @@ class RiderTrackingViewModel @Inject constructor(
             etaMinutes = update.etaMinutes,
             photoUrl = update.driverPhoto
         )
-    }
 
-    private fun restoreRiderIfNeeded(update: BookingStatusUpdate) {
-        if (_assignedRider.value != null || update.driverName.isNullOrEmpty()) return
-        Log.d(TAG, "🔄 Restoring rider from status update: ${update.driverName}")
-        _assignedRider.value = resolveRiderFromUpdate(update)
-        update.pickupOtp?.let { _bookingOtp.value = it }
-        update.deliveredOtp?.let { _deliveryOtp.value = it }
-    }
-
-    private fun cacheBookingFareIfNeeded() {
-        if (cachedBookingFare > 0) return
-        activeBookingManager.activeBooking.value?.fare?.takeIf { it > 0 }?.let {
-            cachedBookingFare = it
-            Log.d(TAG, "💰 Cached booking fare: ₹$it")
+    private fun cacheFareIfAvailable(update: BookingStatusUpdate) {
+        val fare = extractFare(update)
+        if (fare.totalFare <= 0) return
+        _paymentState.update {
+            it.copy(
+                baseFare = fare.baseFare,
+                waitingCharge = fare.waitingCharge,
+                platformFee = fare.platformFee,
+                gst = fare.gst,
+                discount = fare.discount,
+                totalFare = fare.totalFare
+            )
         }
+        if (cachedBookingFare == 0.0) cachedBookingFare = fare.baseFare
     }
 
-    private fun showNotification(bookingId: Int, title: String, body: String, isFinal: Boolean = false, isSilent: Boolean = false) {
-        notificationHelper.showStickyStatusNotification(
-            bookingId = bookingId.toString(),
-            title = title,
-            body = body,
-            isFinal = isFinal,
-            isSilent = isSilent
+    private fun extractFare(update: BookingStatusUpdate): FareBreakdown {
+        val total = update.roundedFare
+            ?: update.totalFare
+            ?: update.subTotal
+            ?: update.baseFare
+            ?: update.additionalData?.fare
+            ?: cachedBookingFare.takeIf { it > 0.0 }
+            ?: activeBookingManager.activeBooking.value?.fare
+            ?: 0.0
+        return FareBreakdown(
+            baseFare = update.baseFare ?: 0.0,
+            waitingCharge = update.waitingCharges ?: 0.0,
+            platformFee = update.platformFee ?: 0.0,
+            gst = update.gstAmount ?: 0.0,
+            discount = update.couponDiscount ?: 0.0,
+            totalFare = total
         )
     }
 
-    private fun logStatusUpdate(update: BookingStatusUpdate, status: BookingStatusType) {
-        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        Log.d(TAG, "📥 STATUS: $status | Driver: ${update.driverName} | ETA: ${update.etaMinutes}min")
-        Log.d(TAG, "  Fare: total=${update.totalFare} | rounded=${update.roundedFare} | base=${update.baseFare} | waiting=${update.waitingCharges}")
-        Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    }
-
-    fun formatDistance(distanceKm: Double?): String {
-        if (distanceKm == null) return ""
-        val meters = (distanceKm * 1000).toInt()
-        return if (meters < 1000) "$meters m" else String.format("%.1f km", distanceKm)
-    }
-
-    fun getStatusDisplayText(): String = when (currentStatus) {
-        BookingStatusType.RIDER_ASSIGNED, BookingStatusType.RIDER_ENROUTE -> "Driver is on the way"
-        BookingStatusType.ARRIVED        -> "Driver has arrived"
-        BookingStatusType.PICKED_UP      -> "Parcel picked up"
-        BookingStatusType.IN_TRANSIT     -> "On the way to delivery"
-        BookingStatusType.ARRIVED_DELIVERY -> "Arrived at delivery"
-        BookingStatusType.PAYMENT_SUCCESS  -> "Payment confirmed"
-        BookingStatusType.DELIVERED        -> "Delivery completed"
-        else -> "Tracking your delivery"
-    }
-
-    private fun haversineDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val R = 6371000.0
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLng = Math.toRadians(lng2 - lng1)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    }
+    private fun notify(
+        bookingId: Int,
+        title: String,
+        body: String,
+        isFinal: Boolean = false,
+        isSilent: Boolean = false
+    ) = notificationHelper.showStickyStatusNotification(
+        bookingId = bookingId.toString(),
+        title = title,
+        body = body,
+        isFinal = isFinal,
+        isSilent = isSilent
+    )
 
     override fun onCleared() {
         super.onCleared()
         stopWaitingTimer()
-        realTimeRepository.disconnect()
+        stopStallWatch()
+        clearLegs()
+        releaseConnection()
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONSTANTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-private val PRE_PICKUP_STATUSES = setOf(
-    BookingStatusType.RIDER_ASSIGNED,
-    BookingStatusType.RIDER_ENROUTE,
-    BookingStatusType.ARRIVED
-)
-
-private val POST_PICKUP_STATUSES = setOf(
-    BookingStatusType.PICKED_UP,
-    BookingStatusType.IN_TRANSIT,
-    BookingStatusType.ARRIVED_DELIVERY
-)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA CLASSES
@@ -1103,11 +1257,17 @@ data class WaitingTimerState(
     val totalFreeSeconds: Int = FareDetails.DEFAULT_FREE_WAITING_MINS * 60
 ) {
     val freeTimeFormatted: String
-        get() = "%d:%02d".format(freeSecondsRemaining / 60, freeSecondsRemaining % 60)
+        get() = String.format(
+            Locale.US, "%d:%02d", freeSecondsRemaining / 60, freeSecondsRemaining % 60
+        )
     val totalTimeFormatted: String
-        get() = "%d:%02d".format(totalWaitingSeconds / 60, totalWaitingSeconds % 60)
+        get() = String.format(
+            Locale.US, "%d:%02d", totalWaitingSeconds / 60, totalWaitingSeconds % 60
+        )
     val freeWaitingProgress: Float
-        get() = if (totalFreeSeconds > 0) 1f - (freeSecondsRemaining.toFloat() / totalFreeSeconds) else 1f
+        get() = if (totalFreeSeconds > 0) {
+            1f - (freeSecondsRemaining.toFloat() / totalFreeSeconds)
+        } else 1f
 }
 
 data class RatingUiState(
@@ -1118,9 +1278,7 @@ data class RatingUiState(
     val vehicleType: String? = null,
     val totalFare: Double = 0.0,
     val waitingCharge: Double = 0.0,
-    val isSubmitting: Boolean = false,
-    val isSubmitted: Boolean = false,
-    val error: String? = null
+    val isSubmitting: Boolean = false
 )
 
 data class PostDeliveryPaymentState(
@@ -1138,16 +1296,11 @@ data class PostDeliveryPaymentState(
     val isVerifyingPayment: Boolean = false
 )
 
-data class RiderTrackingUiState(
-    val currentBookingId: String? = null,
-    val currentStatus: BookingStatusType = BookingStatusType.SEARCHING,
-    val statusMessage: String? = null,
-    val isNoRiderAvailable: Boolean = false,
-    val connectionError: String? = null
-)
-
 sealed class RiderTrackingNavigationEvent {
-    data class RiderAssigned(val bookingId: String, val rider: RiderInfo, val otp: String?) : RiderTrackingNavigationEvent()
+    data class RiderAssigned(
+        val bookingId: String, val rider: RiderInfo, val otp: String?
+    ) : RiderTrackingNavigationEvent()
+
     data class RiderEnroute(val bookingId: String) : RiderTrackingNavigationEvent()
     data class RiderArrived(val bookingId: String, val message: String) : RiderTrackingNavigationEvent()
     data class ParcelPickedUp(val bookingId: String) : RiderTrackingNavigationEvent()
@@ -1155,14 +1308,6 @@ sealed class RiderTrackingNavigationEvent {
     data class NoRiderAvailable(val message: String) : RiderTrackingNavigationEvent()
     data class BookingCancelled(val reason: String) : RiderTrackingNavigationEvent()
     data class DriverCancelledRetrySearch(val message: String) : RiderTrackingNavigationEvent()
-    data class ShowPaymentScreen(
-        val bookingId: String,
-        val roundedFare: Double,
-        val waitingCharge: Double,
-        val discount: Double,
-        val driverName: String,
-        val paymentMethod: String
-    ) : RiderTrackingNavigationEvent()
     data class PaymentConfirmed(val bookingId: String) : RiderTrackingNavigationEvent()
     object NavigateToHome : RiderTrackingNavigationEvent()
 }

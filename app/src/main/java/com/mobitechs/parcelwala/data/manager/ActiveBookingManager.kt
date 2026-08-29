@@ -6,13 +6,17 @@ import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.realtime.BookingStatusUpdate
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "ActiveBookingManager"
+private const val TAG = "PW-ActiveBooking"
 
 @Singleton
 class ActiveBookingManager @Inject constructor(
@@ -25,6 +29,9 @@ class ActiveBookingManager @Inject constructor(
     }
 
     private val gson = Gson()
+
+    /** Writes JSON + SharedPreferences off the main thread. See persistBooking(). */
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _activeBooking = MutableStateFlow<ActiveBooking?>(null)
     val activeBooking: StateFlow<ActiveBooking?> = _activeBooking.asStateFlow()
@@ -76,15 +83,30 @@ class ActiveBookingManager @Inject constructor(
     // PERSIST
     // ═══════════════════════════════════════════════════════════════════════
 
+    /**
+     * PERFORMANCE — this used to run on whichever thread called it, which for
+     * updateFromSignalR() is the main thread (RiderTrackingViewModel handles
+     * updates in viewModelScope). Serialising an ActiveBooking is not cheap:
+     * it embeds the entire lastSignalRUpdate payload, so every status change
+     * did a reflective Gson walk over that whole object graph on the UI thread
+     * — visible as a hitch at exactly the moments the screen was also animating
+     * a state transition.
+     *
+     * The in-memory StateFlow is still updated synchronously, so readers never
+     * see a lag; only the JSON encoding and the SharedPreferences write move
+     * off the main thread.
+     */
     private fun persistBooking(booking: ActiveBooking?) {
-        if (booking != null) {
+        if (booking == null) {
+            preferencesManager.clearActiveBooking()
+            return
+        }
+        ioScope.launch {
             try {
                 preferencesManager.saveActiveBooking(gson.toJson(booking))
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Failed to persist booking: ${e.message}", e)
             }
-        } else {
-            preferencesManager.clearActiveBooking()
         }
     }
 
@@ -135,12 +157,40 @@ class ActiveBookingManager @Inject constructor(
 
         val updated = current.copy(
             status = newStatus,
-            fare = update.totalFare ?: update.roundedFare ?: current.fare,
+            // FIX — the customer saw ₹126.57 while the driver saw ₹130.
+            //
+            // totalFare is the raw computed amount; roundedFare is what is
+            // actually charged and what the driver app displays. Preferring
+            // totalFare meant the two apps disagreed about the price of the same
+            // trip, which is the kind of thing that turns into a refund request.
+            // roundedFare wins wherever it exists.
+            fare = update.roundedFare ?: update.totalFare ?: current.fare,
             paymentMethod = update.paymentMethod ?: current.paymentMethod,
             lastSignalRUpdate = update
         )
         updateAndPersist(updated)
         Log.d(TAG, "🔄 Booking updated from SignalR | status=$newStatus | fare=${updated.fare}")
+    }
+
+    /**
+     * Persist the moment the driver reached the pickup point.
+     *
+     * WHY THIS EXISTS
+     * The waiting timer used to count up from the instant the ARRIVED event was
+     * RECEIVED. A 40-second socket drop silently lost 40 seconds of billable
+     * waiting, and a cold start reset the customer's timer to zero while the
+     * server kept counting. Anchoring to a persisted wall-clock timestamp makes
+     * the displayed time survive backgrounding, doze and process death — and
+     * always agree with what the server will bill.
+     *
+     * WRITE-ONCE. A later ARRIVED (a reconnect re-pushing the same status) must
+     * never restart the clock, so an existing anchor always wins.
+     */
+    fun markArrivedAtPickup(epochMs: Long) {
+        val current = _activeBooking.value ?: return
+        if (current.arrivedAtPickupMs != null) return
+        updateAndPersist(current.copy(arrivedAtPickupMs = epochMs))
+        Log.d(TAG, "⏱️ Arrival anchored at $epochMs")
     }
 
     /**
@@ -224,6 +274,12 @@ data class ActiveBooking(
     val paymentMethod: String = "cash",
     val waitingChargePerMin: Double = FareDetails.DEFAULT_CHARGE_PER_MIN,
     val freeWaitingTimeMins: Int = FareDetails.DEFAULT_FREE_WAITING_MINS,
+    /**
+     * Wall-clock time the driver reached pickup. The waiting timer is computed
+     * from this rather than an incrementing counter, so it stays correct across
+     * reconnects and process death. Null until the driver arrives.
+     */
+    val arrivedAtPickupMs: Long? = null,
     // Full latest server state — survives app restarts via SharedPreferences
     val lastSignalRUpdate: BookingStatusUpdate? = null
 ) {

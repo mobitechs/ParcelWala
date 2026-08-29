@@ -171,7 +171,7 @@ interface ApiService {
 //    @GET("orders/{orderId}")
     @GET("bookings/{bookingId}")
     suspend fun getOrderDetails(
-        @Path("orderId") orderId: Int
+        @Path("bookingId") bookingId: Int
     ): OrderDetailsResponse
 
 //--------------------------------------------------------------------------------------------------------

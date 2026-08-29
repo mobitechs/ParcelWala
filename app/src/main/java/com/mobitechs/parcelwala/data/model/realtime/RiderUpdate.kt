@@ -152,6 +152,14 @@ data class RiderLocationUpdate(
     val distanceToDropKm: Double? = null,
     val speed: Double? = null,
     val heading: Double? = null,
+    /**
+     * Reported horizontal accuracy in metres, sent by the driver app.
+     * Used by MapGeometry.isPlausibleFix to reject junk fixes before they can
+     * teleport the marker across the city or trigger a route refetch to
+     * nowhere. Null on older driver builds, which is treated as "unknown" and
+     * allowed through — the speed sanity check still applies.
+     */
+    val accuracy: Float? = null,
     val etaMinutes: Int? = null,
     val distanceMeters: Double? = null,
     val status: String? = null,
@@ -165,7 +173,23 @@ data class RiderLocationUpdate(
      * Priority: distanceMeters (road, from driver) > distanceToPickup/Drop (straight-line, from backend)
      */
     fun getRelevantDistanceMeters(isPrePickup: Boolean): Double? {
-        if (distanceMeters != null && distanceMeters > 0) return distanceMeters
+        // UNIT GUARD.
+        //
+        // The server has been observed sending KILOMETRES in this metres-named
+        // field — a 13.69 km trip arrives as `distanceMeters: 13.69`. Taken at
+        // face value that renders as "14 m away" and collapses the derived ETA
+        // to 1 minute, which is very likely what produced the nonsensical
+        // "10 m away" readings while the driver was still kilometres out.
+        //
+        // Anything under 50 m is treated as kilometres and converted. That is a
+        // safe cut-off: below 50 m the driver has effectively arrived and the UI
+        // shows an arrival state rather than a distance, so no genuine metre
+        // value in that range is ever displayed. Remove once the server sends
+        // true metres.
+        val raw = distanceMeters
+        if (raw != null && raw > 0) {
+            return if (raw < 50.0) raw * 1000.0 else raw
+        }
         val distKm = if (isPrePickup) distanceToPickupKm else distanceToDropKm
         return distKm?.let { it * 1000.0 }
     }

@@ -831,4 +831,16 @@
     <string name="pick_saved_address_hint">Fills the contact and flat details. Your pin on the map stays where it is.</string>
 
 
+
+    <!-- ═══ Home: "Why choose Parcel Wala?" ═══ -->
+    <string name="why_choose_title">Why choose Parcel Wala?</string>
+    <string name="why_safe_title">Safe &amp; Secure</string>
+    <string name="why_safe_subtitle">Your safety is our priority</string>
+    <string name="why_fast_title">Fast Delivery</string>
+    <string name="why_fast_subtitle">On-time delivery assured</string>
+    <string name="why_affordable_title">Affordable</string>
+    <string name="why_affordable_subtitle">Best rates in the market</string>
+    <string name="why_support_title">24/7 Support</string>
+    <string name="why_support_subtitle">We are here for you anytime</string>
+    <string name="content_desc_delivery_rider">Delivery rider illustration</string>
 </resources>

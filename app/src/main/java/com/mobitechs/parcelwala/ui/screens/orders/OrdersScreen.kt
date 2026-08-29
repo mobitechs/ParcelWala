@@ -68,7 +68,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -160,11 +160,11 @@ fun OrdersScreen(
     onBookAgain: (OrderResponse) -> Unit = {},
     viewModel: OrdersViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val selectedFilter by viewModel.selectedFilter.collectAsState()
-    val hasActiveBooking by viewModel.hasActiveBooking.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
+    val hasActiveBooking by viewModel.hasActiveBooking.collectAsStateWithLifecycle()
     var isRefreshing by remember { mutableStateOf(false) }
-    val ratingSubmitState by viewModel.ratingSubmitState.collectAsState()
+    val ratingSubmitState by viewModel.ratingSubmitState.collectAsStateWithLifecycle()
     var orderToRate by remember { mutableStateOf<OrderResponse?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()

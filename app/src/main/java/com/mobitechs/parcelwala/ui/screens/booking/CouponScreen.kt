@@ -46,7 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,8 +96,8 @@ fun CouponScreen(
     var isApplying  by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    val availableCoupons by viewModel.availableCoupons.collectAsState()
-    val uiState          by viewModel.uiState.collectAsState()
+    val availableCoupons by viewModel.availableCoupons.collectAsStateWithLifecycle()
+    val uiState          by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (availableCoupons.isEmpty()) viewModel.loadAvailableCoupons()
@@ -185,7 +185,7 @@ fun CouponScreen(
                             )
                         }
 
-                        items(availableCoupons) { coupon ->
+                        items(availableCoupons, key = { it.couponId }) { coupon ->
                             CouponCard(
                                 coupon    = coupon,
                                 onApply   = {

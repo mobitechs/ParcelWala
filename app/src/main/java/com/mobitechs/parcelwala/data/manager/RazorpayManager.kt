@@ -19,7 +19,7 @@ import javax.inject.Singleton
 class RazorpayManager @Inject constructor() {
 
     companion object {
-        const val TAG = "RazorpayManager"
+        const val TAG = "PW-Payment"
 
         // App branding
         const val TEST_KEY_ID = "rzp_test_SGQlDMvuLTyw5l"  // ← Paste your key here

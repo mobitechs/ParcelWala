@@ -69,8 +69,25 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+    // NOTE — the old `composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }`
+    // block was removed. Since Kotlin 2.0 the Compose compiler ships with the
+    // Kotlin distribution and is applied by the `kotlin-compose` plugin (already
+    // in the plugins block). The property was silently ignored, and the number
+    // in it — a Kotlin 1.9-era compiler version — was misleading about what was
+    // actually building the Composables.
+
+    packaging {
+        resources {
+            // Duplicate metadata from the many transitive libraries here; each
+            // entry is dead weight in the APK and a merge conflict waiting to
+            // happen.
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/DEPENDENCIES",
+                "/META-INF/LICENSE*",
+                "/META-INF/NOTICE*",
+            )
+        }
     }
 }
 

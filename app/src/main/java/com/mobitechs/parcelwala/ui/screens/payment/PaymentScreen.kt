@@ -43,7 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,7 +76,7 @@ import java.util.Locale
 fun PaymentsScreen(
     paymentViewModel: PaymentViewModel = hiltViewModel()
 ) {
-    val uiState by paymentViewModel.uiState.collectAsState()
+    val uiState by paymentViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
 
@@ -169,7 +169,8 @@ fun PaymentsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 100.dp),
+            // Bottom-bar clearance now comes from MainScreen's Scaffold inset.
+            contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             item {
@@ -226,7 +227,7 @@ fun PaymentsScreen(
                     }
                 }
             } else {
-                items(uiState.transactions) { transaction ->
+                items(uiState.transactions, key = { it.transactionId }) { transaction ->
                     TransactionItem(
                         transaction = transaction,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)

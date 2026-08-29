@@ -4,6 +4,7 @@ package com.mobitechs.parcelwala.ui.screens.main
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Payment
@@ -110,8 +111,20 @@ fun MainScreen(
             )
         }
     ) { paddingValues ->
+        // FIX — `paddingValues` was accepted and then thrown away, so the
+        // bottom navigation bar drew ON TOP of every tab's content. Orders and
+        // Account lost their last row entirely; Home and Payments only looked
+        // right because each had independently hard-coded a 100.dp spacer at
+        // the bottom, which is a guess at the bar's height rather than the
+        // measured value and is wrong on devices with gesture navigation.
+        //
+        // Only the BOTTOM inset is consumed here. The tab screens use
+        // StatusBarScaffold, which already applies the status-bar inset itself,
+        // so taking the top inset too would double-pad every header.
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = paddingValues.calculateBottomPadding())
         ) {
             NavHost(
                 navController = navController,

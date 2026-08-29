@@ -98,9 +98,15 @@ class AccountViewModel @Inject constructor(
     /**
      * Load saved addresses from repository
      */
-    fun loadSavedAddresses() {
+    /**
+     * [forceRefresh] bypasses the repository cache. Pass true only after a
+     * mutation, where the point is to reconcile with the server (ids, ordering,
+     * defaults it assigned). A plain screen entry must NOT force — that is what
+     * turned one address book into four network calls on the picker.
+     */
+    fun loadSavedAddresses(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            bookingRepository.getSavedAddresses().collect { result ->
+            bookingRepository.getSavedAddresses(forceRefresh).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoadingAddresses = true) }
@@ -164,7 +170,7 @@ class AccountViewModel @Inject constructor(
                         }
                         // Still refetch so the list matches the server exactly
                         // (server-assigned ids, ordering, defaults).
-                        loadSavedAddresses()
+                        loadSavedAddresses(forceRefresh = true)
                     }
 
                     is NetworkResult.Error -> {
@@ -206,7 +212,7 @@ class AccountViewModel @Inject constructor(
                                 error = null
                             )
                         }
-                        loadSavedAddresses()
+                        loadSavedAddresses(forceRefresh = true)
                     }
 
                     is NetworkResult.Error -> {

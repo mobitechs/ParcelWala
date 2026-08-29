@@ -424,6 +424,34 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Update ONLY the contact fields on the pickup / drop addresses.
+     *
+     * WHY THIS EXISTS AND WHY IT MUST NOT CLEAR ANYTHING
+     * `setPickupAddress` and `setDropAddress` both call `clearVehicleFares()`,
+     * which nulls `_selectedFareDetails`. That is correct for them — moving a
+     * location invalidates the quote.
+     *
+     * But the v2 flow collects the receiver's name and phone AFTER the customer
+     * has chosen a vehicle and seen the price. Routing that through
+     * `setDropAddress` wipes the selected fare, so the confirm screen shows a
+     * blank vehicle, a total of zero, and a disabled button. The coordinates
+     * have not moved, so there is nothing to re-quote.
+     *
+     * Pass only the side you are changing; the other is left alone.
+     */
+    fun setContactDetails(
+        pickup: SavedAddress? = null,
+        drop: SavedAddress? = null
+    ) {
+        _uiState.update { current ->
+            current.copy(
+                pickupAddress = pickup ?: current.pickupAddress,
+                dropAddress = drop ?: current.dropAddress
+            )
+        }
+    }
+
     fun setSelectedVehicle(vehicleType: VehicleTypeResponse) {
         _uiState.update {
             it.copy(
@@ -444,6 +472,22 @@ class BookingViewModel @Inject constructor(
                 goodsValue = goodsType.defaultValue
             )
         }
+    }
+
+    /**
+     * Override the approximate weight for this booking.
+     *
+     * `setGoodsType` seeds it from the type's `defaultWeight`, which is a
+     * category average — "Documents" assumes grams, "Household" assumes tens of
+     * kilos. That default is fine as a starting point and wrong often enough to
+     * matter: it is what the rider sees when deciding whether the parcel fits,
+     * and `goods_weight` already travels to the server on every booking, so the
+     * only thing missing was a way for the customer to correct it.
+     *
+     * Null clears the override and leaves whatever the type supplied.
+     */
+    fun setGoodsWeight(weightKg: Double?) {
+        _uiState.update { it.copy(goodsWeight = weightKg?.takeIf { w -> w > 0.0 }) }
     }
 
     fun applyCoupon(couponCode: String) {

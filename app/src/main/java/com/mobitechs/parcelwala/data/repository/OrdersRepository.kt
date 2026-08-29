@@ -54,17 +54,37 @@ class OrdersRepository @Inject constructor(
     ): Flow<NetworkResult<List<OrderResponse>>> = flow {
         emit(NetworkResult.Loading())
 
+        // FIX — the cache was written on every fetch and never once read, and
+        // `forceRefresh` was accepted and ignored. Every visit to the Orders
+        // tab, including simply switching away and back, showed a spinner over
+        // a list the app already had in memory.
+        //
+        // Stale-while-revalidate: the cached list is emitted immediately so the
+        // tab paints instantly, and the network fetch still runs and emits the
+        // authoritative list a moment later. Nothing is ever served stale — a
+        // booking created seconds ago still appears — the user just does not
+        // stare at a spinner while waiting for it.
+        val cached = cachedOrders
+        val servedFromCache = !forceRefresh && cached != null && isCacheValid()
+        if (servedFromCache) {
+            emit(NetworkResult.Success(filterOrders(cached!!, status)))
+        }
+
         try {
             val response = apiService.getMyOrders(status = status)
             if (response.success && response.data != null) {
                 cachedOrders = response.data
                 cacheTimestamp = System.currentTimeMillis()
                 emit(NetworkResult.Success(response.data))
-            } else {
+            } else if (!servedFromCache) {
                 emit(NetworkResult.Error(response.message ?: "Failed to load orders"))
             }
         } catch (e: Exception) {
-            emit(NetworkResult.Error(e.message ?: "Network error"))
+            // Already showing a usable list — a background refresh that fails is
+            // not worth an error dialog over content the user can read.
+            if (!servedFromCache) {
+                emit(NetworkResult.Error(e.message ?: "Network error"))
+            }
         }
     }
 

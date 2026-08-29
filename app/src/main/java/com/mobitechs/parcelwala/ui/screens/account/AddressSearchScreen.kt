@@ -40,7 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -64,6 +64,7 @@ import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.ui.components.ErrorMessageCard
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.SectionLabel
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LocationSearchViewModel
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
@@ -92,7 +93,7 @@ fun AddressSearchScreen(
     onBack: () -> Unit,
     viewModel: LocationSearchViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // FocusRequester passed down so the search bar can request keyboard focus
     // when the user taps anywhere inside the bar area.
@@ -368,7 +369,7 @@ private fun AutocompleteResultsList(
     onPredictionClick: (PlaceAutocomplete) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        items(predictions) { prediction ->
+        items(predictions, key = { it.placeId }) { prediction ->
             AutocompleteItem(
                 prediction = prediction,
                 onClick    = { onPredictionClick(prediction) }
@@ -448,7 +449,12 @@ private fun SavedAndRecentAddresses(
     ) {
         // ── Saved ──────────────────────────────────────────────────────────
         if (savedAddresses.isNotEmpty()) {
-            item { SectionLabel(text = stringResource(R.string.saved_addresses)) }
+            item {
+                SectionLabel(
+                    text = stringResource(R.string.saved_addresses),
+                    modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp)
+                )
+            }
             item {
                 Surface(
                     modifier        = Modifier
@@ -481,7 +487,12 @@ private fun SavedAndRecentAddresses(
 
         // ── Recent ─────────────────────────────────────────────────────────
         if (filteredRecent.isNotEmpty()) {
-            item { SectionLabel(text = stringResource(R.string.label_recent_searches)) }
+            item {
+                SectionLabel(
+                    text = stringResource(R.string.label_recent_searches),
+                    modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp)
+                )
+            }
             item {
                 Surface(
                     modifier        = Modifier
@@ -511,23 +522,6 @@ private fun SavedAndRecentAddresses(
             }
         }
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text     = text.uppercase(),
-        style    = MaterialTheme.typography.labelSmall.copy(
-            letterSpacing = 0.6.sp,
-            fontSize      = 10.sp
-        ),
-        fontWeight = FontWeight.SemiBold,
-        color      = AppColors.TextSecondary,
-        modifier   = Modifier.padding(
-            start  = 20.dp, end = 16.dp,
-            top    = 16.dp, bottom = 6.dp
-        )
-    )
 }
 
 @Composable

@@ -35,7 +35,7 @@ class ParcelWalaFirebaseMessagingService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
-        private const val TAG = "FCMService"
+        private const val TAG = "PW-FCM"
         const val CHANNEL_ID_BOOKING = "booking_notifications"
         const val CHANNEL_ID_PROMOTION = "promotion_notifications"
         const val CHANNEL_ID_GENERAL = "general_notifications"
