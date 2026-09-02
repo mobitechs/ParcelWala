@@ -160,7 +160,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+
                 ) {
                     // ═══ CUSTOM HEADER WITH PICKUP SEARCH ═══
                     HomeHeader(
@@ -180,80 +180,99 @@ fun HomeScreen(
                         isDisabled = hasActiveBooking
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // ✅ Active Booking Card
-                    AnimatedVisibility(
-                        visible = hasActiveBooking,
-                        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
                     ) {
-                        activeBooking?.let { booking ->
-                            ActiveBookingCard(
-                                activeBooking = booking,
-                                onClick = { onNavigateToActiveBooking(booking) },
-                                onRetry = { viewModel.retrySearch() }
-                            )
-                        }
-                    }
-
-                    // ✅ Active booking blocking banner
-                    if (hasActiveBooking) {
-                        ActiveBookingBlockingBanner(
-                            onViewBooking = {
-                                activeBooking?.let { onNavigateToActiveBooking(it) }
-                            }
+                        Image(
+                            painter = painterResource(id = R.drawable.pw_bg),
+                            alpha = 0.2f,
+                            contentDescription = stringResource(R.string.content_desc_app_logo),
+                            modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // ✅ Vehicles Grid (header + See All inside)
-                    if (uiState.vehicleTypes.isNotEmpty()) {
-                        VehicleTypesGrid(
-                            vehicleTypes = uiState.vehicleTypes,
-                            onVehicleSelected = {
-                                if (hasActiveBooking) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = completeCurrentSnackbar,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                } else {
-                                    onNavigateToLocationSearch()
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            // ✅ Active Booking Card
+                            AnimatedVisibility(
+                                visible = hasActiveBooking,
+                                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                            ) {
+                                activeBooking?.let { booking ->
+                                    ActiveBookingCard(
+                                        activeBooking = booking,
+                                        onClick = { onNavigateToActiveBooking(booking) },
+                                        onRetry = { viewModel.retrySearch() }
+                                    )
                                 }
-                            },
-                            isDisabled = hasActiveBooking
-                        )
-                    } else {
-                        EmptyState(
-                            icon = Icons.Default.DirectionsCar,
-                            title = stringResource(R.string.no_vehicles_available),
-                            subtitle = stringResource(R.string.try_again_later),
-                            actionText = stringResource(R.string.retry),
-                            onAction = { viewModel.refresh() },
-                            modifier = Modifier.padding(32.dp)
-                        )
+                            }
+
+                            // ✅ Active booking blocking banner
+                            if (hasActiveBooking) {
+                                ActiveBookingBlockingBanner(
+                                    onViewBooking = {
+                                        activeBooking?.let { onNavigateToActiveBooking(it) }
+                                    }
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            // ✅ Vehicles Grid (header + See All inside)
+                            if (uiState.vehicleTypes.isNotEmpty()) {
+                                VehicleTypesGrid(
+                                    vehicleTypes = uiState.vehicleTypes,
+                                    onVehicleSelected = {
+                                        if (hasActiveBooking) {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    message = completeCurrentSnackbar,
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                            }
+                                        } else {
+                                            onNavigateToLocationSearch()
+                                        }
+                                    },
+                                    isDisabled = hasActiveBooking
+                                )
+                            } else {
+                                EmptyState(
+                                    icon = Icons.Default.DirectionsCar,
+                                    title = stringResource(R.string.no_vehicles_available),
+                                    subtitle = stringResource(R.string.try_again_later),
+                                    actionText = stringResource(R.string.retry),
+                                    onAction = { viewModel.refresh() },
+                                    modifier = Modifier.padding(32.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            // Why choose Parcel Wala — trust signals, above the fold
+                            // on a first visit but below the thing people came to do.
+                            WhyChooseSection()
+
+                            Spacer(modifier = Modifier.height(28.dp))
+
+
+                            // Announcements
+                            AnnouncementsSection()
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            // Marketing Text
+                            MarketingText()
+
+                            // Bottom-bar clearance now comes from MainScreen's Scaffold inset.
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-                    // Why choose Parcel Wala — trust signals, above the fold
-                    // on a first visit but below the thing people came to do.
-                    WhyChooseSection()
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-
-                    // Announcements
-                    AnnouncementsSection()
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Marketing Text
-                    MarketingText()
-
-                    // Bottom-bar clearance now comes from MainScreen's Scaffold inset.
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
 
@@ -299,20 +318,9 @@ private fun HomeHeader(
                 ),
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
             )
-            .padding(top = statusBarHeight + 12.dp, bottom = 20.dp)
+            .padding(top = statusBarHeight + 12.dp, bottom = 1.dp)
     ) {
-        // ═══ Header artwork ═══
-        //
-        // Both are vectors authored for this app rather than sourced bitmaps:
-        // one file covers every density, they total a few KB, and nothing
-        // third-party is redistributed inside the APK.
-        //
-        // Drawn FIRST so everything below stacks on top of them, and both are
-        // held well back in opacity — this is texture behind a search field
-        // people need to read, not an illustration competing with it.
 
-        // City skyline, pinned to the bottom edge of the header so the
-        // buildings sit on the header's lower rounded corners.
         Image(
             painter = painterResource(id = R.drawable.bg_city_skyline),
             contentDescription = null,
@@ -328,17 +336,17 @@ private fun HomeHeader(
         Image(
             painter = painterResource(id = R.drawable.ic_delivery_rider),
             contentDescription = stringResource(R.string.content_desc_delivery_rider),
-            alpha = 0.28f,
+            alpha = 0.5f,
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 4.dp, end = 62.dp)
-                .size(width = 104.dp, height = 78.dp)
+                .align(Alignment.BottomEnd)
+                .padding(top = 10.dp, end = 10.dp)
+                .size(width = 64.dp, height = 64.dp)
         )
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(start = 20.dp, end =20.dp, bottom = 20.dp )
         ) {
             // ═══ Title Row: App Name + Notification Bell ═══
             Row(
@@ -1153,9 +1161,6 @@ private fun VehicleTypesGrid(
     }
 }
 
-/**
- * Vehicle Card with Emoji Icon
- */
 @Composable
 private fun VehicleCard(
     vehicle: VehicleTypeResponse,
@@ -1250,9 +1255,6 @@ private fun VehicleCard(
     }
 }
 
-/**
- * Announcements Section
- */
 @Composable
 private fun AnnouncementsSection() {
     Column(
@@ -1337,24 +1339,6 @@ private fun AnnouncementsSection() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// WHY CHOOSE PARCEL WALA
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * The four reassurances, as one row of equal columns.
- *
- * WHY A ROW AND NOT A GRID OR A CARD LIST
- *
- * These are not actions and not content — nothing here is tappable, and nobody
- * reads them twice. They are there to answer "can I trust this app with my
- * parcel" on a first visit, which means they need to be seen together, at a
- * glance, without scrolling past four separate cards.
- *
- * Equal `weight(1f)` columns rather than fixed widths so the row survives long
- * translations: the Hindi and Marathi strings are noticeably longer than the
- * English, and a fixed-width layout would clip them on a narrow screen.
- */
 @Composable
 private fun WhyChooseSection() {
     Column(modifier = Modifier.fillMaxWidth()) {

@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +30,8 @@ import kotlinx.coroutines.delay
  * How long the splash stays up before navigating. Was 2000 ms of dead time on
  * every cold start; see the note in [SplashScreen].
  */
-private const val SPLASH_MIN_VISIBLE_MS = 450L
+//private const val SPLASH_MIN_VISIBLE_MS = 450L
+private const val SPLASH_MIN_VISIBLE_MS = 2000L
 
 @Composable
 fun SplashScreen(
@@ -62,34 +65,35 @@ fun SplashScreen(
         contentAlignment = Alignment.Center
     ) {
         Column(
+            Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // Logo
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = painterResource(id = R.drawable.pw_splash),
                 contentDescription = stringResource(R.string.content_desc_app_logo),
-                modifier = Modifier.size(150.dp)
+                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // App Name
-            Text(
-                text = stringResource(R.string.label_app_name_display),
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Tagline
-            Text(
-                text = stringResource(R.string.label_tagline),
-                fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.8f)
-            )
+//            Spacer(modifier = Modifier.height(16.dp))
+//
+//            // App Name
+//            Text(
+//                text = stringResource(R.string.label_app_name_display),
+//                fontSize = 32.sp,
+//                fontWeight = FontWeight.Bold,
+//                color = Color.White
+//            )
+//
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            // Tagline
+//            Text(
+//                text = stringResource(R.string.label_tagline),
+//                fontSize = 16.sp,
+//                color = Color.White.copy(alpha = 0.8f)
+//            )
         }
     }
 }
