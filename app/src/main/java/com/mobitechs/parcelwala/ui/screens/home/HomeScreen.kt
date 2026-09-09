@@ -318,23 +318,22 @@ private fun HomeHeader(
                 ),
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
             )
-            .padding(top = statusBarHeight + 12.dp, bottom = 1.dp)
+            //.padding(top = statusBarHeight + 12.dp, bottom = 1.dp)
     ) {
 
         Image(
-            painter = painterResource(id = R.drawable.bg_city_skyline),
+            painter = painterResource(id = R.drawable.building),
             contentDescription = null,
             contentScale = ContentScale.FillWidth,
             alpha = 0.10f,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(96.dp)
         )
 
         // Rider, top-right, tucked behind the notification bell.
         Image(
-            painter = painterResource(id = R.drawable.ic_delivery_rider),
+            painter = painterResource(id = R.drawable.ride_scooter),
             contentDescription = stringResource(R.string.content_desc_delivery_rider),
             alpha = 0.5f,
             modifier = Modifier
@@ -346,7 +345,7 @@ private fun HomeHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end =20.dp, bottom = 20.dp )
+                .padding(start = 20.dp, end =20.dp, bottom = 20.dp ,top = statusBarHeight + 12.dp)
         ) {
             // ═══ Title Row: App Name + Notification Bell ═══
             Row(
