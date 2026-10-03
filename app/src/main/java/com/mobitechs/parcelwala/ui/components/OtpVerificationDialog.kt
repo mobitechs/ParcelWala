@@ -126,7 +126,7 @@ fun OtpVerificationDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
+                    colors = ctaButtonColors(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
@@ -277,14 +277,14 @@ fun OtpInputDialog(
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
+                        colors = ctaButtonColors(),
                         shape = RoundedCornerShape(12.dp),
                         enabled = !isLoading && otp.length == 4
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = Color.White,
+                                color = AppColors.OnCta,
                                 strokeWidth = 2.dp
                             )
                         } else {

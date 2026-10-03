@@ -66,6 +66,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.LanguageViewModel
 import kotlinx.coroutines.delay
@@ -245,7 +246,7 @@ fun LanguageSelectionScreen(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
+                    colors = ctaButtonColors(),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {

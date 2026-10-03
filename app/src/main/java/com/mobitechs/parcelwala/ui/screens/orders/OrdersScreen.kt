@@ -92,6 +92,7 @@ import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.RatingDialog
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
 import com.mobitechs.parcelwala.ui.theme.AppSpacing
@@ -1032,7 +1033,7 @@ private fun ErrorState(error: String, onRetry: () -> Unit) {
             Spacer(modifier = Modifier.height(AppSpacing.SM))
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
+                colors = ctaButtonColors(),
                 shape = RoundedCornerShape(AppRadius.MD),
                 contentPadding = PaddingValues(
                     horizontal = AppSpacing.X3L,

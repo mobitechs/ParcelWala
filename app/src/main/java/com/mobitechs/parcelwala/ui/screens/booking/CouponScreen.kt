@@ -360,8 +360,10 @@ private fun CouponTopBar(
                 Surface(
                     onClick  = onApply,
                     shape    = RoundedCornerShape(9.dp),
-                    color    = if (code.isNotBlank() && !isApplying)
-                        Color.White
+                    // Amber once there is a code to apply (and while applying,
+                    // so the spinner sits on amber rather than on a dim chip).
+                    color    = if (code.isNotBlank())
+                        AppColors.Cta
                     else
                         Color.White.copy(alpha = 0.25f),
                     modifier = Modifier.height(34.dp)
@@ -374,7 +376,7 @@ private fun CouponTopBar(
                         if (isApplying) {
                             CircularProgressIndicator(
                                 modifier    = Modifier.size(14.dp),
-                                color       = AppColors.PrimaryDeep,
+                                color       = AppColors.OnCta,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -382,7 +384,7 @@ private fun CouponTopBar(
                                 text       = stringResource(R.string.label_apply),
                                 style      = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                 fontWeight = FontWeight.Bold,
-                                color      = if (code.isNotBlank()) AppColors.PrimaryDeep
+                                color      = if (code.isNotBlank()) AppColors.OnCta
                                 else Color.White.copy(alpha = 0.50f)
                             )
                         }

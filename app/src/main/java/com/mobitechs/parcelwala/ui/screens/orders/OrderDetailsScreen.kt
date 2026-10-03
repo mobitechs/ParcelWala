@@ -72,6 +72,7 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.components.SectionLabel
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
 import com.mobitechs.parcelwala.ui.theme.AppSpacing
@@ -292,7 +293,7 @@ fun OrderDetailsScreen(
                                 bottom = AppSpacing.LG
                             )
                             .navigationBarsPadding(),   // ← clears gesture/3-button nav bar
-                        colors = ButtonDefaults.buttonColors(containerColor = headerColor),
+                        colors = ctaButtonColors(),
                         shape = RoundedCornerShape(AppRadius.MD),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {

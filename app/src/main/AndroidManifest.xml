@@ -61,10 +61,10 @@
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
 
-        <!-- Default notification color (your orange theme) -->
+        <!-- Default notification accent: brand Deep Navy (#25245F) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/places_autocomplete_progress_tint" />
+            android:resource="@color/primary" />
 
 
     </application>

@@ -66,16 +66,14 @@ fun ErrorView(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
-                color = Color.Gray
+                color = AppColors.TextSecondary
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.Blue
-                )
+                colors = ctaButtonColors()
             ) {
                 Text(stringResource(R.string.retry))
             }
