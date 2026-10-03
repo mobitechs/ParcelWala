@@ -117,6 +117,7 @@ class AccountViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoadingAddresses = false,
+                                hasLoadedAddresses = true,
                                 error = null
                             )
                         }
@@ -126,6 +127,10 @@ class AccountViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 isLoadingAddresses = false,
+                                // An answer, even if the answer is "couldn't
+                                // load" — callers waiting on the address book
+                                // must not wait forever.
+                                hasLoadedAddresses = true,
                                 error = result.message
                             )
                         }
@@ -318,6 +323,14 @@ class AccountViewModel @Inject constructor(
 data class AccountUiState(
     val isLoading: Boolean = false,
     val isLoadingAddresses: Boolean = false,
+    /**
+     * True once the address book has answered at least once (success or
+     * error). `isLoadingAddresses` alone cannot tell "not asked yet" from
+     * "asked and done" — both are false — and the booking flow needs that
+     * difference to know whether the customer has a Home address before it
+     * falls back to GPS for the pickup.
+     */
+    val hasLoadedAddresses: Boolean = false,
     val isSavingAddress: Boolean = false,
     val isDeletingAddress: Boolean = false,
     val isSavingGST: Boolean = false,

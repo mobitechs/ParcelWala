@@ -286,7 +286,7 @@ fun AddressContactScreen(
                     text = "Save as (optional):",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -518,4 +518,4 @@ private fun SaveAsChip(
 }
 
 /** The dark bubble colour, matching the reference design's tooltip. */
-private val TooltipBackground = Color(0xFF1F2937)
+private val TooltipBackground = AppColors.Gray800

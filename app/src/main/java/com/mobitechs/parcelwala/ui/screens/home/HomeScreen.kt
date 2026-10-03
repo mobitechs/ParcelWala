@@ -36,7 +36,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CurrencyRupee
@@ -104,10 +106,12 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
+import com.mobitechs.parcelwala.data.model.moving.MovingCategory
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
 import com.mobitechs.parcelwala.ui.components.AddressesCard
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
+import com.mobitechs.parcelwala.ui.components.SeeAllLink
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberBg
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
@@ -128,6 +132,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onNavigateToLocationSearch: () -> Unit,
+    /**
+     * Smart Shifting. A different question from the parcel flow's — "what are
+     * you moving?" rather than "where to?" — and therefore a different entry
+     * point rather than a variant of the same one.
+     */
+    onNavigateToShifting: (MovingCategory?) -> Unit = {},
     onNavigateToActiveBooking: (ActiveBooking) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -252,6 +262,34 @@ fun HomeScreen(
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
+
+                            // ═══ SMART SHIFTING ═══
+                            //
+                            // Directly under "Select Vehicle Type", and that
+                            // position is the whole point: the grid above asks a
+                            // question a house-mover cannot answer. Someone
+                            // shifting a flat does not know whether their life
+                            // fits in a Tata Ace, so they either guess or leave.
+                            // This section is the alternative on-ramp, placed
+                            // exactly where that doubt happens.
+                            SmartShiftingSection(
+                                onStart = { category ->
+                                    if (hasActiveBooking) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = completeCurrentSnackbar,
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                    } else {
+                                        onNavigateToShifting(category)
+                                    }
+                                },
+                                isDisabled = hasActiveBooking
+                            )
+
+                            Spacer(modifier = Modifier.height(28.dp))
+
                             // Why choose Parcel Wala — trust signals, above the fold
                             // on a first visit but below the thing people came to do.
                             WhyChooseSection()
@@ -287,7 +325,7 @@ fun HomeScreen(
                             tint = AppColors.Drop
                         )
                     },
-                    title = { Text(stringResource(R.string.error_dialog_title)) },
+                    title = { Text(stringResource(R.string.error_dialog_title), color = AppColors.Heading) },
                     text = { Text(error) },
                     confirmButton = {
                         TextButton(onClick = { viewModel.clearError() }) {
@@ -1100,33 +1138,17 @@ private fun VehicleTypesGrid(
                 text = stringResource(R.string.select_vehicle_type),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary
+                color = if (isDisabled) AppColors.TextHint else AppColors.Heading
             )
 
             if (vehicleTypes.size > 3) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showAll = !showAll }
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = if (showAll) stringResource(R.string.show_less)
-                        else stringResource(R.string.see_all),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.Primary
-                    )
-                    Icon(
-                        imageVector = if (showAll) Icons.Default.KeyboardArrowUp
-                        else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = AppColors.Primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                SeeAllLink(
+                    text = if (showAll) stringResource(R.string.show_less)
+                    else stringResource(R.string.see_all),
+                    onClick = { showAll = !showAll },
+                    trailingIcon = if (showAll) Icons.Default.KeyboardArrowUp
+                    else Icons.Default.KeyboardArrowDown
+                )
             }
         }
 
@@ -1270,15 +1292,12 @@ private fun AnnouncementsSection() {
                 text = stringResource(R.string.announcements),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
-            TextButton(onClick = { /* TODO */ }) {
-                Text(
-                    text = stringResource(R.string.view_all),
-                    color = AppColors.Primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            SeeAllLink(
+                text = stringResource(R.string.view_all),
+                onClick = { /* TODO */ }
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -1345,7 +1364,7 @@ private fun WhyChooseSection() {
             text = stringResource(R.string.why_choose_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary,
+            color = AppColors.Heading,
             modifier = Modifier.padding(horizontal = 20.dp)
         )
 
@@ -1476,5 +1495,249 @@ private fun MarketingText() {
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
+    }
+}
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * SMART SHIFTING — the Home entry point
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * WHY THIS SECTION EXISTS AT ALL
+ *
+ * The vehicle grid above it asks "which vehicle?", and for a house move that is
+ * the wrong question — the customer has no way to translate a sofa, a double bed
+ * and eight cartons into "Tata Ace". Faced with that grid they either guess
+ * (and a wrong guess means a driver who cannot fit the load, a cancelled trip
+ * and a refund) or they close the app. This section is the other on-ramp,
+ * placed directly under the grid, where that doubt actually happens.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY THE TILES DEEP-LINK INTO A CATEGORY
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * Tapping "Furniture" here and then landing on a screen that asks "what are you
+ * moving?" is asking the same question twice, and the second one reads as the
+ * app not having heard the first. The category travels with the tap and the
+ * flow opens on the item list for it. The wide card underneath — for customers
+ * whose move does not fit a tile — is the one that opens the category screen
+ * proper.
+ */
+@Composable
+private fun SmartShiftingSection(
+    onStart: (MovingCategory?) -> Unit,
+    isDisabled: Boolean = false
+) {
+    // Six of the eight categories, ordered small-to-large.
+    //
+    // FOOD and SMALL ITEMS lead deliberately. Most people opening this app are
+    // sending one thing, not moving a house — putting a sofa first tells them
+    // this section is not for them and they never read the rest. Starting at a
+    // tiffin box says "this handles your whole errand" and the house-move tiles
+    // are still right there in the same glance.
+    //
+    // "Mixed Items" is left out of the grid and reached through the wide card
+    // below: it is the catch-all, and a catch-all sitting among six specific
+    // choices gets picked by people who simply did not read the other five.
+    val tiles = listOf(
+        MovingCategory.FOOD,
+        MovingCategory.SMALL_ITEMS,
+        MovingCategory.BOXES,
+        MovingCategory.FURNITURE,
+        MovingCategory.APPLIANCES,
+        MovingCategory.FULL_HOUSE
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+    ) {
+        // ── Heading ────────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.shifting_section_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isDisabled) AppColors.TextHint else AppColors.Heading
+            )
+            Text(
+                text = stringResource(R.string.shifting_badge_new),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp,
+                color = AppColors.AccentDark,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.AccentLight)
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(3.dp))
+
+        Text(
+            text = stringResource(R.string.shifting_section_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppColors.TextSecondary,
+            fontSize = 13.sp,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // ── Category tiles, three per row ──────────────────────────────────
+        tiles.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                row.forEach { category ->
+                    ShiftingCategoryTile(
+                        category = category,
+                        isDisabled = isDisabled,
+                        onClick = { onStart(category) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
+
+        // ── The wide "not sure?" card ──────────────────────────────────────
+        //
+        // This carries the actual promise: you list it, we size it. The tiles
+        // above are shortcuts INTO that promise, but a customer whose move is a
+        // mixed bag needs a door that does not make them classify it first.
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !isDisabled) { onStart(null) },
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDisabled) AppColors.SurfaceVariant else AppColors.Primary
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.White.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = AppColors.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.shifting_cta_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.White
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.shifting_cta_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(AppColors.White.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = AppColors.White,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShiftingCategoryTile(
+    category: MovingCategory,
+    isDisabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clickable(enabled = !isDisabled, onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isDisabled) AppColors.Border.copy(alpha = 0.3f) else AppColors.Border
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (isDisabled) AppColors.SurfaceVariant
+                        else AppColors.PrimaryLight
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = category.icon, fontSize = 20.sp)
+            }
+
+            Spacer(modifier = Modifier.height(7.dp))
+
+            Text(
+                text = category.title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isDisabled) AppColors.TextHint else AppColors.TextPrimary,
+                textAlign = TextAlign.Center,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

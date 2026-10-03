@@ -342,7 +342,7 @@ private fun MapPickerTopBar(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF34D399)) // emerald-400
+                            .background(AppColors.Pickup)
                     )
                 }
 
@@ -416,7 +416,7 @@ private fun MapPickerBottomPanel(
                     letterSpacing = 0.7.sp
                 ),
                 fontWeight = FontWeight.Bold,
-                color      = AppColors.TextSecondary
+                color      = AppColors.Heading
             )
 
             // ── Address row ────────────────────────────────────────────────

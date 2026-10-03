@@ -34,7 +34,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -204,7 +206,7 @@ fun SectionLabel(
             fontSize = 10.sp
         ),
         fontWeight = FontWeight.SemiBold,
-        color = AppColors.TextSecondary,
+        color = AppColors.Heading,
         modifier = Modifier.padding(bottom = 6.dp).then(modifier)
     )
 }
@@ -223,7 +225,7 @@ fun SectionHeader(
             text = text,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
+            color = AppColors.Heading
         )
         subtitle?.let {
             Spacer(modifier = Modifier.height(4.dp))
@@ -231,6 +233,50 @@ fun SectionHeader(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = AppColors.TextSecondary
+            )
+        }
+    }
+}
+
+/**
+ * "View all" / "See all" — the one style for every inline link that opens more.
+ *
+ * Green and underlined, so it reads as a link rather than as another heading
+ * (headings are brand primary) or a button. Every call site goes through here,
+ * so the link style is a one-place change.
+ *
+ * [trailingIcon] is for the expand/collapse arrow on toggles like the vehicle
+ * grid's "See All / Show Less"; it takes the same colour as the text.
+ */
+@Composable
+fun SeeAllLink(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.labelLarge,
+    trailingIcon: ImageVector? = null
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = text,
+            style = style,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.Link,
+            textDecoration = TextDecoration.Underline
+        )
+        trailingIcon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                tint = AppColors.Link,
+                modifier = Modifier.size(18.dp)
             )
         }
     }
@@ -390,7 +436,7 @@ fun EmptyState(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
-            color = AppColors.TextPrimary
+            color = AppColors.Heading
         )
         subtitle?.let {
             Text(

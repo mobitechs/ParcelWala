@@ -49,6 +49,50 @@ data class VehicleTypeResponse(
     @SerializedName("dimensions")
     val dimensions: String? = null,
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // LOADING SPACE — added for Smart Shifting
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Household goods "cube out" long before they "weigh out": a Tata Ace is
+    // rated for 750 kg but holds ~80 cubic feet, and two sofas fill it at under
+    // 150 kg. Sizing a move on `max_capacity_kg` alone therefore recommends
+    // vehicles the goods physically cannot fit into.
+    //
+    // All FOUR fields are optional and the app degrades gracefully without them
+    // (it parses the `capacity` string, then falls back to a vehicle-name
+    // table), so shipping the client does not block on the backend. But every
+    // fallback is a guess about the operator's own fleet — send these and the
+    // recommendation becomes exact.
+    //
+    // See the backend documentation for the full contract.
+
+    /**
+     * Usable loading volume in cubic feet. THE MOST IMPORTANT ONE.
+     *
+     * If only one field can be added, add this. It short-circuits every fallback
+     * in `MovingRecommendationEngine.toLoadProfile`.
+     */
+    @SerializedName("capacity_cft")
+    val capacityCft: Double? = null,
+
+    /** Loading deck length in feet. */
+    @SerializedName("deck_length_ft")
+    val deckLengthFt: Double? = null,
+
+    /** Loading deck width in feet. */
+    @SerializedName("deck_width_ft")
+    val deckWidthFt: Double? = null,
+
+    /**
+     * Usable loading height in feet.
+     *
+     * For an open body this is the height goods can be stacked to, NOT the side
+     * rail height — the app already discounts the deck box by 15% for the fact
+     * that nothing is packed to the very top.
+     */
+    @SerializedName("deck_height_ft")
+    val deckHeightFt: Double? = null,
+
     @SerializedName("is_available")
     val isAvailable: Boolean = true,
 

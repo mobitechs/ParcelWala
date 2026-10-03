@@ -34,6 +34,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.utils.rememberContactPicker
+import com.mobitechs.parcelwala.utils.rememberLocationPermission
 import com.mobitechs.parcelwala.utils.rememberLocationPermissionState
 import com.mobitechs.parcelwala.ui.viewmodel.AccountUiState
 import com.mobitechs.parcelwala.ui.viewmodel.AccountViewModel
@@ -100,6 +101,13 @@ private const val PICKER_ROUTE = "sendparcel_destination/{slot}"
  * address search when the customer taps "Change".
  */
 private const val ACTIVATE_SLOT_KEY = "activate_slot"
+
+/**
+ * The `addressId` LocationSearchViewModel.getCurrentLocation() gives the GPS
+ * result. It is how the picker tells "where I am" apart from a search result,
+ * since both arrive through the same `selectedAddress` field.
+ */
+private const val CURRENT_LOCATION_ID = "current"
 
 fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
 
@@ -168,32 +176,39 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         var showSavedOnly by rememberSaveable { mutableStateOf(false) }
 
         // ─────────────────────────────────────────────────────────────────────
-        // PICKUP DEFAULTS TO WHERE THE CUSTOMER IS STANDING
+        // PICKUP DEFAULT — HOME ADDRESS FIRST, THEN WHERE THE CUSTOMER IS
         //
-        // This used to live on the deleted home screen. Almost every parcel is
-        // handed over from wherever the sender currently is, so asking them to
-        // search for their own address is asking them to type something the
-        // phone already knows.
+        //   1. A Home address in the address book → that is the pickup. Its own
+        //      contact name / number are kept; the profile only fills a blank.
+        //   2. No Home address → the current GPS location, stamped with the
+        //      profile's name and number by `withSender`.
         //
-        // `withSender` stamps the profile's name and number onto it in the same
-        // step, so the pickup arrives complete — location, contact name and
-        // contact number — rather than as a bare address that still needs two
-        // more fields filled in later. All three stay editable: the row opens
-        // the details screen, and "Change" there reopens this one.
+        // Either way the pickup arrives complete — location, contact name and
+        // contact number — and all three stay editable: the row opens the
+        // details screen, and "Change" there reopens this one.
+        //
+        // WHY GPS WAITS FOR THE ADDRESS BOOK
+        // We cannot know which case applies until the address book answers.
+        // Firing GPS immediately (as this screen used to) lets a fast fix fill
+        // the pickup a moment before the Home address arrives, and Home would
+        // then never be used. So GPS starts only once the list is in and has no
+        // Home in it. A failed load counts as an answer — see
+        // AccountUiState.hasLoadedAddresses — so an offline address book falls
+        // back to GPS instead of leaving the pickup empty.
         // ─────────────────────────────────────────────────────────────────────
         // FIX — nothing on this screen asked for the location permission.
         //
         // getCurrentLocation() throws SecurityException without it and
         // LocationSearchViewModel catches that into an error field nothing
         // renders, so on a fresh install the pickup row simply stayed empty
-        // forever with no prompt and no explanation. The old home screen this
-        // replaced had the same gap; it was just less visible there because the
-        // pickup was one line of small text rather than half the screen.
-        val hasLocationPermission = rememberLocationPermissionState { granted ->
-            if (granted && booking.uiState.value.pickupAddress == null) {
-                locationVm.getCurrentLocation()
-            }
-        }
+        // forever with no prompt and no explanation.
+        //
+        // The result callback deliberately does nothing: the grant flips
+        // `granted`, which re-runs the pickup effect below, and that effect is
+        // the one place that knows whether a Home address should win. Fetching
+        // here as well would race it — and could put GPS over a Home pickup.
+        val locationPermission = rememberLocationPermission { }
+        val hasLocationPermission = locationPermission.granted
 
         // Once per screen entry, NOT keyed on the permission.
         //
@@ -203,24 +218,53 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         // in their init blocks. Four GETs for one list.
         LaunchedEffect(Unit) { account.loadSavedAddresses() }
 
-        LaunchedEffect(hasLocationPermission.value) {
-            if (hasLocationPermission.value && bookingState.pickupAddress == null) {
-                locationVm.getCurrentLocation()
+        val addressBookReady = accountState.hasLoadedAddresses
+        val homeAddress = remember(savedAddresses) { savedAddresses.defaultHomeAddress() }
+
+        LaunchedEffect(addressBookReady, homeAddress, hasLocationPermission.value) {
+            // Read live, not from the composition snapshot: this effect can be
+            // re-launched by the permission grant after the customer has
+            // already filled the pickup by hand.
+            if (!addressBookReady || booking.uiState.value.pickupAddress != null) {
+                return@LaunchedEffect
             }
-        }
-        LaunchedEffect(state.selectedAddress) {
-            val resolved = state.selectedAddress
-            if (resolved != null && bookingState.pickupAddress == null) {
-                booking.setPickupAddress(resolved.withSender(accountState.toSender()))
+            when {
+                homeAddress != null -> booking.setPickupAddress(
+                    homeAddress.withSenderFallback(account.uiState.value.toSender())
+                )
+                hasLocationPermission.value -> locationVm.getCurrentLocation()
+                // No Home and no permission: the row stays empty and the
+                // "Use my current location" shortcut is shown, which asks.
             }
         }
 
-        // Only "resolving" while we are actually going to get an answer. With
-        // the permission refused there is nothing in flight, so a spinner would
-        // sit there forever promising something that is never coming.
-        val isResolvingPickup = bookingState.pickupAddress == null &&
-                hasLocationPermission.value &&
-                state.isLoading
+        LaunchedEffect(state.selectedAddress) {
+            val resolved = state.selectedAddress
+            // Only the GPS lookup's answer becomes the pickup. selectPlace()
+            // writes this same field when the customer picks a search result
+            // for EITHER end, so without the id check a drop chosen while the
+            // pickup was still empty was copied into the pickup as well.
+            if (resolved != null &&
+                resolved.addressId == CURRENT_LOCATION_ID &&
+                booking.uiState.value.pickupAddress == null
+            ) {
+                booking.setPickupAddress(
+                    resolved.withSender(account.uiState.value.toSender())
+                )
+            }
+        }
+
+        // "Resolving" while we are still finding out (address book in flight)
+        // or GPS is genuinely working. With no Home and the permission refused
+        // there is nothing in flight, so a spinner would sit there forever
+        // promising something that is never coming.
+        val isResolvingPickup = bookingState.pickupAddress == null && (
+                !addressBookReady ||
+                        (hasLocationPermission.value && state.isLoading)
+                )
+
+        /** Non-null when the customer came through Smart Shifting. */
+        val movingContext = bookingState.movingContext
 
         // The details screen asks us to reopen a specific row for editing when
         // the customer taps "Change" there. A SavedStateHandle is the only way
@@ -447,6 +491,32 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             onToggleSavedFilter = {
                 showSavedOnly = !showSavedOnly
                 if (showSavedOnly) locationVm.updateSearchQuery("")
+            },
+            // The manual path back to the automatic one. `getCurrentLocation`
+            // writes `selectedAddress`, which the effect above turns into the
+            // pickup — so this is the same code path the screen runs by itself,
+            // not a second way of setting the address that could diverge from it.
+            // Denied is the state this button is MOST likely to be shown in —
+            // it is drawn precisely because the pickup is empty, and a refused
+            // permission is the commonest reason for that. Calling
+            // getCurrentLocation() there throws a SecurityException into an
+            // error field nothing renders, so the button did nothing at all and
+            // said nothing about why. Asking first is the only useful thing it
+            // can do; the permission callback runs the lookup on a grant.
+            onUseCurrentLocation = {
+                if (hasLocationPermission.value) locationVm.getCurrentLocation()
+                else locationPermission.request()
+            },
+            // ── Toolbar ────────────────────────────────────────────────────
+            //
+            // Smart Shifting arrives here after four screens of questions, so
+            // the header says what step this is and — more importantly — that
+            // the item list is still held. Without it the customer lands on two
+            // empty address boxes with a bare back arrow and no sign the last
+            // four screens counted for anything.
+            title = if (movingContext != null) "Add pickup & drop" else "Pickup & drop",
+            subtitle = movingContext?.let {
+                "${it.itemCount} item" + (if (it.itemCount == 1) "" else "s") + " saved"
             },
             onBack = { navController.popBackStack() }
         )
@@ -689,14 +759,61 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             }
         }
 
-        val options = remember(fares) { fares.toVehicleOptions() }
+        // The Smart Shifting recommendation, when this booking came through
+        // that flow. Null for an ordinary parcel, in which case the adapter
+        // falls back to highlighting the cheapest option as "Popular".
+        val options = remember(fares, state.preferredVehicleTypeId, state.eligibleVehicleTypeIds) {
+            fares.toVehicleOptions(
+                recommendedVehicleTypeId = state.preferredVehicleTypeId,
+                // The engine's own answer, computed against the same fleet the
+                // recommendation used. Empty for a parcel booking.
+                eligibleVehicleTypeIds = state.eligibleVehicleTypeIds
+            )
+        }
 
         // Auto-select so the CTA is live with a real price immediately. An
         // enabled button showing ₹248 converts far better than a grey one
         // asking the customer to make a choice first.
-        LaunchedEffect(fares) {
+        //
+        // THE RECOMMENDED VEHICLE WINS OVER THE CHEAPEST.
+        //
+        // For a parcel these are the same thing and nothing changes. For a house
+        // move they are emphatically not: the cheapest vehicle on the route is a
+        // bike, and silently selecting it after the customer spent four screens
+        // telling us about a sofa and a double bed would throw away the entire
+        // point of the flow — and hand them a price that cannot deliver the job.
+        LaunchedEffect(options, state.preferredVehicleTypeId) {
             if (selectedFare == null && fares.isNotEmpty()) {
-                booking.selectFareDetails(fares.minByOrNull { it.roundedFare } ?: fares.first())
+                // ── NEVER AUTO-SELECT A LOCKED VEHICLE ────────────────────
+                //
+                // The fallback used to be `fares.minByOrNull { roundedFare }`,
+                // which on a house move is the BIKE. When the fare API does not
+                // quote the recommended vehicle on a route — withdrawn, not
+                // priced in that city — `preferred` came back null and the
+                // cheapest was selected silently. The bike row then rendered
+                // greyed out with "Too small for your items" AND was the
+                // selected vehicle, with an enabled CTA reading
+                // "Book bike · ₹120". One tap booked a 2 BHK onto a bike.
+                //
+                // Restricting the whole search to selectable rows closes it:
+                // the sheet's click guard, the id guard below, and this effect
+                // now all read the same eligibility.
+                val selectableIds = options.filter { it.isSelectable }
+                    .mapTo(mutableSetOf()) { it.id }
+                val selectable = fares.filter { it.vehicleTypeId.toString() in selectableIds }
+
+                val preferred = state.preferredVehicleTypeId
+                    ?.let { id -> selectable.firstOrNull { it.vehicleTypeId == id } }
+
+                // `selectable` is empty only when every row is locked, which
+                // the adapter cannot produce — an empty eligibility set
+                // disables nothing. Falling back to `fares` keeps the parcel
+                // flow's behaviour exactly.
+                val pool = selectable.ifEmpty { fares }
+
+                booking.selectFareDetails(
+                    preferred ?: pool.minByOrNull { it.roundedFare } ?: pool.first()
+                )
             }
         }
 
@@ -705,6 +822,10 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             drop = drop,
             vehicles = options,
             selectedVehicleId = selectedFare?.vehicleTypeId?.toString(),
+            // A Smart Shifting booking already has a goods label written by
+            // `setMovingContext` ("House Shifting · Sofa x1 …"). Defaulting to
+            // "Documents" here would overwrite that on the chip and, worse,
+            // suggest the customer still has that decision to make.
             goodsType = state.selectedGoodsTypeName ?: "Documents",
             goodsWeightKg = state.goodsWeight,
             paymentMethod = state.paymentMethod,
@@ -712,7 +833,8 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             couponDiscount = state.discount,
             isLoadingFares = isFareLoading,
             routeDistanceKm = booking.getRoadDistanceKm(),
-            routeDurationMin = booking.getRoadEtaMinutes()
+            routeDurationMin = booking.getRoadEtaMinutes(),
+            isMovingBooking = state.isMovingBooking
         )
 
         FareStepScreen(
@@ -720,8 +842,12 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             draft = draft,
             onBack = { navController.popBackStack() },
             onSelectVehicle = { id ->
-                fares.firstOrNull { it.vehicleTypeId.toString() == id }
-                    ?.let(booking::selectFareDetails)
+                // Locked rows are already unclickable in the sheet; this is the
+                // second gate, so a future caller cannot select one by id.
+                if (options.firstOrNull { it.id == id }?.isSelectable != false) {
+                    fares.firstOrNull { it.vehicleTypeId.toString() == id }
+                        ?.let(booking::selectFareDetails)
+                }
             },
             onEditGoodsType = { navController.navigate("sendparcel_goods") },
             onEditPayment = {
@@ -904,21 +1030,37 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
                         // The booking now exists on the server, so every screen
                         // that led to it is a dead end and gets popped.
                         //
-                        // Anchored on the picker, NOT on "booking_flow". Popping
-                        // the graph would clear the BookingViewModel that
-                        // searching_rider itself resolves from
-                        // getBackStackEntry("booking_flow") — the screen renders
-                        // nothing without the pickup, drop and fare it holds, so
-                        // the customer would land on a blank screen with a live
-                        // booking on the server.
+                        // ── WHY THE GRAPH, NON-INCLUSIVE ──────────────────
                         //
-                        // KNOWN GAP: "Send again" jumps straight to the fare step
-                        // and never puts the picker on the stack, so this matches
-                        // nothing on that path and back can reach the confirm
-                        // screen of an already-placed booking. Pre-existing, and
-                        // not fixable by moving this anchor — it needs the repeat
-                        // path to seed the picker first.
-                        popUpTo(PICKER_ROUTE) { inclusive = true }
+                        // This was anchored on the PICKER, which cleared the
+                        // screens above it and nothing below. That was fine
+                        // while the picker was always the first screen in the
+                        // graph, and it stopped being true twice:
+                        //
+                        //  - Smart Shifting now leaves its four screens
+                        //    underneath the picker (so that back from the picker
+                        //    returns to the recommendation, where it belongs), so
+                        //    a picker-anchored pop stranded them under a LIVE
+                        //    tracking screen — back from a dispatched booking
+                        //    landed on "What are you moving?".
+                        //  - "Send again" jumps straight to the fare step and
+                        //    never puts the picker on the stack at all, so the
+                        //    anchor matched nothing and back could reach the
+                        //    confirm screen of an already-placed booking.
+                        //
+                        // `popUpTo("booking_flow")` matches the graph entry
+                        // itself, which is below every screen in the flow
+                        // regardless of how the customer entered it, so both
+                        // cases clear completely.
+                        //
+                        // `inclusive = false` is load-bearing. The graph entry
+                        // MUST survive: searching_rider resolves its
+                        // BookingViewModel from
+                        // getBackStackEntry("booking_flow") and renders nothing
+                        // without the pickup, drop and fare it holds — popping
+                        // the graph would clear that store and land the customer
+                        // on a blank screen with a live booking on the server.
+                        popUpTo("booking_flow") { inclusive = false }
                     }
                 }
             }
@@ -935,7 +1077,8 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             goodsWeightKg = state.goodsWeight,
             paymentMethod = state.paymentMethod,
             couponCode = state.appliedCoupon,
-            couponDiscount = state.discount
+            couponDiscount = state.discount,
+            isMovingBooking = state.isMovingBooking
         )
 
         ConfirmBookingScreen(

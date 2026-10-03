@@ -178,7 +178,7 @@ fun PaymentsScreen(
                     text = stringResource(R.string.label_recent_transactions),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary,
+                    color = AppColors.Heading,
                     modifier = Modifier.padding(
                         start = 16.dp, end = 16.dp,
                         top = 20.dp, bottom = 10.dp
@@ -404,14 +404,14 @@ private fun TransactionItem(
 
     val (icon, iconBg, iconTint) = when (transaction.transactionType.lowercase()) {
         "booking"      -> Triple(Icons.Default.LocalShipping, AppColors.Primary.copy(alpha = 0.10f), AppColors.Primary)
-        "refund"       -> Triple(Icons.Default.Replay,         Color(0xFFF0FAF3), Color(0xFF2D9B44))
-        "wallet_topup" -> Triple(Icons.Default.Add,            Color(0xFFF0FAF3), Color(0xFF2D9B44))
+        "refund"       -> Triple(Icons.Default.Replay,         AppColors.SuccessLight, AppColors.Pickup)
+        "wallet_topup" -> Triple(Icons.Default.Add,            AppColors.SuccessLight, AppColors.Pickup)
         else           -> Triple(Icons.Default.Receipt,         AppColors.Background, AppColors.TextSecondary)
     }
 
-    val amountColor = if (isCredit) Color(0xFF2D9B44) else AppColors.TextPrimary
+    val amountColor = if (isCredit) AppColors.Pickup else AppColors.TextPrimary
     val statusColor = when (transaction.status.lowercase()) {
-        "success"  -> Color(0xFF2D9B44)
+        "success"  -> AppColors.Pickup
         "failed"   -> AppColors.Drop
         "pending"  -> AppColors.Warning
         "refunded" -> AppColors.Blue
@@ -502,7 +502,7 @@ private fun WalletTopupSheet(
             text = stringResource(R.string.label_add_money_to_wallet),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
+            color = AppColors.Heading
         )
 
         Spacer(modifier = Modifier.height(20.dp))

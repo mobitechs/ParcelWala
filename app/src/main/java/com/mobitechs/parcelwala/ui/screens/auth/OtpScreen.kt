@@ -144,7 +144,7 @@ fun OtpScreen(
             title = {
                 Text(
                     stringResource(R.string.label_error),
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
             },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
@@ -164,7 +164,8 @@ fun OtpScreen(
                     Text(
                         text = stringResource(R.string.title_verify_otp),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Heading
                     )
                 },
                 navigationIcon = {
@@ -209,7 +210,7 @@ fun OtpScreen(
                 text = stringResource(R.string.title_verify_otp),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(8.dp))

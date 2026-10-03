@@ -149,6 +149,13 @@ fun ConfirmBookingScreen(
                     // rather than documents, or something heavier than the
                     // category default assumes, had no way to say so. The rider
                     // finds out on arrival, which is the worst possible moment.
+                    // A Smart Shifting booking shows the item list the customer
+                    // built and is NOT changeable here. Opening the goods picker
+                    // would overwrite that list and reset the computed weight to
+                    // a category average — throwing away the whole estimate for
+                    // one stray tap on the final screen. Items are changed by
+                    // going back into the shifting flow, where changing them
+                    // also re-sizes the vehicle, which is the honest behaviour.
                     SummaryRow(
                         icon = Icons.Default.Category,
                         label = listOfNotNull(
@@ -157,9 +164,9 @@ fun ConfirmBookingScreen(
                                 ?.takeIf { it > 0.0 }
                                 ?.let { "~${formatWeight(it)} kg" }
                         ).joinToString(" · "),
-                        value = "Change",
+                        value = if (draft.isMovingBooking) "" else "Change",
                         valueColor = AppColors.Primary,
-                        onClick = onEditGoodsType
+                        onClick = if (draft.isMovingBooking) null else onEditGoodsType
                     )
                     if (draft.couponDiscount > 0) {
                         HorizontalDivider(color = AppColors.Border)

@@ -87,7 +87,8 @@ fun ProfileDetailsScreen(
                     Text(
                         text = stringResource(R.string.profile_details),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Heading
                     )
                 },
                 navigationIcon = {
@@ -134,7 +135,7 @@ fun ProfileDetailsScreen(
                             text = stringResource(R.string.personal_details),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = AppColors.TextPrimary
+                            color = AppColors.Heading
                         )
                     }
 

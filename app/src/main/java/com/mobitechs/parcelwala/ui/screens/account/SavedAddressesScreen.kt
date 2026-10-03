@@ -103,7 +103,8 @@ fun SavedAddressesScreen(
             title = {
                 Text(
                     text = stringResource(R.string.delete_address_title),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Heading
                 )
             },
             text = { Text(stringResource(R.string.delete_address_message)) },
@@ -319,7 +320,7 @@ private fun GroupCard(
                     fontSize      = 9.sp
                 ),
                 fontWeight = FontWeight.Bold,
-                color      = AppColors.TextSecondary,
+                color      = AppColors.Heading,
                 modifier   = Modifier.padding(
                     start  = 14.dp, end = 14.dp,
                     top    = 10.dp, bottom = 4.dp
@@ -541,9 +542,9 @@ fun AddressTypeIcon(
     )
 
     val config = when (type) {
-        "home"        -> IconConfig(Icons.Default.Home,      Color(0xFFECFDF5), Color(0xFF059669))
-        "work", "shop"-> IconConfig(Icons.Default.Store,     Color(0xFFFEF9C3), Color(0xFFD97706))
-        "apartment"   -> IconConfig(Icons.Default.Apartment, Color(0xFFEEF2FF), Color(0xFF4F46E5))
+        "home"        -> IconConfig(Icons.Default.Home,      AppColors.SuccessLight, AppColors.Pickup)
+        "work", "shop"-> IconConfig(Icons.Default.Store,     AppColors.AccentLight,  AppColors.AccentDark)
+        "apartment"   -> IconConfig(Icons.Default.Apartment, AppColors.PrimaryLight, AppColors.Primary)
         else          -> IconConfig(Icons.Default.Place,     AppColors.Background, AppColors.TextSecondary)
     }
 

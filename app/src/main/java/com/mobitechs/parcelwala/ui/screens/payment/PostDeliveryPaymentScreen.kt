@@ -203,7 +203,7 @@ fun PostDeliveryPaymentScreen(
                     text = stringResource(R.string.label_complete_payment),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
 
                 Text(
@@ -440,7 +440,7 @@ private fun FareBreakdownCard(
                 text = stringResource(R.string.label_fare_summary),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -527,7 +527,7 @@ private fun PaymentMethodCard(
                 text = stringResource(R.string.label_payment_method_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(16.dp))

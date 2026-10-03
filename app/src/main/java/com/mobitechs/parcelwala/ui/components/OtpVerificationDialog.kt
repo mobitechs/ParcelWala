@@ -100,7 +100,7 @@ fun OtpVerificationDialog(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -223,7 +223,7 @@ fun OtpInputDialog(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

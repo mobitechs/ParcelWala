@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -104,7 +105,7 @@ fun VehicleFareSheet(
                 "Choose a vehicle",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
             // Trip distance as a STATIC label. Deliberately not a live ETA —
             // there is no driver yet, so a countdown here would be fiction.
@@ -151,9 +152,20 @@ fun VehicleFareSheet(
             )
             OptionChip(
                 icon = Icons.Default.Inventory2,
-                label = draft.goodsType,
+                // The moving label carries the whole item list
+                // ("House Shifting · Sofa x1, Double bed x1 …"), which is what
+                // the driver needs and far more than a chip can show. The head
+                // of it is the part that identifies the job.
+                label = if (draft.isMovingBooking) {
+                    draft.goodsType.substringBefore(" · ")
+                } else {
+                    draft.goodsType
+                },
                 modifier = Modifier.weight(1f),
-                onClick = onEditGoodsType
+                // Read-only for a move: there is nothing left to choose, and
+                // opening the goods picker here would discard the item summary
+                // and the computed weight.
+                onClick = if (draft.isMovingBooking) null else onEditGoodsType
             )
             OptionChip(
                 icon = Icons.Default.LocalOffer,
@@ -217,6 +229,10 @@ private fun VehicleRow(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    // A locked row is dimmed, not removed — see VehicleOption.disabledReason.
+    val enabled = vehicle.isSelectable
+    val contentAlpha = if (enabled) 1f else 0.45f
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -224,18 +240,26 @@ private fun VehicleRow(
             .border(
                 BorderStroke(
                     if (isSelected) 2.dp else 1.dp,
-                    if (isSelected) AppColors.Primary else AppColors.Border
+                    when {
+                        !enabled -> AppColors.Border
+                        isSelected -> AppColors.Primary
+                        else -> AppColors.Border
+                    }
                 ),
                 RoundedCornerShape(12.dp)
             )
             .background(
-                if (isSelected) AppColors.Primary.copy(alpha = 0.04f) else Color.White
+                when {
+                    !enabled -> AppColors.SurfaceVariant
+                    isSelected -> AppColors.Primary.copy(alpha = 0.04f)
+                    else -> Color.White
+                }
             )
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        VehicleIcon(vehicle)
+        Box(Modifier.alpha(contentAlpha)) { VehicleIcon(vehicle) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(
@@ -246,27 +270,40 @@ private fun VehicleRow(
                     vehicle.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = AppColors.TextPrimary
+                    color = if (enabled) AppColors.TextPrimary else AppColors.TextHint
                 )
-                if (vehicle.isRecommended) {
+                if (vehicle.isRecommended && enabled) {
                     Text(
-                        "Popular",
+                        vehicle.recommendLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppColors.Primary,
+                        fontWeight = FontWeight.Bold,
+                        // Amber for a sized-to-fit recommendation, navy for the
+                        // cheapest-is-popular default. The stronger claim gets
+                        // the accent colour; navy is the colour of everything
+                        // tappable and would not stand out among the rows.
+                        color = if (vehicle.recommendLabel == "Recommended")
+                            AppColors.AccentDark else AppColors.Primary,
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(AppColors.PrimaryLight)
+                            .background(
+                                if (vehicle.recommendLabel == "Recommended")
+                                    AppColors.AccentLight else AppColors.PrimaryLight
+                            )
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
             Text(
-                text = buildString {
+                // On a locked row the reason IS the subtitle. Putting it
+                // anywhere else — a tooltip, a snackbar on tap — means the
+                // customer has to go looking for why the cheap option is grey,
+                // and most will conclude they are being upsold instead.
+                text = vehicle.disabledReason ?: buildString {
                     append(vehicle.capacityLabel)
                     vehicle.etaMinutes?.takeIf { it > 0 }?.let { append(" · $it min away") }
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = AppColors.TextSecondary
+                color = if (enabled) AppColors.TextSecondary else AppColors.Drop
             )
         }
         Spacer(Modifier.width(8.dp))
@@ -274,18 +311,24 @@ private fun VehicleRow(
             formatRupee(vehicle.fare),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = AppColors.TextPrimary
+            // The price stays readable on a locked row. Dimming it too would
+            // hide the very comparison that makes the lock feel fair.
+            color = if (enabled) AppColors.TextPrimary else AppColors.TextHint
         )
     }
 }
 
+/**
+ * A chip. A null [onClick] makes it a label rather than a control — used for
+ * facts the customer has already settled and cannot usefully change here.
+ */
 @Composable
 private fun OptionChip(
     icon: ImageVector,
     label: String,
     modifier: Modifier = Modifier,
     isAccent: Boolean = false,
-    onClick: () -> Unit
+    onClick: (() -> Unit)?
 ) {
     Row(
         modifier = modifier
@@ -294,7 +337,9 @@ private fun OptionChip(
                 BorderStroke(1.dp, if (isAccent) AppColors.Primary else AppColors.Border),
                 RoundedCornerShape(20.dp)
             )
-            .clickable(onClick = onClick)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -353,13 +398,17 @@ private fun FareLoading() {
  */
 @Composable
 private fun VehicleIcon(vehicle: VehicleOption) {
-    val painter = vehicle.iconUrl?.let { rememberAsyncImagePainter(model = it) }
-    val hasArtwork = painter?.state is AsyncImagePainter.State.Success
+    // One value, not a painter plus a boolean about it: `hasArtwork` already
+    // implied a non-null painter, so the `&& painter != null` the branch needed
+    // to satisfy the compiler was dead code the compiler then warned about.
+    val artwork = vehicle.iconUrl
+        ?.let { rememberAsyncImagePainter(model = it) }
+        ?.takeIf { it.state is AsyncImagePainter.State.Success }
 
     Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
         when {
-            hasArtwork && painter != null -> Image(
-                painter = painter,
+            artwork != null -> Image(
+                painter = artwork,
                 contentDescription = null,
                 modifier = Modifier.size(30.dp)
             )

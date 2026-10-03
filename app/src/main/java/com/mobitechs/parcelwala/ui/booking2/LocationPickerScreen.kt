@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.SwapVert
@@ -141,7 +142,28 @@ fun LocationPickerScreen(
     onSwap: () -> Unit,
     onPickOnMap: () -> Unit,
     onToggleSavedFilter: () -> Unit,
+    /**
+     * Re-run the GPS lookup for the pickup.
+     *
+     * The pickup is meant to fill itself in — see the route — but "meant to" is
+     * not "always does": the fix can be denied, the fix can time out, the
+     * geocoder can fail. Every one of those ends with an empty pickup row and no
+     * way back to the automatic path, because nothing on the screen offered one.
+     * This is that way back, and it is only drawn while the pickup is actually
+     * empty.
+     */
+    onUseCurrentLocation: () -> Unit,
     onBack: () -> Unit,
+    /**
+     * Toolbar title. A default rather than a constant because this screen is
+     * now reached from two flows: sending a parcel, where it is the first thing
+     * the customer sees, and Smart Shifting, where it arrives after four screens
+     * of questions. In the second case a bare back arrow over two address boxes
+     * gives no indication of what step this is or that the earlier answers are
+     * still held.
+     */
+    title: String = "Pickup & drop",
+    subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -191,11 +213,13 @@ fun LocationPickerScreen(
             .fillMaxSize()
             .background(PickerCanvas)
     ) {
-        // ── Back ────────────────────────────────────────────────────────────
-        Box(
+        // ── Toolbar ─────────────────────────────────────────────────────────
+        Row(
             modifier = Modifier
+                .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 8.dp, top = 4.dp)
+                .padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -207,6 +231,26 @@ fun LocationPickerScreen(
                     .clickable(onClick = onBack)
                     .padding(10.dp)
             )
+            Spacer(Modifier.width(4.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = AppColors.Heading,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                subtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(4.dp))
@@ -229,6 +273,11 @@ fun LocationPickerScreen(
 
         ShortcutRow(
             isSavedFilterOn = isSavedFilterOn,
+            // Only while the pickup is genuinely missing and nothing is in
+            // flight. Offering "Use current location" beside a pickup that GPS
+            // already filled in is an invitation to overwrite a correct answer.
+            showUseCurrentLocation = pickup == null && !isResolvingPickup,
+            onUseCurrentLocation = onUseCurrentLocation,
             onPickOnMap = onPickOnMap,
             onToggleSavedFilter = onToggleSavedFilter
         )
@@ -602,36 +651,62 @@ private fun SwapButton(enabled: Boolean, onClick: () -> Unit) {
 @Composable
 private fun ShortcutRow(
     isSavedFilterOn: Boolean,
+    showUseCurrentLocation: Boolean,
+    onUseCurrentLocation: () -> Unit,
     onPickOnMap: () -> Unit,
     onToggleSavedFilter: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .padding(horizontal = 12.dp)
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(14.dp)),
-        verticalAlignment = Alignment.CenterVertically
+            .background(Color.White, RoundedCornerShape(14.dp))
     ) {
-        ShortcutAction(
-            icon = Icons.Default.Place,
-            label = "Select on map",
-            isOn = false,
-            onClick = onPickOnMap,
-            modifier = Modifier.weight(1f)
-        )
-        Box(
-            Modifier
-                .width(1.dp)
-                .height(22.dp)
-                .background(AppColors.Border)
-        )
-        ShortcutAction(
-            icon = if (isSavedFilterOn) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-            label = "Saved Addresses",
-            isOn = isSavedFilterOn,
-            onClick = onToggleSavedFilter,
-            modifier = Modifier.weight(1f)
-        )
+        // Full width and above the other two, because when it is shown the
+        // pickup is empty and this is the fastest way to fill it — not a
+        // third equal-weight option.
+        if (showUseCurrentLocation) {
+            ShortcutAction(
+                icon = Icons.Default.MyLocation,
+                label = "Use my current location for pickup",
+                isOn = true,
+                onClick = onUseCurrentLocation,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Box(
+                Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(AppColors.Border)
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShortcutAction(
+                icon = Icons.Default.Place,
+                label = "Select on map",
+                isOn = false,
+                onClick = onPickOnMap,
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(22.dp)
+                    .background(AppColors.Border)
+            )
+            ShortcutAction(
+                icon = if (isSavedFilterOn) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                label = "Saved Addresses",
+                isOn = isSavedFilterOn,
+                onClick = onToggleSavedFilter,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -858,4 +933,4 @@ private fun SaveAffordance(isSaved: Boolean, onSave: () -> Unit) {
  * The page behind the cards. A very light tint rather than pure white, so the
  * white cards read as raised surfaces instead of dissolving into the page.
  */
-private val PickerCanvas = Color(0xFFF2F5F9)
+private val PickerCanvas = AppColors.Background

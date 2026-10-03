@@ -120,7 +120,8 @@ fun CompleteProfileScreen(
                     Text(
                         text = stringResource(R.string.title_complete_profile),
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Heading
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -155,7 +156,7 @@ fun CompleteProfileScreen(
                 text = stringResource(R.string.label_lets_get_started),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(8.dp))

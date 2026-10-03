@@ -843,4 +843,18 @@
     <string name="why_support_title">24/7 Support</string>
     <string name="why_support_subtitle">We are here for you anytime</string>
     <string name="content_desc_delivery_rider">Delivery rider illustration</string>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SMART SHIFTING — the Home entry point.
+
+         The section sits directly under "Select Vehicle Type" because that is
+         where a house-mover gets stuck: the vehicle grid asks a question they
+         cannot answer. The copy here has one job — say that they do NOT have to
+         pick a vehicle, because the app will.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <string name="shifting_section_title">Shifting home or office?</string>
+    <string name="shifting_section_subtitle">Tell us what you\'re moving and we\'ll pick the right vehicle for you.</string>
+    <string name="shifting_badge_new">NEW</string>
+    <string name="shifting_cta_title">Not sure what will fit?</string>
+    <string name="shifting_cta_subtitle">List your items and get the right vehicle in seconds</string>
 </resources>

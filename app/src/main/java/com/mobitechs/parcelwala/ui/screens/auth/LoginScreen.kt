@@ -92,7 +92,7 @@ fun LoginScreen(
             title = {
                 Text(
                     stringResource(R.string.label_error),
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
             },
             text = { Text(errorMessage, color = AppColors.TextSecondary) },
@@ -138,7 +138,7 @@ fun LoginScreen(
                 text = stringResource(R.string.label_welcome),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary,
+                color = AppColors.Heading,
                 textAlign = TextAlign.Center
             )
 

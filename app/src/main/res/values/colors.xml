@@ -1,10 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Navy + Teal + Amber.
+
+    These mirror ui/theme/Color.kt for the few places Compose cannot reach:
+    the launcher/splash theme, notification accents and any remaining View-based
+    surface. Keep the two files in step — Color.kt is the source of truth.
+-->
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+
+    <!-- ── Brand: Deep Navy ── -->
+    <color name="primary">#FF25245F</color>
+    <color name="primary_dark">#FF1B1A47</color>
+    <color name="primary_deep">#FF14133A</color>
+    <color name="primary_light">#FFE9E9FA</color>
+
+    <!-- ── Secondary: Teal ── -->
+    <color name="secondary">#FF0F766E</color>
+    <color name="secondary_light">#FFCCFBF1</color>
+
+    <!-- ── Accent: Amber ── -->
+    <color name="accent">#FFF59E0B</color>
+    <color name="accent_light">#FFFEF3C7</color>
+
+    <!-- ── Surfaces ── -->
+    <color name="background">#FFF8FAFC</color>
+    <color name="surface">#FFFFFFFF</color>
+
+    <!-- ── Text ── -->
+    <color name="text_primary">#FF172033</color>
+    <color name="text_secondary">#FF64748B</color>
+
+    <!-- ── Status ── -->
+    <color name="success">#FF16A34A</color>
+    <color name="error">#FFEF4444</color>
+    <color name="border">#FFE2E8F0</color>
+
+    <!-- ── Base ── -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!--
+        Legacy names kept only because generated/Manifest references may still
+        point at them. New code must use the semantic names above.
+    -->
+    <color name="purple_200">#FF7C7BB8</color>
+    <color name="purple_500">#FF25245F</color>
+    <color name="purple_700">#FF14133A</color>
+    <color name="teal_200">#FFCCFBF1</color>
+    <color name="teal_700">#FF0F766E</color>
 </resources>

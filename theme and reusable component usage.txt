@@ -64,6 +64,14 @@ AppColors.Surface         // White #FFFFFF - Card, surface background
 // Borders & Dividers
 AppColors.Border          // Gray #E0E0E0 - Input borders
 AppColors.Divider         // Gray #EEEEEE - Dividers
+
+// Headings & Links
+AppColors.Heading         // = Primary - EVERY heading on a light surface:
+                          //   screen/toolbar titles, section titles, uppercase
+                          //   section labels, sheet & dialog titles, empty states.
+                          //   Headings on the navy header stay White.
+AppColors.Link            // Green #16A34A - "View all" / "See all" links
+                          //   (use SeeAllLink, which also underlines)
 ```
 
 ### Usage Examples
@@ -255,6 +263,24 @@ SectionHeader(
 - Section dividers
 - Form sections
 - List categories
+
+---
+
+### 4b. SeeAllLink
+
+**"View all" / "See all" / "Show less" — green, underlined**
+```kotlin
+import com.mobitechs.parcelwala.ui.components.SeeAllLink
+
+SeeAllLink(
+    text = stringResource(R.string.view_all),
+    onClick = { /* open the full list */ },
+    trailingIcon = Icons.Default.KeyboardArrowDown   // Optional - for expand toggles
+)
+```
+
+**Never** style a see-all link by hand — always go through this component so
+the colour and underline stay consistent.
 
 ---
 

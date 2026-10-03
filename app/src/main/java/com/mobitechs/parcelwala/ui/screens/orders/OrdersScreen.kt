@@ -1020,7 +1020,7 @@ private fun ErrorState(error: String, onRetry: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.2).sp
                 ),
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
             Text(
                 text = error,
@@ -1090,7 +1090,7 @@ private fun EmptyOrdersState(filter: String?) {
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.3).sp
                 ),
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
             Text(
                 text = when (filter) {

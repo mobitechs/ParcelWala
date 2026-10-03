@@ -180,7 +180,7 @@ fun CouponScreen(
                                     letterSpacing = 0.7.sp
                                 ),
                                 fontWeight = FontWeight.Bold,
-                                color      = AppColors.TextSecondary,
+                                color      = AppColors.Heading,
                                 modifier   = Modifier.padding(bottom = 4.dp)
                             )
                         }
@@ -407,9 +407,9 @@ private fun CouponCard(
 ) {
     // Derive accent colour from discount type
     val accentColor = if (coupon.discountType == "percentage")
-        Color(0xFF4F46E5) // indigo
+        AppColors.Primary // deep navy
     else
-        Color(0xFF059669) // emerald
+        AppColors.Secondary // teal
 
     val codeBandBg    = accentColor.copy(alpha = 0.06f)
     val codeBandBorder= accentColor.copy(alpha = 0.30f)

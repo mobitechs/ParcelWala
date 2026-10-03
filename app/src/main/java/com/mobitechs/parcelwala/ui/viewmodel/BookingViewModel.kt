@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
+import com.mobitechs.parcelwala.data.model.moving.MovingBookingContext
 import com.mobitechs.parcelwala.data.model.request.CalculateFareRequest
 import com.mobitechs.parcelwala.data.model.request.CreateBookingRequestBuilder
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
@@ -452,6 +453,124 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Hand a Smart Shifting estimate over to the ordinary booking pipeline.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * WHY THE MOVING FLOW DOES NOT CREATE ITS OWN BOOKING
+     * ─────────────────────────────────────────────────────────────────────
+     *
+     * Once the customer accepts a recommended vehicle, a house move IS a
+     * booking: pickup, drop, quote, rider, payment, rating. That path already
+     * exists here and has been debugged against real traffic. A parallel
+     * booking-creation path for moving jobs would duplicate the single most
+     * business-critical function in the app and the two copies would drift.
+     *
+     * So the moving flow stops at "which vehicle" and calls this, which writes
+     * its answer into the SAME fields the parcel flow uses. Everything
+     * downstream — the fare sheet, the confirm screen,
+     * `CreateBookingRequestBuilder` — is untouched.
+     *
+     * WHAT EACH ARGUMENT DOES DOWNSTREAM
+     *
+     *  - [vehicleTypeId] lands in `preferredVehicleTypeId`, which
+     *    `calculateFaresForAllVehicles` already reads to pre-select a vehicle as
+     *    soon as fares arrive. The customer sees the recommended vehicle
+     *    selected with a real price, and can still change it.
+     *  - [itemsSummary] is folded into `goodsTypeName` rather than needing a new
+     *    request field. The server takes that string as-is and the driver reads
+     *    it — "House Shifting · Sofa x1, Double bed x1, Boxes x8" is exactly what
+     *    someone loading a vehicle needs to know, and it costs no schema change.
+     *  - [approxWeightKg] replaces the goods-type default weight, which is a
+     *    category average and wildly wrong for a house move.
+     *
+     * NOTE: this deliberately does NOT touch pickup, drop or the selected fare,
+     * so it can be called before OR after locations are set without clearing a
+     * quote the customer has already seen.
+     */
+    fun setMovingContext(context: MovingBookingContext) {
+        val label = buildString {
+            append(MOVING_GOODS_LABEL)
+            context.summary.trim().takeIf { it.isNotBlank() }?.let {
+                append(" · ")
+                append(it.take(MOVING_SUMMARY_MAX_CHARS))
+            }
+        }
+
+        // ── WHICH VEHICLE ARRIVES PRE-SELECTED ────────────────────────────
+        //
+        // The one the CUSTOMER left the moving flow with, which is not always
+        // the one the engine picked: "Other vehicles that fit" lets them upsize,
+        // and since those options now render open rather than behind a toggle,
+        // upsizing is a normal thing to do rather than a rarity.
+        //
+        // This used to pre-select `recommendedVehicleTypeId` — the engine's own
+        // answer, which is deliberately frozen for reporting so "did they accept
+        // our recommendation?" stays answerable. Using it here meant a customer
+        // who deliberately chose the Pickup, watched the card and the bottom bar
+        // both update to say Pickup, and tapped through, landed on a fare sheet
+        // with the Tata Ace selected and badged "Recommended". Their choice was
+        // taken, acknowledged on screen, and then quietly thrown away.
+        //
+        // Both fields still travel to the server: the engine's pick as
+        // `recommended_vehicle_type_id`, the customer's as the booked vehicle.
+        val preferred = context.selectedVehicleTypeId
+            ?: context.recommendedVehicleTypeId
+
+        _uiState.update {
+            it.copy(
+                preferredVehicleTypeId = preferred ?: it.preferredVehicleTypeId,
+                selectedGoodsTypeName = label,
+                goodsWeight = context.totalWeightKg.takeIf { w -> w > 0.0 } ?: it.goodsWeight,
+                goodsPackages = context.itemCount.takeIf { p -> p > 0 } ?: it.goodsPackages,
+                movingContext = context,
+                isMovingBooking = true
+            )
+        }
+
+        // ── AND ANY STALE SELECTION IS DROPPED ────────────────────────────
+        //
+        // Fares may already be on screen: the customer can now walk back into
+        // the moving flow from the picker, change their items, and come forward
+        // again, which is the whole point of leaving those screens on the stack.
+        // A selection made against the OLD item list can be too small for the
+        // new one — add a wardrobe to a load already priced on an auto — and
+        // `selectFareDetailsById` cannot correct that on its own, because it is
+        // a no-op when the newly recommended vehicle was not quoted on this
+        // route. The old selection then survived: rendered locked with "Too
+        // small for your items", still selected, and still bookable, because the
+        // fare sheet's CTA only checks that something is selected.
+        //
+        // Clearing first means the worst case is an unselected fare sheet, which
+        // the customer resolves with one tap, instead of a booking that cannot
+        // carry the goods.
+        val eligible = context.eligibleVehicleTypeIds
+        val selectedId = _selectedFareDetails.value?.vehicleTypeId
+        // An empty eligible set means "no restriction" — nothing was selected,
+        // or the load is bigger than the whole fleet. Not a reason to clear.
+        val stillFits = selectedId == null || eligible.isEmpty() || selectedId in eligible
+        if (!stillFits) {
+            _selectedFareDetails.value = null
+            _uiState.update { it.copy(selectedVehicleId = null) }
+        }
+
+        // Re-applying the preference here means the vehicle the customer left
+        // the moving flow with is selected immediately rather than only on the
+        // next fare fetch.
+        preferred?.let { selectFareDetailsById(it) }
+    }
+
+    /** Clears the Smart Shifting context, so the next booking starts as a parcel. */
+    fun clearMovingContext() {
+        _uiState.update {
+            it.copy(
+                isMovingBooking = false,
+                preferredVehicleTypeId = null,
+                movingContext = null
+            )
+        }
+    }
+
     fun setSelectedVehicle(vehicleType: VehicleTypeResponse) {
         _uiState.update {
             it.copy(
@@ -610,7 +729,31 @@ class BookingViewModel @Inject constructor(
                 paymentMethod = state.paymentMethod,
                 gstin = state.gstin,
                 roadDistanceKm = getRoadDistanceKm(),
-                roadDurationMinutes = getRoadEtaMinutes()
+                roadDurationMinutes = getRoadEtaMinutes(),
+                // Smart Shifting. All null for an ordinary parcel booking, so
+                // the request the server receives is byte-identical to before.
+                movingItems = state.movingContext?.items,
+                estimatedVolumeCft = state.movingContext?.estimatedVolumeCft,
+                loadSize = state.movingContext?.loadSize?.name,
+                hasBulkyItems = state.movingContext?.hasBulkyItems,
+                hasFragileItems = state.movingContext?.hasFragileItems,
+                suggestedHelpers = state.movingContext?.suggestedHelpers,
+                recommendedVehicleTypeId = state.movingContext?.recommendedVehicleTypeId,
+                // Re-derived against the vehicle ACTUALLY being booked, not the
+                // one the moving flow ended on.
+                //
+                // The customer can change vehicle on the fare sheet — upward
+                // always, and in any direction for an oversized load, where
+                // nothing is eligible so nothing is locked. A flag frozen at the
+                // handover would then describe a different vehicle than the
+                // booking it is attached to, and operations act on this flag.
+                //
+                // The eligibility set IS the engine's answer to "does it fit",
+                // so membership is the same test without recomputing anything.
+                fitsInOneTrip = state.movingContext?.let { ctx ->
+                    if (ctx.eligibleVehicleTypeIds.isEmpty()) false
+                    else selectedFare.vehicleTypeId in ctx.eligibleVehicleTypeIds
+                }
             )
 
             bookingRepository.createBooking(request).collect { result ->
@@ -770,6 +913,20 @@ class BookingViewModel @Inject constructor(
             }
         }
     }
+
+    companion object {
+        /** Prefix written into `goods_type_name` for Smart Shifting bookings. */
+        const val MOVING_GOODS_LABEL = "House Shifting"
+
+        /**
+         * Cap on the item list folded into `goods_type_name`.
+         *
+         * It travels to the server in a field sized for a category name, and a
+         * forty-item move would otherwise produce a paragraph that no driver
+         * reads and some backends truncate mid-word.
+         */
+        const val MOVING_SUMMARY_MAX_CHARS = 160
+    }
 }
 
 /**
@@ -812,8 +969,38 @@ data class BookingUiState(
     val hasFaresLoaded: Boolean = false,
     val isBookAgain: Boolean = false,
     val originalOrderId: Int? = null,
-    val preferredVehicleTypeId: Int? = null
-)
+    val preferredVehicleTypeId: Int? = null,
+
+    /**
+     * True when this booking came through Smart Shifting rather than the parcel
+     * flow.
+     *
+     * Read by the fare sheet to badge the recommended vehicle and by the confirm
+     * screen to label the job. It changes presentation only — the request the
+     * server receives is identical, which is what lets one booking pipeline
+     * serve both flows.
+     */
+    val isMovingBooking: Boolean = false,
+
+    /**
+     * Everything Smart Shifting worked out, or null for a parcel booking.
+     *
+     * Read by the fare sheet (for the size floor), the confirm screen (for the
+     * label) and `confirmBooking` (for the payload). One object rather than
+     * loose fields, so a new piece of moving data never means touching this
+     * class again.
+     */
+    val movingContext: MovingBookingContext? = null
+) {
+    /**
+     * Vehicle type ids the fare screen may offer.
+     *
+     * EMPTY for a parcel booking, and for a move whose load is larger than the
+     * whole fleet — in both cases every vehicle stays selectable.
+     */
+    val eligibleVehicleTypeIds: Set<Int>
+        get() = movingContext?.eligibleVehicleTypeIds.orEmpty()
+}
 
 sealed class BookingNavigationEvent {
     data class NavigateToSearchingRider(val bookingId: String) : BookingNavigationEvent()

@@ -823,4 +823,11 @@
     <string name="why_support_title">24/7 सहायता</string>
     <string name="why_support_subtitle">हम हमेशा आपके साथ हैं</string>
     <string name="content_desc_delivery_rider">डिलीवरी राइडर चित्र</string>
+
+    <!-- Smart Shifting — Home entry point -->
+    <string name="shifting_section_title">घर या ऑफिस शिफ्ट करना है?</string>
+    <string name="shifting_section_subtitle">बस बताइए क्या ले जाना है, सही गाड़ी हम चुन लेंगे।</string>
+    <string name="shifting_badge_new">नया</string>
+    <string name="shifting_cta_title">समझ नहीं आ रहा कौन सी गाड़ी लें?</string>
+    <string name="shifting_cta_subtitle">अपना सामान बताइए, सेकंडों में सही गाड़ी पाइए</string>
 </resources>

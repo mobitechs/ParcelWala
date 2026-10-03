@@ -57,7 +57,7 @@ fun ErrorView(
                 text = stringResource(R.string.error_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(8.dp))

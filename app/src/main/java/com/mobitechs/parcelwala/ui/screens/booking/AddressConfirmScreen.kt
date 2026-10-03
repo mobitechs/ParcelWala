@@ -97,6 +97,7 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
+import com.mobitechs.parcelwala.ui.components.SeeAllLink
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.utils.Validators
@@ -645,15 +646,10 @@ fun AddressConfirmationScreen(
                         // Jumps to the full address book — browse, edit, or add a
                         // new one. The chosen address flows back and fills these
                         // fields, so nothing has to be typed twice.
-                        Text(
-                            text       = stringResource(R.string.see_all),
-                            style      = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color      = AppColors.Primary,
-                            modifier   = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { onSeeAllAddresses() }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        SeeAllLink(
+                            text    = stringResource(R.string.see_all),
+                            onClick = onSeeAllAddresses,
+                            style   = MaterialTheme.typography.labelMedium
                         )
                     }
 
@@ -882,7 +878,7 @@ private fun SavedAddressPickerSheet(
                 text       = stringResource(R.string.pick_saved_address),
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color      = AppColors.TextPrimary
+                color      = AppColors.Heading
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -1110,7 +1106,7 @@ private fun SectionHeader(
             text       = title,
             style      = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
             fontWeight = FontWeight.Bold,
-            color      = AppColors.TextPrimary
+            color      = AppColors.Heading
         )
     }
 }

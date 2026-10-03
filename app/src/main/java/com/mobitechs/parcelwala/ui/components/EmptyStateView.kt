@@ -64,7 +64,7 @@ fun EmptyStateView(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             description?.let {

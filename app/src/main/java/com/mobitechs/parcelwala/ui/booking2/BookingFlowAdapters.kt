@@ -31,7 +31,11 @@ import com.mobitechs.parcelwala.utils.Constants
  * so that is what we show — never `subTotal` or `baseFare`, which would
  * under-quote and produce a nasty surprise at the end.
  */
-fun FareDetails.toVehicleOption(isRecommended: Boolean = false) = VehicleOption(
+fun FareDetails.toVehicleOption(
+    isRecommended: Boolean = false,
+    recommendLabel: String = "Popular",
+    disabledReason: String? = null
+) = VehicleOption(
     id = vehicleTypeId.toString(),
     name = vehicleTypeName,
     capacityLabel = capacity,
@@ -39,7 +43,9 @@ fun FareDetails.toVehicleOption(isRecommended: Boolean = false) = VehicleOption(
     fare = roundedFare,
     iconUrl = imageUrl.toAbsoluteAssetUrl(),
     iconEmoji = vehicleTypeIcon.takeIf { it.isNotBlank() },
-    isRecommended = isRecommended
+    isRecommended = isRecommended,
+    recommendLabel = recommendLabel,
+    disabledReason = disabledReason
 )
 
 /**
@@ -62,17 +68,82 @@ private fun String?.toAbsoluteAssetUrl(): String? {
 }
 
 /**
- * Marks the cheapest option as "Popular".
+ * Decides which row gets the highlight pill, and what it says.
  *
- * Not arbitrary: for parcel delivery the cheapest capable vehicle is what most
- * customers pick, and labelling it removes a decision. If you later have real
- * popularity data per route, swap the predicate — the rest of the UI does not
- * change.
+ * TWO DIFFERENT CLAIMS, ONE COMPONENT
+ *
+ *  - No [recommendedVehicleTypeId] — the parcel flow. The cheapest capable
+ *    vehicle is what most customers pick, so it is labelled "Popular" and the
+ *    decision is removed for them.
+ *  - With one — Smart Shifting. The engine has sized a vehicle against the
+ *    customer's actual furniture, which is a far stronger claim than
+ *    popularity, so that row is labelled "Recommended" instead.
+ *
+ * The id is verified against the list before it is used. A recommendation for a
+ * vehicle the fare API did not quote (unavailable on this route, withdrawn from
+ * the fleet) would otherwise highlight nothing at all and quietly lose the
+ * "Popular" fallback too — so an unmatched id falls back to cheapest rather than
+ * leaving every row unbadged.
  */
-fun List<FareDetails>.toVehicleOptions(): List<VehicleOption> {
+fun List<FareDetails>.toVehicleOptions(
+    recommendedVehicleTypeId: Int? = null,
+    /**
+     * Smart Shifting only: the vehicle type ids this load actually fits in.
+     *
+     * EMPTY means no restriction, which is the parcel flow's behaviour and also
+     * the oversized-load case. A vehicle NOT in a non-empty set is returned
+     * disabled.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * WHY A SET AND NOT A MINIMUM CAPACITY
+     * ─────────────────────────────────────────────────────────────────────
+     *
+     * The first version took a `minCapacityCft` and compared each vehicle's
+     * volume against it. That silently dropped the payload half of the engine's
+     * `fits()` check, and the two constraints do not move together in a real
+     * fleet: an open-body three-wheeler has a bigger deck and a smaller payload
+     * than an e-loader, so a heavy 25 cft load set the floor at the e-loader's
+     * 30 cft and the three-wheeler cleared it at 45 — while being unable to
+     * carry the weight.
+     *
+     * Taking the engine's ANSWER instead of re-deriving it from one of its
+     * inputs means this screen and the recommendation cannot disagree.
+     */
+    eligibleVehicleTypeIds: Set<Int> = emptySet()
+): List<VehicleOption> {
     if (isEmpty()) return emptyList()
-    val cheapestId = minByOrNull { it.roundedFare }?.vehicleTypeId
-    return map { it.toVehicleOption(isRecommended = it.vehicleTypeId == cheapestId) }
+
+    val matchedRecommendation = recommendedVehicleTypeId
+        ?.takeIf { id -> any { it.vehicleTypeId == id } }
+
+    val highlightId = matchedRecommendation
+        ?: minByOrNull { it.roundedFare }?.vehicleTypeId
+
+    val label = if (matchedRecommendation != null) "Recommended" else "Popular"
+
+    // ── THE SIZE LOCK ──────────────────────────────────────────────────────
+    //
+    // The whole promise of Smart Shifting is "we worked out the right vehicle".
+    // If the fare screen then lets the customer tap the ₹500 auto sitting under
+    // the ₹950 pickup we just recommended, that promise is worth nothing — and
+    // the failure lands on a driver who arrives at a flat containing a wardrobe
+    // with a three-wheeler.
+    //
+    // Larger vehicles stay open: wanting more room, or a closed body for rain,
+    // is an informed choice the customer is paying for.
+    fun disabledReasonFor(vehicleTypeId: Int): String? = when {
+        eligibleVehicleTypeIds.isEmpty() -> null
+        vehicleTypeId in eligibleVehicleTypeIds -> null
+        else -> "Too small for your items"
+    }
+
+    return map {
+        it.toVehicleOption(
+            isRecommended = it.vehicleTypeId == highlightId,
+            recommendLabel = label,
+            disabledReason = disabledReasonFor(it.vehicleTypeId)
+        )
+    }
 }
 
 /** Google autocomplete prediction → a row in the destination picker. */
@@ -165,4 +236,33 @@ fun SavedAddress.withSender(sender: SenderDetails) = copy(
     contactPhone = sender.phone.filter { it.isDigit() }.takeIf { it.isNotBlank() }
         ?: contactPhone,
     buildingDetails = sender.addressNote.trim().takeIf { it.isNotBlank() } ?: buildingDetails
+)
+
+/**
+ * The address-book entry a new booking's pickup defaults to: the customer's
+ * Home address, or null when they have not saved one.
+ *
+ * Matched on `addressType` first (what the "Home" chip writes), then on a
+ * custom "Home" label for an address saved as Other. If there are several,
+ * the one the server flags `isDefault` wins, otherwise the first.
+ */
+fun List<SavedAddress>.defaultHomeAddress(): SavedAddress? {
+    val homes = filter { it.addressType.equals("home", ignoreCase = true) }
+        .ifEmpty { filter { it.label.trim().equals("home", ignoreCase = true) } }
+    return homes.firstOrNull { it.isDefault } ?: homes.firstOrNull()
+}
+
+/**
+ * A saved address prepared as the pickup.
+ *
+ * Unlike [withSender], the address's OWN contact wins — a Home saved with a
+ * family member's number keeps that number. The profile only fills a field
+ * the saved address left blank, so the pickup never arrives without a name
+ * and phone for the rider to call.
+ */
+fun SavedAddress.withSenderFallback(sender: SenderDetails) = copy(
+    contactName = contactName?.trim()?.takeIf { it.isNotBlank() }
+        ?: sender.name.trim().takeIf { it.isNotBlank() },
+    contactPhone = contactPhone?.filter { it.isDigit() }?.takeIf { it.isNotBlank() }
+        ?: sender.phone.filter { it.isDigit() }.takeIf { it.isNotBlank() }
 )

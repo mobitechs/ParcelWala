@@ -473,7 +473,8 @@ fun RiderFoundScreen(
                     Text(
                         "Confirming payment",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Heading
                     )
                     Text(
                         "Just a moment…",
@@ -771,7 +772,7 @@ private fun CancelBookingDialog(onDismiss: () -> Unit, onConfirm: (String) -> Un
                         tint = AppColors.Error, modifier = Modifier.size(20.dp)
                     )
                 }
-                Text("Cancel booking?", fontWeight = FontWeight.Bold)
+                Text("Cancel booking?", fontWeight = FontWeight.Bold, color = AppColors.Heading)
             }
         },
         text = {

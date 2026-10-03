@@ -40,6 +40,7 @@ import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
+import com.mobitechs.parcelwala.data.model.moving.MovingCategory
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.screens.account.AccountScreen
 import com.mobitechs.parcelwala.ui.screens.home.HomeScreen
@@ -88,6 +89,14 @@ fun MainScreen(
     preferencesManager: PreferencesManager,
     onNavigateToLogin: () -> Unit,
     onNavigateToLocationSearch: () -> Unit,
+    /**
+     * Smart Shifting entry — "What are you moving?" rather than "where to".
+     *
+     * The category travels with the tap so a customer who chose "Furniture" on
+     * Home is not asked what they are moving all over again. Null means they
+     * used the general card and still has to choose.
+     */
+    onNavigateToShifting: (MovingCategory?) -> Unit = {},
     onNavigateToOrderDetails: (OrderResponse) -> Unit = {},
     onBookAgain: (OrderResponse) -> Unit = {},
     onNavigateToActiveBooking: (ActiveBooking) -> Unit,
@@ -126,6 +135,7 @@ fun MainScreen(
                 composable(BottomNavItem.Home.route) {
                     HomeScreen(
                         onNavigateToLocationSearch = onNavigateToLocationSearch,
+                        onNavigateToShifting = onNavigateToShifting,
                         onNavigateToActiveBooking = { activeBooking ->
                             onNavigateToActiveBooking(activeBooking)
                         }

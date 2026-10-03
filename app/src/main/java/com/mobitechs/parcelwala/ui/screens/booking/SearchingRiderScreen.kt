@@ -770,7 +770,7 @@ private fun SearchingAnimationCard(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
             Spacer(Modifier.height(3.dp))
             Text(
@@ -802,7 +802,7 @@ private fun SearchingAnimationCard(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
             Spacer(Modifier.height(3.dp))
             Text(
@@ -976,7 +976,8 @@ private fun CancellationReasonBottomSheet(
                     Text(
                         stringResource(R.string.title_cancel_trip),
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Heading
                     )
                     Text(
                         stringResource(R.string.label_select_reason),
@@ -1168,7 +1169,8 @@ private fun CancellationReasonBottomSheet(
             title = {
                 Text(
                     stringResource(R.string.title_confirm_cancellation),
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Heading
                 )
             },
             text = {

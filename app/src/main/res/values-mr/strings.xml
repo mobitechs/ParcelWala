@@ -820,4 +820,11 @@
     <string name="why_support_title">24/7 मदत</string>
     <string name="why_support_subtitle">आम्ही नेहमी तुमच्यासोबत आहोत</string>
     <string name="content_desc_delivery_rider">डिलिव्हरी रायडर चित्र</string>
+
+    <!-- Smart Shifting — Home entry point -->
+    <string name="shifting_section_title">घर किंवा ऑफिस शिफ्ट करायचंय?</string>
+    <string name="shifting_section_subtitle">काय हलवायचं आहे ते सांगा, योग्य गाडी आम्ही निवडतो.</string>
+    <string name="shifting_badge_new">नवीन</string>
+    <string name="shifting_cta_title">कोणती गाडी लागेल माहीत नाही?</string>
+    <string name="shifting_cta_subtitle">तुमच्या वस्तू सांगा, सेकंदात योग्य गाडी मिळवा</string>
 </resources>

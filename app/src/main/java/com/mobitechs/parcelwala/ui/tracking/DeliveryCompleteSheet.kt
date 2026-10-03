@@ -130,7 +130,7 @@ fun DeliveryCompleteSheet(
                     "Parcel delivered",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -192,7 +192,7 @@ fun DeliveryCompleteSheet(
                     "How was ${driverName.ifBlank { "your driver" }}?",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = AppColors.TextPrimary
+                    color = AppColors.Heading
                 )
                 Spacer(Modifier.height(10.dp))
 

@@ -55,7 +55,7 @@ fun AccountScreen(
             icon = {
                 Icon(imageVector = Icons.Default.Logout, contentDescription = null, tint = AppColors.Drop)
             },
-            title = { Text(text = stringResource(R.string.logout_title), fontWeight = FontWeight.Bold) },
+            title = { Text(text = stringResource(R.string.logout_title), fontWeight = FontWeight.Bold, color = AppColors.Heading) },
             text = { Text(stringResource(R.string.logout_message)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -130,7 +130,7 @@ fun AccountScreen(
             MenuCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                 MenuItemRow(
                     icon = Icons.Outlined.Home,
-                    iconBackgroundColor = Color(0xFFFFF3F0),
+                    iconBackgroundColor = AppColors.PrimaryLight,
                     iconTint = AppColors.Primary,
                     title = stringResource(R.string.saved_addresses),
                     subtitle = stringResource(R.string.saved_addresses_subtitle),
@@ -139,8 +139,8 @@ fun AccountScreen(
                 MenuDivider()
                 MenuItemRow(
                     icon = Icons.Default.Receipt,
-                    iconBackgroundColor = Color(0xFFFFFBF0),
-                    iconTint = Color(0xFFD4900A),
+                    iconBackgroundColor = AppColors.AccentLight,
+                    iconTint = AppColors.AccentDark,
                     title = stringResource(R.string.gst_details),
                     subtitle = stringResource(R.string.gst_details_subtitle),
                     onClick = { showGSTBottomSheet = true }
@@ -158,8 +158,8 @@ fun AccountScreen(
             MenuCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                 MenuItemRow(
                     icon = Icons.Outlined.CardGiftcard,
-                    iconBackgroundColor = Color(0xFFF0FAF3),
-                    iconTint = Color(0xFF2D9B44),
+                    iconBackgroundColor = AppColors.SuccessLight,
+                    iconTint = AppColors.Pickup,
                     title = stringResource(R.string.refer_earn),
                     subtitle = stringResource(R.string.refer_earn_subtitle),
                     onClick = onNavigateToReferral,
@@ -170,8 +170,8 @@ fun AccountScreen(
                 MenuDivider()
                 MenuItemRow(
                     icon = Icons.Outlined.Language,
-                    iconBackgroundColor = Color(0xFFF5F0FF),
-                    iconTint = Color(0xFF7C5DE8),
+                    iconBackgroundColor = AppColors.PrimaryLight,
+                    iconTint = AppColors.PrimaryMuted,
                     title = stringResource(R.string.language),
                     subtitle = stringResource(R.string.language_options_display),
                     onClick = onNavigateToLanguage
@@ -179,8 +179,8 @@ fun AccountScreen(
                 MenuDivider()
                 MenuItemRow(
                     icon = Icons.Outlined.HelpOutline,
-                    iconBackgroundColor = Color(0xFFF0F5FF),
-                    iconTint = Color(0xFF4A6FE8),
+                    iconBackgroundColor = AppColors.SecondaryLight,
+                    iconTint = AppColors.Secondary,
                     title = stringResource(R.string.help_support),
                     subtitle = stringResource(R.string.help_support_subtitle),
                     onClick = onNavigateToHelpSupport
@@ -188,7 +188,7 @@ fun AccountScreen(
                 MenuDivider()
                 MenuItemRow(
                     icon = Icons.Outlined.Description,
-                    iconBackgroundColor = Color(0xFFF4F4F4),
+                    iconBackgroundColor = AppColors.SurfaceVariant,
                     iconTint = AppColors.TextSecondary,
                     title = stringResource(R.string.terms_conditions),
                     subtitle = stringResource(R.string.terms_subtitle),
@@ -202,7 +202,7 @@ fun AccountScreen(
             MenuCard(modifier = Modifier.padding(horizontal = 16.dp)) {
                 MenuItemRow(
                     icon = Icons.Outlined.Logout,
-                    iconBackgroundColor = Color(0xFFFFEEEE),
+                    iconBackgroundColor = AppColors.ErrorLight,
                     iconTint = AppColors.Drop,
                     title = stringResource(R.string.logout),
                     subtitle = stringResource(R.string.logout_subtitle),
@@ -413,12 +413,12 @@ private fun MenuItemRow(
 
 @Composable
 private fun ReferralBadge(text: String) {
-    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFE9F7EC)) {
+    Surface(shape = RoundedCornerShape(8.dp), color = AppColors.SuccessLight) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF188038),
+            color = AppColors.Pickup,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }

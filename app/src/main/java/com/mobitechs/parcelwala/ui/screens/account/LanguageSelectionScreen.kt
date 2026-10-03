@@ -183,7 +183,8 @@ fun LanguageSelectionScreen(
                     text = stringResource(R.string.change_language_title),
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AppColors.Heading
                 )
             },
             text = {

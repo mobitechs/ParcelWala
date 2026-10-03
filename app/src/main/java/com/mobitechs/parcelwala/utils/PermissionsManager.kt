@@ -24,12 +24,34 @@ fun Context.hasLocationPermission(): Boolean {
 }
 
 /**
- * Composable for handling location permission
+ * Location permission, plus a way to ask for it AGAIN.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * WHY [request] EXISTS
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * The original helper asked once, on first composition, and returned only the
+ * boolean. That is fine for a screen that degrades quietly, and wrong for one
+ * with a control that DEPENDS on the permission: the location picker now shows
+ * "Use my current location for pickup" whenever the pickup is empty, and with
+ * the permission denied that button called straight into the location service,
+ * which threw a SecurityException into an error field nothing renders. The
+ * customer tapped a button and nothing happened at all — no address, no error,
+ * no permission dialog, because the one-shot prompt had already been spent.
+ *
+ * Handing the caller the launcher lets the button do the obvious thing: ask.
  */
+@androidx.compose.runtime.Stable
+class LocationPermissionState(
+    val granted: MutableState<Boolean>,
+    /** Show the system permission dialog again. Safe to call when granted. */
+    val request: () -> Unit
+)
+
 @Composable
-fun rememberLocationPermissionState(
+fun rememberLocationPermission(
     onPermissionResult: (Boolean) -> Unit
-): MutableState<Boolean> {
+): LocationPermissionState {
     val context = LocalContext.current
     val permissionGranted = remember {
         mutableStateOf(context.hasLocationPermission())
@@ -48,5 +70,20 @@ fun rememberLocationPermissionState(
         }
     }
 
-    return permissionGranted
+    return remember(permissionGranted, launcher) {
+        LocationPermissionState(
+            granted = permissionGranted,
+            request = { launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+        )
+    }
 }
+
+/**
+ * Composable for handling location permission.
+ *
+ * Kept for the call sites that only need the boolean.
+ */
+@Composable
+fun rememberLocationPermissionState(
+    onPermissionResult: (Boolean) -> Unit
+): MutableState<Boolean> = rememberLocationPermission(onPermissionResult).granted

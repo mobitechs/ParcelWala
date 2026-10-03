@@ -23,6 +23,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import com.mobitechs.parcelwala.ui.booking2.sendParcelFlow
+import com.mobitechs.parcelwala.ui.moving.movingFlow
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
@@ -30,6 +31,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.MainActivity
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.manager.ActiveBooking
+import com.mobitechs.parcelwala.data.model.moving.MovingCategory
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.screens.account.AddressSearchScreen
@@ -96,6 +98,26 @@ fun NavGraph(
     var selectedOrder by remember { mutableStateOf<OrderResponse?>(null) }
     var orderForBookAgain by remember { mutableStateOf<OrderResponse?>(null) }
     var isBookAgainFlow by remember { mutableStateOf(false) }
+
+    // Which entry point the customer used to open `booking_flow`.
+    //
+    // A flag rather than a route argument because `booking_flow` must always be
+    // entered through the GRAPH — navigating straight at a destination inside a
+    // nested graph puts that graph's start destination (booking_entry) on the
+    // stack underneath, and booking_entry immediately navigates forward again,
+    // which produces a back button that refuses to go back. `booking_entry`
+    // reads this and routes onward, popping itself as it goes.
+    var isMovingFlow by remember { mutableStateOf(false) }
+
+    /**
+     * The Smart Shifting category the customer tapped on Home, if any.
+     *
+     * Consumed exactly once by the `moving_category` route, which then forwards
+     * straight to that category's item list. Held here rather than passed as a
+     * route argument because `booking_flow` has to be entered through the graph
+     * (see [isMovingFlow]) and the argument would have nowhere to ride along.
+     */
+    var movingStartCategory by remember { mutableStateOf<MovingCategory?>(null) }
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
     var pendingAccountAddress by remember { mutableStateOf<SavedAddress?>(null) }
     var activeBookingToResume by remember { mutableStateOf<ActiveBooking?>(null) }
@@ -178,8 +200,20 @@ fun NavGraph(
                         popUpTo(Screen.Main.route) { inclusive = true }
                     }
                 },
+                onNavigateToShifting = { category ->
+                    // Smart Shifting: the customer tells us WHAT they are
+                    // moving, and the app works out the vehicle. Same graph, so
+                    // the recommendation reaches the same BookingViewModel the
+                    // fare sheet and tracking screens use.
+                    isBookAgainFlow = false
+                    isMovingFlow = true
+                    movingStartCategory = category
+                    orderForBookAgain = null
+                    navController.navigate("booking_flow")
+                },
                 onNavigateToLocationSearch = {
                     isBookAgainFlow = false
+                    isMovingFlow = false
                     orderForBookAgain = null
                     // Enter through the GRAPH, not straight at the picker.
                     //
@@ -388,6 +422,25 @@ fun NavGraph(
             // new screens, coupons and tracking.
             sendParcelFlow(navController)
 
+            // ════════════════════════════════════════════════════════════════
+            // SMART SHIFTING — "What are you moving?" → recommended vehicle
+            // ════════════════════════════════════════════════════════════════
+            //
+            // Registered in the SAME graph for the same reason sendParcelFlow is:
+            // it hands over to the parcel flow through a shared BookingViewModel,
+            // and a sibling graph would hand it a fresh one with no pickup, drop
+            // or fare.
+            movingFlow(
+                navController = navController,
+                // Read-and-clear, so the deep link fires once. Without the
+                // clear, every back-navigation to the category screen would
+                // fling the customer forward again — a back button that
+                // refuses to go back.
+                consumeStartCategory = {
+                    movingStartCategory.also { movingStartCategory = null }
+                }
+            )
+
 
             composable("booking_entry") { backStackEntry ->
                 val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("booking_flow") }
@@ -395,6 +448,19 @@ fun NavGraph(
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
+                    // Smart Shifting is checked FIRST. It is the only entry point
+                    // that starts somewhere other than an address, and letting a
+                    // stale isBookAgain flag win here would drop the customer on
+                    // a fare sheet for a move whose contents were never chosen.
+                    if (isMovingFlow) {
+                        isMovingFlow = false
+                        viewModel.clearMovingContext()
+                        navController.navigate("moving_category") {
+                            popUpTo("booking_entry") { inclusive = true }
+                        }
+                        return@LaunchedEffect
+                    }
+
                     // Book Again now lands in the v2 flow like every other entry
                     // point. Both addresses are already prefilled from the order,
                     // so it goes STRAIGHT to the fare sheet — a repeat delivery

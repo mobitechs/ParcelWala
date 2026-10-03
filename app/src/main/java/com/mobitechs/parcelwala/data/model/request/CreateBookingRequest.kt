@@ -80,6 +80,66 @@ data class CreateBookingRequest(
     @SerializedName("goods_value")
     val goodsValue: Int? = null,
 
+    // ============ SMART SHIFTING ============
+    //
+    // Present only for bookings made through the "what are you moving" flow.
+    // Every field is optional and the parcel flow omits all of them, so the
+    // endpoint stays backwards compatible.
+    //
+    // WHY THE FULL ITEM LIST IS STORED, NOT JUST THE SUMMARY
+    //
+    // `goods_type_name` already carries a readable line ("House Shifting · Sofa
+    // x1, Boxes x8") and that is what a driver reads. But a text field cannot be
+    // queried, and the numbers behind the recommendation are the only way to
+    // ever answer the question that matters: did we send the right vehicle?
+    // Storing the rows — with the volume and weight each estimate was built from
+    // — lets the backend compare what was predicted against what turned up, and
+    // tune the catalog from real trips instead of guesses.
+    //
+    // See the backend documentation for the storage contract.
+
+    /** "moving" for a Smart Shifting booking; absent for an ordinary parcel. */
+    @SerializedName("booking_source")
+    val bookingSource: String? = null,
+
+    /** One row per item the customer selected. */
+    @SerializedName("moving_items")
+    val movingItems: List<com.mobitechs.parcelwala.data.model.moving.MovingBookingItem>? = null,
+
+    /** Total estimated volume in cubic feet, after packing allowance. */
+    @SerializedName("estimated_volume_cft")
+    val estimatedVolumeCft: Double? = null,
+
+    /** SMALL | MEDIUM | LARGE | VERY_LARGE | EXTRA_LARGE — the band shown to the customer. */
+    @SerializedName("load_size")
+    val loadSize: String? = null,
+
+    /** True when the load contains items needing two people / a wide door. */
+    @SerializedName("has_bulky_items")
+    val hasBulkyItems: Boolean? = null,
+
+    /** True when the load contains food, glass or electronics. */
+    @SerializedName("has_fragile_items")
+    val hasFragileItems: Boolean? = null,
+
+    /** Loading helpers the app suggested. 0 when the driver can manage alone. */
+    @SerializedName("suggested_helpers")
+    val suggestedHelpers: Int? = null,
+
+    /** The vehicle the app recommended, before any customer override. */
+    @SerializedName("recommended_vehicle_type_id")
+    val recommendedVehicleTypeId: Int? = null,
+
+    /**
+     * FALSE when the load does not fit in one trip.
+     *
+     * The customer is never told this — see the note on
+     * `VehicleRecommendation.fitsInOneTrip`. OPERATIONS SHOULD ACT ON IT: flag
+     * the booking for a call before a driver is dispatched.
+     */
+    @SerializedName("fits_in_one_trip")
+    val fitsInOneTrip: Boolean? = null,
+
     // ============ FARE CALCULATION DETAILS ============
     @SerializedName("distance_km")
     val distanceKm: Double,
@@ -184,7 +244,16 @@ object CreateBookingRequestBuilder {
         gstin: String?,
         // ✅ NEW: Optional road distance/ETA from Google Directions API
         roadDistanceKm: Double? = null,
-        roadDurationMinutes: Int? = null
+        roadDurationMinutes: Int? = null,
+        // ── Smart Shifting. All null for an ordinary parcel booking. ──────
+        movingItems: List<com.mobitechs.parcelwala.data.model.moving.MovingBookingItem>? = null,
+        estimatedVolumeCft: Double? = null,
+        loadSize: String? = null,
+        hasBulkyItems: Boolean? = null,
+        hasFragileItems: Boolean? = null,
+        suggestedHelpers: Int? = null,
+        recommendedVehicleTypeId: Int? = null,
+        fitsInOneTrip: Boolean? = null
     ): CreateBookingRequest {
 
         val fareBeforeDiscount = fareDetails.roundedFare
@@ -223,6 +292,19 @@ object CreateBookingRequestBuilder {
             goodsWeight = goodsWeight,
             goodsPackages = goodsPackages,
             goodsValue = goodsValue,
+
+            // Smart Shifting. `booking_source` is derived rather than passed:
+            // an item list IS the definition of a moving booking, so the two
+            // cannot drift out of agreement.
+            bookingSource = if (!movingItems.isNullOrEmpty()) "moving" else null,
+            movingItems = movingItems?.takeIf { it.isNotEmpty() },
+            estimatedVolumeCft = estimatedVolumeCft,
+            loadSize = loadSize,
+            hasBulkyItems = hasBulkyItems,
+            hasFragileItems = hasFragileItems,
+            suggestedHelpers = suggestedHelpers,
+            recommendedVehicleTypeId = recommendedVehicleTypeId,
+            fitsInOneTrip = fitsInOneTrip,
 
             // ✅ Fare Calculation - uses road distance when available
             distanceKm = distanceKm,

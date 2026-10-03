@@ -109,7 +109,7 @@ fun SendParcelTopBar(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary,
+                color = AppColors.Heading,
                 maxLines = 1
             )
             subtitle?.takeIf { it.isNotBlank() }?.let {

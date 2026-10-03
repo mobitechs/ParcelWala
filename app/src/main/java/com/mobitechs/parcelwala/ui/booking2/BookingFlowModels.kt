@@ -85,8 +85,36 @@ data class VehicleOption(
      * thing and the row renders them differently: an emoji is text.
      */
     val iconEmoji: String? = null,
-    val isRecommended: Boolean = false
-)
+    val isRecommended: Boolean = false,
+    /**
+     * What the highlight pill says.
+     *
+     * The parcel flow highlights the cheapest capable vehicle and calls it
+     * "Popular". Smart Shifting highlights the vehicle its engine sized for the
+     * customer's actual furniture and must call it "Recommended" — the two are
+     * different claims, and labelling a sized-to-fit vehicle "Popular"
+     * undersells the one piece of work the customer walked four screens to get.
+     */
+    val recommendLabel: String = "Popular",
+    /**
+     * Set for a Smart Shifting booking when this vehicle is smaller than the
+     * load requires. The row renders greyed out, unselectable, and says why.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * WHY DISABLED AND NOT HIDDEN
+     * ─────────────────────────────────────────────────────────────────────
+     *
+     * Hiding the ₹500 auto is cleaner and it breaks trust in a specific way: the
+     * customer saw an auto on the home screen, does not see it here, and the
+     * conclusion available to them is that the app is hiding the cheap option to
+     * charge more. Showing it greyed out with "Too small for your items" answers
+     * that question before it is asked, and doubles as a quiet justification for
+     * the price they are about to pay.
+     */
+    val disabledReason: String? = null
+) {
+    val isSelectable: Boolean get() = disabledReason == null
+}
 
 /**
  * A search result row in the location picker.
@@ -161,6 +189,17 @@ data class BookingDraft(
     val isLoadingFares: Boolean = false,
     val routeDistanceKm: Double? = null,
     val routeDurationMin: Int? = null,
+    /**
+     * True when this booking came through Smart Shifting.
+     *
+     * Presentation only. The goods "type" for a move is the item list the
+     * customer already built — it is not a category left to choose — so the fare
+     * sheet shows it as a read-only chip instead of a button into the goods
+     * picker. Tapping through to that picker would overwrite the item summary
+     * AND reset the computed weight back to a category average, undoing four
+     * screens of work with one stray tap.
+     */
+    val isMovingBooking: Boolean = false,
     val error: String? = null
 ) {
     val selectedVehicle: VehicleOption?

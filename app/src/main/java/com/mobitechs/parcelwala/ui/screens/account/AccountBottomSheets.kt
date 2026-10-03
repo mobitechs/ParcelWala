@@ -131,7 +131,7 @@ fun AddGSTBottomSheet(
                 text = stringResource(R.string.add_gstin_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -266,7 +266,7 @@ fun EditProfileBottomSheet(
                 text = stringResource(R.string.edit_profile_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = AppColors.TextPrimary
+                color = AppColors.Heading
             )
 
             Spacer(modifier = Modifier.height(24.dp))

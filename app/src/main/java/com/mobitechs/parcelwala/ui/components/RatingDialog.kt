@@ -94,7 +94,8 @@ fun RatingDialog(
                 Text(
                     text = stringResource(R.string.label_delivery_completed),
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.Heading
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -193,7 +194,8 @@ fun RatingDialog(
                         R.string.label_rate_driver
                     ),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.Heading
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))

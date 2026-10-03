@@ -137,7 +137,7 @@ fun TrackingHeadline(headline: Headline, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             fontSize = 26.sp,
-            color = AppColors.TextPrimary
+            color = AppColors.Heading
         )
         headline.subtitle?.let {
             Spacer(Modifier.height(2.dp))

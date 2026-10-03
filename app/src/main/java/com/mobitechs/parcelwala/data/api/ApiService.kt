@@ -23,6 +23,7 @@ import com.mobitechs.parcelwala.data.model.request.WalletBalanceResponse
 import com.mobitechs.parcelwala.data.model.request.WalletTopupOrderRequest
 import com.mobitechs.parcelwala.data.model.request.WalletTopupResponse
 import com.mobitechs.parcelwala.data.model.request.WalletTopupVerifyRequest
+import com.mobitechs.parcelwala.data.model.moving.MovingItem
 import com.mobitechs.parcelwala.data.model.response.ApiResponse
 import com.mobitechs.parcelwala.data.model.response.AuthTokens
 import com.mobitechs.parcelwala.data.model.response.BookingResponse
@@ -101,6 +102,25 @@ interface ApiService {
     //    Get Restricted Items
     @GET("items/restricted")    // working
     suspend fun getRestrictedItems(): ApiResponse<List<RestrictedItemResponse>>
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SMART SHIFTING — the item catalog
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // The list of things a customer can say they are sending, with the volume
+    // and weight the vehicle recommendation is built from.
+    //
+    // Fully server-driven: operations must be able to add "treadmill", or
+    // correct the volume of a wardrobe after seeing real trips, without an app
+    // release. `MovingRepository` keeps a local copy purely as an OFFLINE
+    // FALLBACK — this is the second screen of the flow, and it has to render for
+    // someone standing in a half-empty flat on one bar of signal.
+    //
+    // See the backend documentation for the response contract.
+
+    /** The whole catalog. Small enough to fetch in one call and cache. */
+    @GET("moving/items")
+    suspend fun getMovingItems(): ApiResponse<List<MovingItem>>
 
 
     //  Get saved addresses
