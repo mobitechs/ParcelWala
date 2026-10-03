@@ -78,6 +78,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.ui.tracking.DeliveryCompleteSheet
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.tracking.ConnectionBanner
 import com.mobitechs.parcelwala.ui.tracking.DriverRow
@@ -622,9 +623,9 @@ private fun PaymentOverlaySheet(
                         onClick = onPayOnline,
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+                        colors = ctaButtonColors()
                     ) {
-                        Text("Pay online", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Pay online", fontWeight = FontWeight.Bold)
                     }
                 }
             }

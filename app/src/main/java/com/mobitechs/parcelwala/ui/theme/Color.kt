@@ -90,7 +90,14 @@ object AppColors {
     val Error = Drop
     val ErrorLight = Color(0xFFFEE2E2)
     val Warning = Accent
-    val Info = Color(0xFF2563EB)
+
+    /**
+     * Informational accents. Was a bright blue (#2563EB) that sat outside the
+     * Navy + Teal + Amber palette and leaked into buttons, focused text fields
+     * and status chips via the legacy [Blue] alias. Repointed to the brand
+     * navy so every one of those call sites picks up the palette unchanged.
+     */
+    val Info = Primary
 
     /** Retained legacy aliases — used by older screens. */
     val Blue = Info
@@ -132,7 +139,28 @@ object AppColors {
      * Inline "View all" / "See all" links. Green + underline (see `SeeAllLink`)
      * so they read as a link rather than as another heading or a button.
      */
-    val Link = Pickup
+    val Link = Secondary
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CALL TO ACTION — Amber
+    // ═══════════════════════════════════════════════════════════════════════
+    /**
+     * Filled primary buttons — the one action each screen exists for ("See
+     * prices", "Book", "Pay", "Continue", "Verify"). Use `ctaButtonColors()`
+     * rather than reading these directly, so disabled states stay uniform.
+     *
+     * Navy stays the STRUCTURE colour (headers, headings, selected states);
+     * amber is what the customer presses. Destructive buttons stay red and
+     * outlined/secondary buttons stay navy.
+     */
+    val Cta = Accent
+
+    /**
+     * Text, icons and spinners on [Cta]. Dark Navy, never white: white on
+     * amber is 2.2:1 contrast and fails accessibility (WCAG AA needs 4.5:1);
+     * Dark Navy on amber is 7.6:1.
+     */
+    val OnCta = TextOnAccent
 
     // ═══════════════════════════════════════════════════════════════════════
     // NEUTRALS — slate-tinted rather than pure grey, so they sit correctly
@@ -144,10 +172,15 @@ object AppColors {
     val Gray300 = Color(0xFFCBD5E1)
     val Gray400 = Color(0xFF94A3B8)
     val Gray500 = Color(0xFF64748B)
-    val Gray600 = Color(0xFF475569)
-    val Gray700 = Color(0xFF334155)
-    val Gray800 = Color(0xFF1E293B)
-    val Gray900 = Color(0xFF0F172A)
+
+    // The dark end of the ramp is pinned to the two palette text colours rather
+    // than carrying slate shades of its own. Screens reach for Gray600 as
+    // "secondary text" and Gray800/900 as "near-black" (snackbars, tooltips);
+    // pinning them keeps every one of those on Slate #64748B / Dark Navy #172033.
+    val Gray600 = TextSecondary
+    val Gray700 = TextPrimary
+    val Gray800 = TextPrimary
+    val Gray900 = TextPrimary
 
     // ═══════════════════════════════════════════════════════════════════════
     // SURFACE / BACKGROUND

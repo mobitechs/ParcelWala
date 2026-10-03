@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.response.formatRupee
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentEvent
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentViewModel
@@ -349,15 +350,12 @@ fun PostDeliveryPaymentScreen(
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCash) AppColors.Pickup else AppColors.Primary,
-                            disabledContainerColor = AppColors.Border
-                        )
+                        colors = ctaButtonColors()
                     ) {
                         if (paymentProcessing || uiState.isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = AppColors.White,
+                                color = AppColors.OnCta,
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(12.dp))

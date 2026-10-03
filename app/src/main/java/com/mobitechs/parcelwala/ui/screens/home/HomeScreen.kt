@@ -117,7 +117,8 @@ import com.mobitechs.parcelwala.ui.theme.AppColors.WarningAmberBg
 import com.mobitechs.parcelwala.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 
 /**
  * Home Screen
@@ -359,14 +360,30 @@ private fun HomeHeader(
             //.padding(top = statusBarHeight + 12.dp, bottom = 1.dp)
     ) {
 
+//        Image(
+//            painter = painterResource(id = R.drawable.building),
+//            contentDescription = null,
+//            contentScale = ContentScale.FillWidth,
+//            alpha = 0.10f,
+//            modifier = Modifier
+//                .align(Alignment.BottomEnd)
+//                .fillMaxWidth()
+//        )
         Image(
-            painter = painterResource(id = R.drawable.building),
+            painter = painterResource(id = R.drawable.bg_city_skyline),
             contentDescription = null,
             contentScale = ContentScale.FillWidth,
-            alpha = 0.10f,
+            alpha = 0.05f,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(Alignment.BottomEnd)
                 .fillMaxWidth()
+                .padding(bottom = 50.dp,end =60.dp)
+                // Draw only the right-hand third of the skyline
+                .drawWithContent {
+                    clipRect(left = size.width * 2f / 3f) {
+                        this@drawWithContent.drawContent()
+                    }
+                }
         )
 
         // Rider, top-right, tucked behind the notification bell.
@@ -376,7 +393,7 @@ private fun HomeHeader(
             alpha = 0.5f,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(top = 10.dp, end = 10.dp)
+                .padding(top = 10.dp, end = 60.dp, bottom = 40.dp)
                 .size(width = 64.dp, height = 64.dp)
         )
 
@@ -438,7 +455,7 @@ private fun HomeHeader(
                     .clickable(enabled = !isDisabled, onClick = onPickupClick),
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = AppColors.White.copy(alpha = 0.13f)
+                    containerColor = AppColors.White.copy(alpha = 0.2f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {

@@ -72,6 +72,14 @@ AppColors.Heading         // = Primary - EVERY heading on a light surface:
                           //   Headings on the navy header stay White.
 AppColors.Link            // Green #16A34A - "View all" / "See all" links
                           //   (use SeeAllLink, which also underlines)
+
+// Call to action
+AppColors.Cta             // = Accent, Amber #F59E0B - filled primary buttons
+AppColors.OnCta           // Dark Navy #172033 - text/icons/spinners on Cta
+                          //   (never white: 2.2:1 contrast; navy is 7.6:1)
+// For any filled CTA Button use:  colors = ctaButtonColors()
+// Navy = structure (headers, headings, selected states, outlined buttons).
+// Red  = destructive (cancel booking, delete).
 ```
 
 ### Usage Examples
@@ -176,7 +184,7 @@ Text(
 
 ### 1. PrimaryButton
 
-**Orange button for main actions**
+**Amber call-to-action button (Dark Navy text) for the main action**
 ```kotlin
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mobitechs.parcelwala.data.model.response.formatRupee
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -253,13 +254,13 @@ fun DeliveryCompleteSheet(
                     enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+                    colors = ctaButtonColors()
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
-                            color = Color.White
+                            color = AppColors.OnCta
                         )
                     } else {
                         // One button that always works. The old one sat disabled
@@ -269,8 +270,7 @@ fun DeliveryCompleteSheet(
                         Text(
                             text = if (rating > 0) "Submit rating" else "Done",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color.White
+                            fontSize = 16.sp
                         )
                     }
                 }

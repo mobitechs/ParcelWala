@@ -38,18 +38,13 @@ fun CommonButton(
             .fillMaxWidth()
             .height(56.dp),
         enabled = enabled && !isLoading,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = AppColors.Blue,
-            contentColor = Color.White,
-            disabledContainerColor = AppColors.DisabledBackground,
-            disabledContentColor = Color.White
-        ),
+        colors = ctaButtonColors(),
         shape = RoundedCornerShape(12.dp)
     ) {
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(24.dp),
-                color = Color.White,
+                color = AppColors.OnCta,
                 strokeWidth = 2.dp
             )
         } else {
