@@ -377,7 +377,7 @@ private fun HomeHeader(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .fillMaxWidth()
-                .padding(bottom = 50.dp,end =30.dp)
+                .padding(bottom = 50.dp,end =60.dp)
                 // Draw only the right-hand third of the skyline
                 .drawWithContent {
                     clipRect(left = size.width * 2f / 3f) {
