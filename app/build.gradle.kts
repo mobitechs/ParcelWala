@@ -1,3 +1,8 @@
+// Imported rather than written inline: inside `android { }` the name `java`
+// resolves to Gradle's `java` extension, so `java.util.Properties()` there
+// fails with "Unresolved reference: util".
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -24,14 +29,31 @@ android {
 
         buildConfigField("String", "BASE_URL", "\"https://api.yourapp.com/v1/\"")
 
-        // Load API key from local.properties
-        val properties = org.jetbrains.kotlin.konan.properties.Properties()
-        val localPropertiesFile = rootProject.file("local.properties")
-        if (localPropertiesFile.exists()) {
-            properties.load(localPropertiesFile.inputStream())
+        // ── Google Maps / Places API key ────────────────────────────────────
+        //
+        // local.properties is git-ignored, so a fresh clone (or a zip of the
+        // repo) has no key. That used to build silently with "" and then crash
+        // on launch inside Places.initialize() — "API Key must not be empty".
+        //
+        // Lookup order: local.properties → -PMAPS_API_KEY / gradle.properties
+        // in ~/.gradle → MAPS_API_KEY environment variable (for CI).
+        val localProperties = Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) file.inputStream().use { load(it) }
         }
+        val mapsApiKey = listOf(
+            localProperties.getProperty("MAPS_API_KEY"),
+            project.findProperty("MAPS_API_KEY") as String?,
+            System.getenv("MAPS_API_KEY")
+        ).firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
 
-        val mapsApiKey = properties.getProperty("MAPS_API_KEY", "")
+        if (mapsApiKey.isBlank()) {
+            logger.warn(
+                "\n⚠️  MAPS_API_KEY is not set. Add this line to local.properties " +
+                    "in the project root:\n    MAPS_API_KEY=<your Google Maps key>\n" +
+                    "The app will open, but maps, address search and routes will not work.\n"
+            )
+        }
 
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
 

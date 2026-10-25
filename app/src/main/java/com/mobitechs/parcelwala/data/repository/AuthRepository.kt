@@ -5,6 +5,7 @@ import com.mobitechs.parcelwala.data.api.apiCall
 import com.mobitechs.parcelwala.data.api.apiFlow
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.CompleteProfileRequest
+import com.mobitechs.parcelwala.data.model.request.LoginIdentifier
 import com.mobitechs.parcelwala.data.model.request.SendOtpRequest
 import com.mobitechs.parcelwala.data.model.request.VerifyOtpRequest
 import com.mobitechs.parcelwala.data.model.response.LoginData
@@ -42,29 +43,31 @@ class AuthRepository @Inject constructor(
     private val preferencesManager: PreferencesManager
 ) {
 
-    fun sendOtp(phoneNumber: String): Flow<NetworkResult<OtpData>> = apiFlow {
-        apiCall {
-            apiService.sendOtp(
-                SendOtpRequest(
-                    phoneNumber = phoneNumber.trim(),
-                    countryCode = "+91",
-                    purpose = "login"
-                )
-            )
-        }
+    fun sendOtp(phoneNumber: String): Flow<NetworkResult<OtpData>> =
+        sendOtp(LoginIdentifier.phone(phoneNumber))
+
+    /**
+     * Send a login code to a mobile number (SMS) or an email address. Same
+     * endpoint for both; the identifier decides which field is sent.
+     */
+    fun sendOtp(identifier: LoginIdentifier): Flow<NetworkResult<OtpData>> = apiFlow {
+        apiCall { apiService.sendOtp(identifier.toSendOtpRequest()) }
     }
 
     fun verifyOtp(
         phoneNumber: String,
         otp: String
+    ): Flow<NetworkResult<LoginData>> = verifyOtp(LoginIdentifier.phone(phoneNumber), otp)
+
+    fun verifyOtp(
+        identifier: LoginIdentifier,
+        otp: String
     ): Flow<NetworkResult<LoginData>> = apiFlow {
         apiCall {
             apiService.verifyOtp(
-                VerifyOtpRequest(
-                    phoneNumber = phoneNumber.trim(),
+                identifier.toVerifyOtpRequest(
                     otp = otp.trim(),
-                    deviceToken = preferencesManager.getDeviceToken() ?: "",
-                    deviceType = "android"
+                    deviceToken = preferencesManager.getDeviceToken() ?: ""
                 )
             )
         }.also { result ->
@@ -98,7 +101,9 @@ class AuthRepository @Inject constructor(
         fullName: String,
         email: String?,
         referralCode: String?,
-        profilePhoto: File? = null   // not wired to UI yet — pass a File when you add photo picking
+        profilePhoto: File? = null,   // not wired to UI yet — pass a File when you add photo picking
+        /** Email sign-ups only: the 10-digit mobile drivers will call. */
+        phoneNumber: String? = null
     ): Flow<NetworkResult<User>> = apiFlow {
         apiCall {
             val textType = "text/plain".toMediaTypeOrNull()
@@ -106,13 +111,21 @@ class AuthRepository @Inject constructor(
             val namePart = fullName.trim().toRequestBody(textType)
             val emailPart = email?.trim()?.takeIf { it.isNotEmpty() }?.toRequestBody(textType)
             val referralPart = referralCode?.trim()?.takeIf { it.isNotEmpty() }?.toRequestBody(textType)
+            val phonePart = phoneNumber?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
+                ?.toRequestBody(textType)
 
             val photoPart = profilePhoto?.let { file ->
                 val fileBody = file.asRequestBody("image/*".toMediaTypeOrNull())
                 MultipartBody.Part.createFormData("profile_photo", file.name, fileBody)
             }
 
-            apiService.completeProfile(namePart, emailPart, referralPart, photoPart)
+            apiService.completeProfile(
+                fullName = namePart,
+                email = emailPart,
+                referralCode = referralPart,
+                profilePhoto = photoPart,
+                phoneNumber = phonePart
+            )
         }.also { result ->
             if (result is NetworkResult.Success) {
                 result.data?.let { preferencesManager.saveUser(it) }
@@ -144,4 +157,14 @@ class AuthRepository @Inject constructor(
     fun isUserLoggedIn(): Boolean = preferencesManager.getAccessToken() != null
 
     fun getUserData(): User? = preferencesManager.getUser()
+
+    /**
+     * True for a customer who logged in by email and has no mobile number yet.
+     * Complete profile then asks for the number instead of an email: drivers
+     * call it at pickup and drop, and bookings cannot work without it.
+     */
+    fun isEmailSignUpWithoutPhone(): Boolean {
+        val user = preferencesManager.getUser() ?: return false
+        return user.phoneNumber.isNullOrBlank() && !user.email.isNullOrBlank()
+    }
 }

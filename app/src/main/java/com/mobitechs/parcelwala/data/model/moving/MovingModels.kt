@@ -390,8 +390,24 @@ data class VehicleLoadProfile(
     val basePrice: Int,
     val imageUrl: String? = null,
     /** Loading deck size in feet, when the server states it. For display. */
-    val deckLabel: String? = null
-)
+    val deckLabel: String? = null,
+    /**
+     * "Open body" / "Closed body" / "Scooter" — kept apart from [name] so the
+     * engine's name-based capacity table still matches on the plain name.
+     */
+    val variantLabel: String? = null,
+    /** Raw `vehicle_sub_type` ("scooter" / "bike"), for the chooser's heading and hint. */
+    val subType: String? = null,
+    /** Raw `vehicle_body_type` ("open_body" / "closed_body"). */
+    val bodyType: String? = null
+) {
+    /**
+     * What the customer reads: "3 Wheeler · Closed body". Two variants of one
+     * vehicle would otherwise appear as two identical "3 Wheeler" rows.
+     */
+    val displayName: String
+        get() = listOfNotNull(name, variantLabel?.takeIf { it.isNotBlank() }).joinToString(" · ")
+}
 
 /**
  * The engine's answer: one vehicle, plus honest reasons.

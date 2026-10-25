@@ -268,7 +268,7 @@
     <!-- MainScreen -->
     <string name="home_tab">होम</string>
     <string name="orders_tab">ऑर्डर</string>
-    <string name="payments_tab">भुगतान</string>
+    <string name="payments_tab">वॉलेट</string>
     <string name="account_tab">अकाउंट</string>
 
     <!-- OrderDetailsScreen -->
@@ -361,7 +361,7 @@
     <string name="feedback_quote_format">&#8220;%s&#8221;</string>
 
     <!-- Payments Screen -->
-    <string name="title_payments">भुगतान</string>
+    <string name="title_payments">वॉलेट</string>
     <string name="label_wallet_balance">वॉलेट बैलेंस</string>
     <string name="label_add_money">पैसे जोड़ें</string>
     <string name="label_payment_methods">भुगतान विधियां</string>
@@ -830,4 +830,17 @@
     <string name="shifting_badge_new">नया</string>
     <string name="shifting_cta_title">समझ नहीं आ रहा कौन सी गाड़ी लें?</string>
     <string name="shifting_cta_subtitle">अपना सामान बताइए, सेकंडों में सही गाड़ी पाइए</string>
+
+    <!-- Email login (Mobile | Email toggle) -->
+    <string name="login_tab_mobile">मोबाइल नंबर</string>
+    <string name="login_tab_email">ईमेल</string>
+    <string name="login_subtitle_both">जारी रखने के लिए लॉग इन या साइन अप करें</string>
+    <string name="label_email_address">ईमेल पता</string>
+    <string name="helper_sms_code">हम SMS से 4 अंकों का कोड भेजेंगे।</string>
+    <string name="helper_email_code">हम आपको ईमेल पर 4 अंकों का कोड भेजेंगे। पासवर्ड की ज़रूरत नहीं।</string>
+    <string name="label_send_code_email">ईमेल पर कोड भेजें</string>
+    <string name="title_check_email">अपना ईमेल देखें</string>
+    <string name="hint_check_spam">नहीं मिला? स्पैम या प्रमोशन्स फ़ोल्डर देखें।</string>
+    <string name="label_signed_in_with">%s से साइन इन किया</string>
+    <string name="label_mobile_driver_hint">ड्राइवर पिकअप और ड्रॉप पर इसी नंबर पर कॉल करेंगे।</string>
 </resources>

@@ -5,6 +5,9 @@ import com.mobitechs.parcelwala.data.model.moving.MovingItemSelection
 import com.mobitechs.parcelwala.data.model.moving.VehicleLoadProfile
 import com.mobitechs.parcelwala.data.model.moving.VehicleRecommendation
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleVariants
+import com.mobitechs.parcelwala.data.model.response.toAbsoluteAssetUrl
+import com.mobitechs.parcelwala.data.model.response.variantLabel
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -253,9 +256,43 @@ object MovingRecommendationEngine {
             capacityCft = volume,
             capacityKg = payloadKg,
             basePrice = basePrice,
-            imageUrl = imageUrl,
-            deckLabel = deckLabel()
+            imageUrl = imageUrl.toAbsoluteAssetUrl(),
+            deckLabel = deckLabel(),
+            variantLabel = variantLabel,
+            subType = vehicleSubType?.trim()?.takeIf { it.isNotEmpty() },
+            bodyType = vehicleBodyType?.trim()?.takeIf { it.isNotEmpty() }
         )
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VARIANTS ON THE RECOMMENDATION SCREEN
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Variants of one vehicle (same `name`, e.g. "2 Wheeler" scooter and bike,
+    // "3 Wheeler" open and closed body) are separate vehicle types to the
+    // engine. On screen they belong together: the selected vehicle's variants
+    // that ALSO fit the load become a chooser inside the recommended card, and
+    // drop out of "Other vehicles that fit" so the same vehicle is not offered
+    // twice in two different places.
+
+    /**
+     * The selected vehicle plus every variant of it that fits the load,
+     * cheapest first. Null when there is nothing to choose between — one
+     * variant only, or the others are too small for this load.
+     */
+    fun variantOptions(recommendation: VehicleRecommendation): List<VehicleLoadProfile>? {
+        val key = VehicleVariants.familyKey(recommendation.vehicle.name)
+        return (listOf(recommendation.vehicle) +
+            recommendation.alternatives.filter { VehicleVariants.familyKey(it.name) == key })
+            .distinctBy { it.vehicleTypeId }
+            .sortedWith(compareBy({ it.basePrice }, { it.capacityKg }))
+            .takeIf { it.size > 1 }
+    }
+
+    /** "Other vehicles that fit", minus the selected vehicle's own variants. */
+    fun otherVehicles(recommendation: VehicleRecommendation): List<VehicleLoadProfile> {
+        val key = VehicleVariants.familyKey(recommendation.vehicle.name)
+        return recommendation.alternatives.filterNot { VehicleVariants.familyKey(it.name) == key }
     }
 
     /** Usable volume from deck dimensions, when the server sends them. */

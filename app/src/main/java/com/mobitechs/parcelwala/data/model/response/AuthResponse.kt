@@ -46,8 +46,14 @@ data class User(
     @SerializedName("customer_id", alternate = ["customerId", "CustomerId"])
     val customerId: Int,
 
+    /**
+     * Null for a customer who signed up by EMAIL until they add a mobile number
+     * on Complete profile (see backend-docs/EMAIL_LOGIN_API.md). Nullable on
+     * purpose: Gson ignores Kotlin non-null types, and a "non-null" String that
+     * arrives null crashes far from here.
+     */
     @SerializedName("phone_number", alternate = ["phoneNumber", "PhoneNumber"])
-    val phoneNumber: String,
+    val phoneNumber: String?,
 
     @SerializedName("full_name", alternate = ["fullName", "FullName"])
     val fullName: String?,

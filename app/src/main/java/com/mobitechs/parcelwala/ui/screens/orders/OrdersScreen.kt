@@ -92,6 +92,7 @@ import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.RatingDialog
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.VehicleImage
 import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.theme.AppRadius
@@ -164,6 +165,7 @@ fun OrdersScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
     val hasActiveBooking by viewModel.hasActiveBooking.collectAsStateWithLifecycle()
+    val vehicleImages by viewModel.vehicleImages.collectAsStateWithLifecycle()
     var isRefreshing by remember { mutableStateOf(false) }
     val ratingSubmitState by viewModel.ratingSubmitState.collectAsStateWithLifecycle()
     var orderToRate by remember { mutableStateOf<OrderResponse?>(null) }
@@ -235,6 +237,7 @@ fun OrdersScreen(
                     uiState.orders.isEmpty() -> EmptyOrdersState(filter = selectedFilter)
                     else -> OrdersList(
                         orders = uiState.orders,
+                        vehicleImages = vehicleImages,
                         onOrderClick = onOrderClick,
                         onBookAgain = { order ->
                             if (hasActiveBooking) {
@@ -379,6 +382,7 @@ private fun StatusFilterRow(selectedFilter: String?, onFilterSelected: (String?)
 @Composable
 private fun OrdersList(
     orders: List<OrderResponse>,
+    vehicleImages: Map<Int, String>,
     onOrderClick: (OrderResponse) -> Unit,
     onBookAgain: (OrderResponse) -> Unit,
     onRateOrder: (OrderResponse) -> Unit
@@ -406,6 +410,7 @@ private fun OrdersList(
             ) {
                 OrderCard(
                     order = order,
+                    vehicleImageUrl = order.vehicleTypeId?.let { vehicleImages[it] },
                     onClick = { onOrderClick(order) },
                     onBookAgain = { onBookAgain(order) },
                     onRateOrder = { onRateOrder(order) }
@@ -419,6 +424,7 @@ private fun OrdersList(
 @Composable
 private fun OrderCard(
     order: OrderResponse,
+    vehicleImageUrl: String?,
     onClick: () -> Unit,
     onBookAgain: () -> Unit,
     onRateOrder: () -> Unit
@@ -475,19 +481,19 @@ private fun OrderCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(AppSpacing.SM)
                 ) {
-                    // Vehicle emoji box — tinted with accent color
-                    Box(
+                    // Vehicle photo (image_url) in a box tinted with the
+                    // accent colour; the name-based emoji stays as fallback.
+                    VehicleImage(
+                        imageUrl = vehicleImageUrl,
+                        emoji = getVehicleIcon(order.vehicleType),
+                        emojiSize = 20.sp,
+                        glyphSize = 20.dp,
                         modifier = Modifier
                             .size(42.dp)
                             .clip(RoundedCornerShape(AppRadius.MD))
-                            .background(accentColor.copy(alpha = 0.08f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = getVehicleIcon(order.vehicleType),
-                            fontSize = 20.sp
-                        )
-                    }
+                            .background(accentColor.copy(alpha = 0.08f))
+                            .padding(4.dp)
+                    )
 
                     // Booking number + date
                     Column(modifier = Modifier.weight(1f)) {

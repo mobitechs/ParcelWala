@@ -2,6 +2,7 @@
 package com.mobitechs.parcelwala.data.repository
 
 import android.util.Log
+import com.mobitechs.parcelwala.BuildConfig
 import com.mobitechs.parcelwala.data.model.ApiErrorParser
 import com.google.gson.reflect.TypeToken
 import com.mobitechs.parcelwala.data.api.ApiService
@@ -216,7 +217,27 @@ class BookingRepository @Inject constructor(
             errorMessage = "Failed to load vehicle types",
             diskKey = ReferenceDataCache.KEY_VEHICLE_TYPES,
             diskType = object : TypeToken<List<VehicleTypeResponse>>() {}.type
-        ) { apiService.getVehicleTypes().takeIf { it.success }?.data }
+        ) {
+            apiService.getVehicleTypes().takeIf { it.success }?.data
+                ?.also(::logVehicleVariants)
+        }
+
+    /**
+     * Debug builds only: one Logcat line per vehicle type (tag "ParcelWalaVehicles")
+     * with the two variant fields exactly as parsed. When a Scooter / Bike or
+     * Open / Closed choice does not appear in the app, this shows in one glance
+     * whether the server sent the variant at all — the usual answer.
+     */
+    private fun logVehicleVariants(types: List<VehicleTypeResponse>) {
+        if (!BuildConfig.DEBUG) return
+        types.forEach {
+            Log.d(
+                "ParcelWalaVehicles",
+                "#${it.vehicleTypeId} \"${it.name}\" sub_type=${it.vehicleSubType} " +
+                    "body_type=${it.vehicleBodyType} available=${it.isAvailable}"
+            )
+        }
+    }
 
     fun getGoodsTypes(forceRefresh: Boolean = false): Flow<NetworkResult<List<GoodsTypeResponse>>> =
         cachedFlow(

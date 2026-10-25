@@ -407,6 +407,9 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             query = state.searchQuery,
             suggestions = suggestions,
             isSearching = state.isLoadingPredictions,
+            // A failed search (missing / rejected Maps key, no network) used to
+            // look exactly like "no places found". Now it says what happened.
+            searchError = state.searchError,
             isResolvingPickup = isResolvingPickup,
             isSavedFilterOn = showSavedOnly,
             // Both ends are set but the customer got here some way other than
@@ -743,6 +746,12 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         val isFareLoading by booking.isFareLoading.collectAsStateWithLifecycle()
         val selectedFare by booking.selectedFareDetails.collectAsStateWithLifecycle()
         val routeInfo by booking.routeInfo.collectAsStateWithLifecycle()
+        val vehicleTypes by booking.vehicleTypes.collectAsStateWithLifecycle()
+
+        // Variants (scooter / bike, open / closed body) and vehicle photos come
+        // from /vehicles/types, not the fare API. Cached, so normally instant;
+        // until it lands the rows show without variants, then update in place.
+        LaunchedEffect(Unit) { booking.ensureVehicleTypes() }
 
         val pickup = state.pickupAddress
         val drop = state.dropAddress
@@ -762,12 +771,15 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         // The Smart Shifting recommendation, when this booking came through
         // that flow. Null for an ordinary parcel, in which case the adapter
         // falls back to highlighting the cheapest option as "Popular".
-        val options = remember(fares, state.preferredVehicleTypeId, state.eligibleVehicleTypeIds) {
+        val options = remember(
+            fares, state.preferredVehicleTypeId, state.eligibleVehicleTypeIds, vehicleTypes
+        ) {
             fares.toVehicleOptions(
                 recommendedVehicleTypeId = state.preferredVehicleTypeId,
                 // The engine's own answer, computed against the same fleet the
                 // recommendation used. Empty for a parcel booking.
-                eligibleVehicleTypeIds = state.eligibleVehicleTypeIds
+                eligibleVehicleTypeIds = state.eligibleVehicleTypeIds,
+                vehicleTypes = vehicleTypes
             )
         }
 
@@ -782,7 +794,7 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         // bike, and silently selecting it after the customer spent four screens
         // telling us about a sofa and a double bed would throw away the entire
         // point of the flow — and hand them a price that cannot deliver the job.
-        LaunchedEffect(options, state.preferredVehicleTypeId) {
+        LaunchedEffect(options, state.preferredVehicleTypeId, state.chosenVehicleTypeId) {
             if (selectedFare == null && fares.isNotEmpty()) {
                 // ── NEVER AUTO-SELECT A LOCKED VEHICLE ────────────────────
                 //
@@ -802,8 +814,10 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
                     .mapTo(mutableSetOf()) { it.id }
                 val selectable = fares.filter { it.vehicleTypeId.toString() in selectableIds }
 
-                val preferred = state.preferredVehicleTypeId
-                    ?.let { id -> selectable.firstOrNull { it.vehicleTypeId == id } }
+                // The customer's own pick (Home card + variant, or an earlier
+                // tap here) beats the Smart Shifting / Book Again preference.
+                val preferred = listOfNotNull(state.chosenVehicleTypeId, state.preferredVehicleTypeId)
+                    .firstNotNullOfOrNull { id -> selectable.firstOrNull { it.vehicleTypeId == id } }
 
                 // `selectable` is empty only when every row is locked, which
                 // the adapter cannot produce — an empty eligibility set
@@ -847,6 +861,9 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
                 if (options.firstOrNull { it.id == id }?.isSelectable != false) {
                     fares.firstOrNull { it.vehicleTypeId.toString() == id }
                         ?.let(booking::selectFareDetails)
+                    // Remembered as the customer's choice, so re-pricing after an
+                    // address change keeps this vehicle and variant.
+                    id.toIntOrNull()?.let(booking::setChosenVehicle)
                 }
             },
             onEditGoodsType = { navController.navigate("sendparcel_goods") },
@@ -1022,6 +1039,10 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
         val state by booking.uiState.collectAsStateWithLifecycle()
         val selectedFare by booking.selectedFareDetails.collectAsStateWithLifecycle()
         val accountState by account.uiState.collectAsStateWithLifecycle()
+        val vehicleTypes by booking.vehicleTypes.collectAsStateWithLifecycle()
+
+        // For the vehicle row's photo and variant ("3 Wheeler · Closed body").
+        LaunchedEffect(Unit) { booking.ensureVehicleTypes() }
 
         LaunchedEffect(Unit) {
             booking.navigationEvent.collect { event ->
@@ -1071,7 +1092,13 @@ fun NavGraphBuilder.sendParcelFlow(navController: NavHostController) {
             drop = state.dropAddress,
             sender = state.pickupAddress.toSender(fallback = accountState.toSender()),
             receiver = state.dropAddress.toReceiver(),
-            vehicles = listOfNotNull(selectedFare?.toVehicleOption()),
+            vehicles = listOfNotNull(
+                selectedFare?.let { fare ->
+                    fare.toVehicleOption(
+                        vehicleType = vehicleTypes.firstOrNull { it.vehicleTypeId == fare.vehicleTypeId }
+                    )
+                }
+            ),
             selectedVehicleId = selectedFare?.vehicleTypeId?.toString(),
             goodsType = state.selectedGoodsTypeName ?: "Documents",
             goodsWeightKg = state.goodsWeight,

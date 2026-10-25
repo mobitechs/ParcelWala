@@ -76,7 +76,9 @@ interface ApiService {
         @Part("full_name") fullName: RequestBody,
         @Part("email") email: RequestBody?,
         @Part("referral_code") referralCode: RequestBody?,
-        @Part profilePhoto: MultipartBody.Part?
+        @Part profilePhoto: MultipartBody.Part?,
+        /** Required for customers who signed up by email; null (not sent) otherwise. */
+        @Part("phone_number") phoneNumber: RequestBody?
     ): Response<ApiResponse<User>>
 
 

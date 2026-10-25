@@ -68,7 +68,14 @@ class DirectionsRepository @Inject constructor(
                     encodedPolyline = route.overviewPolyline.points
                 )
             } else {
-                throw Exception("No routes found: ${directionsResponse.status}")
+                val reason = listOfNotNull(
+                    directionsResponse.status,
+                    directionsResponse.errorMessage?.takeIf { it.isNotBlank() }
+                ).joinToString(" — ")
+                // REQUEST_DENIED here almost always means the Maps key: missing,
+                // restricted, Directions API not enabled, or billing off.
+                android.util.Log.e("ParcelWalaMaps", "Directions failed: $reason")
+                throw Exception("No routes found: $reason")
             }
         }
 

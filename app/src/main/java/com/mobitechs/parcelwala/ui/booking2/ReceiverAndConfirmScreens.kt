@@ -39,7 +39,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
 import com.mobitechs.parcelwala.data.model.response.formatRupee
+import com.mobitechs.parcelwala.ui.components.VehicleImage
+import com.mobitechs.parcelwala.ui.components.VehicleVariantTag
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -133,12 +137,19 @@ fun ConfirmBookingScreen(
 
             SendParcelCard {
                 Column(Modifier.padding(horizontal = 14.dp)) {
-                    SummaryRow(
-                        icon = Icons.Default.Inventory2,
-                        label = draft.selectedVehicle?.name?.takeIf { it.isNotBlank() }
-                            ?: "Vehicle",
-                        value = formatRupee(draft.subtotal)
-                    )
+                    val vehicle = draft.selectedVehicle
+                    if (vehicle != null && vehicle.name.isNotBlank()) {
+                        // Photo + variant, so the last screen before booking
+                        // says exactly which vehicle is coming — "3 Wheeler,
+                        // Closed body" — not just the family name.
+                        VehicleSummaryRow(vehicle = vehicle, value = formatRupee(draft.subtotal))
+                    } else {
+                        SummaryRow(
+                            icon = Icons.Default.Inventory2,
+                            label = "Vehicle",
+                            value = formatRupee(draft.subtotal)
+                        )
+                    }
                     HorizontalDivider(color = AppColors.Border)
                     // Goods type and weight, changeable from here.
                     //
@@ -249,6 +260,65 @@ private fun StopRow(dotColor: Color, title: String, subtitle: String) {
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+/** The confirm screen's vehicle line: photo, name, variant tag, capacity, price. */
+@Composable
+private fun VehicleSummaryRow(vehicle: VehicleOption, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        VehicleImage(
+            imageUrl = vehicle.iconUrl,
+            emoji = vehicle.iconEmoji,
+            emojiSize = 20.sp,
+            glyphSize = 20.dp,
+            modifier = Modifier
+                .size(width = 56.dp, height = 40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(AppColors.SurfaceVariant)
+                .padding(3.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                vehicle.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                vehicle.variantLabel?.let { VehicleVariantTag(label = it, bodyType = vehicle.bodyType) }
+                if (vehicle.capacityLabel.isNotBlank()) {
+                    Text(
+                        vehicle.capacityLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = AppColors.TextPrimary
+        )
     }
 }
 

@@ -150,8 +150,16 @@ data class FareDetails(
     @SerializedName("freeWaitingTimeMins")
     val freeWaitingTimeMinsAlt: Int? = null, // alternate JSON key from API
 
-    @SerializedName("imageUrl")
-    val imageUrl: String,
+    /**
+     * Vehicle photo. Read from either key: the fare API has sent `imageUrl`,
+     * `/vehicles/types` sends `image_url`, and accepting both means the backend
+     * can align the two without an app release.
+     *
+     * Nullable because it IS optional in practice — Gson ignores Kotlin
+     * non-null types and would hand back null for a missing key anyway.
+     */
+    @SerializedName(value = "imageUrl", alternate = ["image_url"])
+    val imageUrl: String? = null,
 
     @SerializedName("currency")
     val currency: String = "INR",
@@ -160,7 +168,23 @@ data class FareDetails(
     val promoApplied: String? = "",
 
     @SerializedName("fare_breakdown")
-    val fareBreakdown: List<FareBreakdownItem> = emptyList()
+    val fareBreakdown: List<FareBreakdownItem> = emptyList(),
+
+    /**
+     * Variant of this vehicle type, when the fare API sends it. The app also
+     * fills these from `/vehicles/types` by id, so they are optional here.
+     */
+    @SerializedName(
+        value = "vehicle_sub_type",
+        alternate = ["vehicle_subtype", "vehicleSubType", "VehicleSubType", "sub_type", "subType"]
+    )
+    val vehicleSubType: String? = null,
+
+    @SerializedName(
+        value = "vehicle_body_type",
+        alternate = ["vehicle_bodytype", "vehicleBodyType", "VehicleBodyType", "body_type", "bodyType"]
+    )
+    val vehicleBodyType: String? = null
 ) {
     companion object {
         const val DEFAULT_FREE_WAITING_MINS = 3

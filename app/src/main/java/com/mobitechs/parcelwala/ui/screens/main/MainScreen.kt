@@ -89,6 +89,8 @@ fun MainScreen(
     preferencesManager: PreferencesManager,
     onNavigateToLogin: () -> Unit,
     onNavigateToLocationSearch: () -> Unit,
+    /** A Home vehicle card (and its variant) was picked — book with it pre-selected. */
+    onStartBookingWithVehicle: (vehicleTypeId: Int) -> Unit = { onNavigateToLocationSearch() },
     /**
      * Smart Shifting entry — "What are you moving?" rather than "where to".
      *
@@ -135,6 +137,7 @@ fun MainScreen(
                 composable(BottomNavItem.Home.route) {
                     HomeScreen(
                         onNavigateToLocationSearch = onNavigateToLocationSearch,
+                        onStartBookingWithVehicle = onStartBookingWithVehicle,
                         onNavigateToShifting = onNavigateToShifting,
                         onNavigateToActiveBooking = { activeBooking ->
                             onNavigateToActiveBooking(activeBooking)

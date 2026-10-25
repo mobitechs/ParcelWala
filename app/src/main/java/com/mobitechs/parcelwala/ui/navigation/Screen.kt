@@ -12,8 +12,19 @@ sealed class Screen(val route: String) {
     // ============ AUTH SCREENS ============
     object Splash : Screen("splash")
     object Login : Screen("login")
-    object Otp : Screen("otp/{phoneNumber}") {
-        fun createRoute(phoneNumber: String) = "otp/$phoneNumber"
+    /**
+     * The code screen, for a mobile number OR an email ([method] = PHONE | EMAIL).
+     *
+     * [route] is the exact pattern the destination is registered with, so
+     * `popUpTo(Screen.Otp.route)` matches it. (It used to be "otp/{phoneNumber}"
+     * while the destination was registered as "otp/{phoneNumber}?otp={otp}", so
+     * every popUpTo aimed at it silently did nothing.)
+     */
+    object Otp : Screen("otp/{identifier}?otp={otp}&method={method}") {
+        fun createRoute(identifier: String, method: String, otp: String?) =
+            "otp/${android.net.Uri.encode(identifier)}" +
+                "?otp=${otp?.let { android.net.Uri.encode(it) } ?: "null"}" +
+                "&method=$method"
     }
 
     object CompleteProfile : Screen("complete_profile")

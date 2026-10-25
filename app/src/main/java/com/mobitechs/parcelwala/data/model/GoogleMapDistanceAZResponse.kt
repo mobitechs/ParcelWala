@@ -40,7 +40,14 @@ data class DurationInfo(
 // If calling Google Directions API directly
 data class GoogleDirectionsResponse(
     val routes: List<Route>,
-    val status: String
+    val status: String,
+    /**
+     * Google's own explanation when status is not OK — e.g. "You must enable
+     * Billing on the Google Cloud Project…". Without it a REQUEST_DENIED is
+     * just a word in a log, with no hint that the fix is in Cloud Console.
+     */
+    @SerializedName("error_message")
+    val errorMessage: String? = null
 )
 
 data class Route(

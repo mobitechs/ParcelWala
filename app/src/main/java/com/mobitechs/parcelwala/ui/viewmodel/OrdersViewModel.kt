@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.model.response.OrderResponse
+import com.mobitechs.parcelwala.data.model.response.toAbsoluteAssetUrl
+import com.mobitechs.parcelwala.data.repository.BookingRepository
 import com.mobitechs.parcelwala.data.repository.OrdersRepository
 import com.mobitechs.parcelwala.utils.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,8 +32,35 @@ sealed class RatingSubmitState {
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
     private val ordersRepository: OrdersRepository,
-    private val activeBookingManager: ActiveBookingManager
+    private val activeBookingManager: ActiveBookingManager,
+    private val bookingRepository: BookingRepository
 ) : ViewModel() {
+
+    /**
+     * vehicle_type_id → absolute photo URL from `/vehicles/types`.
+     *
+     * An order only carries the vehicle's name and id, not its image, so the
+     * cards look the photo up here. Variants are separate vehicle types, so a
+     * closed-body booking shows the closed-body photo. The list is cached by
+     * the repository (Home already loaded it); on failure the map stays empty
+     * and the cards keep their emoji.
+     */
+    private val _vehicleImages = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val vehicleImages: StateFlow<Map<Int, String>> = _vehicleImages.asStateFlow()
+
+    private fun loadVehicleImages() {
+        viewModelScope.launch {
+            bookingRepository.getVehicleTypes().collect { result ->
+                if (result is NetworkResult.Success) {
+                    _vehicleImages.value = result.data.orEmpty()
+                        .mapNotNull { type ->
+                            type.imageUrl.toAbsoluteAssetUrl()?.let { type.vehicleTypeId to it }
+                        }
+                        .toMap()
+                }
+            }
+        }
+    }
 
     // UI State
     private val _uiState = MutableStateFlow(OrdersUiState())
@@ -58,6 +87,7 @@ class OrdersViewModel @Inject constructor(
 
     init {
         loadOrders()
+        loadVehicleImages()
     }
 
     /**

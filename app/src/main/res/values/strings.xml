@@ -268,7 +268,7 @@
     <!-- MainScreen -->
     <string name="home_tab">Home</string>
     <string name="orders_tab">Orders</string>
-    <string name="payments_tab">Payments</string>
+    <string name="payments_tab">Wallet</string>
     <string name="account_tab">Account</string>
 
     <!-- OrderDetailsScreen -->
@@ -364,7 +364,7 @@
     <string name="feedback_quote_format">&#8220;%s&#8221;</string>
 
     <!-- Payments Screen -->
-    <string name="title_payments">Payments</string>
+    <string name="title_payments">Wallet</string>
     <string name="label_wallet_balance">Wallet Balance</string>
     <string name="label_add_money">Add Money</string>
     <string name="label_payment_methods">Payment Methods</string>
@@ -857,4 +857,18 @@
     <string name="shifting_badge_new">NEW</string>
     <string name="shifting_cta_title">Not sure what will fit?</string>
     <string name="shifting_cta_subtitle">List your items and get the right vehicle in seconds</string>
+
+    <!-- Email login (Mobile | Email toggle) -->
+    <string name="login_tab_mobile">Mobile number</string>
+    <string name="login_tab_email">Email</string>
+    <string name="login_subtitle_both">Log in or sign up to continue</string>
+    <string name="label_email_address">Email address</string>
+    <string name="helper_sms_code">We\'ll send a 4-digit code by SMS.</string>
+    <string name="helper_email_code">We\'ll email you a 4-digit code. No password needed.</string>
+    <string name="label_send_code_email">Send code to email</string>
+    <string name="title_check_email">Check your email</string>
+    <string name="hint_check_spam">Can\'t find it? Check Spam or Promotions.</string>
+    <string name="label_signed_in_with">Signed in with %s</string>
+    <string name="label_mobile_driver_hint">Drivers call this number at pickup and drop.</string>
+    <string name="hint_email_example" translatable="false">name@example.com</string>
 </resources>

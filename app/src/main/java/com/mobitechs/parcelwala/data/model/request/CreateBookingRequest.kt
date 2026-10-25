@@ -20,6 +20,19 @@ data class CreateBookingRequest(
     @SerializedName("vehicle_type_name")
     val vehicleTypeName: String,
 
+    /**
+     * The exact variant booked — "scooter" / "bike", "open_body" /
+     * "closed_body". `vehicle_type_id` already identifies it when each variant
+     * is its own vehicle type; these make it explicit on the booking record
+     * (driver matching, ops, invoices) and cover the case where the backend
+     * treats the variant as a preference instead. Null when the vehicle has none.
+     */
+    @SerializedName("vehicle_sub_type")
+    val vehicleSubType: String? = null,
+
+    @SerializedName("vehicle_body_type")
+    val vehicleBodyType: String? = null,
+
     // ============ PICKUP DETAILS ============
     @SerializedName("pickup_address")
     val pickupAddress: String,
@@ -253,7 +266,10 @@ object CreateBookingRequestBuilder {
         hasFragileItems: Boolean? = null,
         suggestedHelpers: Int? = null,
         recommendedVehicleTypeId: Int? = null,
-        fitsInOneTrip: Boolean? = null
+        fitsInOneTrip: Boolean? = null,
+        // ── Vehicle variant. Null when the vehicle type has none. ─────────
+        vehicleSubType: String? = null,
+        vehicleBodyType: String? = null
     ): CreateBookingRequest {
 
         val fareBeforeDiscount = fareDetails.roundedFare
@@ -267,6 +283,8 @@ object CreateBookingRequestBuilder {
             // Vehicle Info
             vehicleTypeId = fareDetails.vehicleTypeId,
             vehicleTypeName = fareDetails.vehicleTypeName,
+            vehicleSubType = vehicleSubType?.trim()?.takeIf { it.isNotEmpty() },
+            vehicleBodyType = vehicleBodyType?.trim()?.takeIf { it.isNotEmpty() },
 
             // Pickup Details
             pickupAddress = pickupAddress.address,

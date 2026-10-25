@@ -3,6 +3,8 @@ package com.mobitechs.parcelwala.ui.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mobitechs.parcelwala.data.model.request.LoginIdentifier
+import com.mobitechs.parcelwala.data.model.request.LoginMethod
 import com.mobitechs.parcelwala.data.model.response.LoginData
 import com.mobitechs.parcelwala.data.model.response.OtpData
 import com.mobitechs.parcelwala.data.repository.AuthRepository
@@ -46,6 +48,7 @@ class AuthViewModel @Inject constructor(
 
     companion object {
         private const val KEY_PHONE_NUMBER = "phone_number"
+        private const val KEY_LOGIN_METHOD = "login_method"
     }
 
     private var currentPhoneNumber: String
@@ -54,16 +57,48 @@ class AuthViewModel @Inject constructor(
             savedStateHandle[KEY_PHONE_NUMBER] = value
         }
 
-    fun sendOtp(phoneNumber: String) {
-        if (!isValidPhoneNumber(phoneNumber)) {
-            _uiState.update { it.copy(error = "Please enter a valid phone number") }
+    /**
+     * The identifier this login is for — mobile or email. Stored in the
+     * SavedStateHandle beside the value so a process death between "send" and
+     * "verify" does not turn an email login back into a phone one.
+     */
+    private var currentIdentifier: LoginIdentifier
+        get() = LoginIdentifier.fromRoute(savedStateHandle[KEY_LOGIN_METHOD], currentPhoneNumber)
+        set(value) {
+            savedStateHandle[KEY_LOGIN_METHOD] = value.method.name
+            currentPhoneNumber = value.value
+        }
+
+    /**
+     * Complete profile asks for a MOBILE NUMBER (required) instead of an email
+     * when the customer signed up by email. Read once from the saved user,
+     * which verify-otp stored moments before this screen opened.
+     */
+    val isEmailSignUp: Boolean
+        get() = authRepository.isEmailSignUpWithoutPhone()
+
+    /** The email this customer signed in with, for the "Signed in with …" line. */
+    val signedInEmail: String?
+        get() = authRepository.getUserData()?.email?.takeIf { it.isNotBlank() }
+
+    fun sendOtp(phoneNumber: String) = sendOtp(LoginIdentifier.phone(phoneNumber))
+
+    /** Send a code by SMS or email; validation matches the toggle's field. */
+    fun sendOtp(identifier: LoginIdentifier) {
+        val invalid = when (identifier.method) {
+            LoginMethod.PHONE -> if (isValidPhoneNumber(identifier.value)) null
+            else "Please enter a valid phone number"
+            LoginMethod.EMAIL -> Validators.emailRequired(identifier.value)
+        }
+        if (invalid != null) {
+            _uiState.update { it.copy(error = invalid) }
             return
         }
 
-        currentPhoneNumber = phoneNumber
+        currentIdentifier = identifier
 
         viewModelScope.launch {
-            authRepository.sendOtp(phoneNumber).collect { result ->
+            authRepository.sendOtp(identifier).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -96,21 +131,24 @@ class AuthViewModel @Inject constructor(
     /**
      * Verify OTP - ✅ FIXED: Changed from 6-digit to 4-digit validation
      */
-    fun verifyOtp(otp: String, phoneNumber: String? = null) {
+    fun verifyOtp(otp: String, phoneNumber: String? = null) =
+        verifyOtp(otp, phoneNumber?.let { LoginIdentifier.phone(it) } ?: currentIdentifier)
+
+    /** Verify a 4-digit code for the mobile number or email it was sent to. */
+    fun verifyOtp(otp: String, identifier: LoginIdentifier) {
         if (otp.length != 4) {  // ✅ FIXED: Was 6, now 4
             _uiState.update { it.copy(error = "Please enter a valid 4-digit OTP") }  // ✅ FIXED
             return
         }
 
-        val phone = phoneNumber ?: currentPhoneNumber
-
-        if (phone.isBlank()) {
-            _uiState.update { it.copy(error = "Phone number not found. Please go back and try again.") }
+        if (identifier.value.isBlank()) {
+            val what = if (identifier.isEmail) "Email" else "Phone number"
+            _uiState.update { it.copy(error = "$what not found. Please go back and try again.") }
             return
         }
 
         viewModelScope.launch {
-            authRepository.verifyOtp(phone, otp).collect { result ->
+            authRepository.verifyOtp(identifier, otp).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -146,7 +184,9 @@ class AuthViewModel @Inject constructor(
         fullName: String,
         email: String?,
         referralCode: String?,
-        profilePhoto: File? = null
+        profilePhoto: File? = null,
+        /** Required (and only sent) for email sign-ups. */
+        phoneNumber: String? = null
     ) {
         Validators.fullName(fullName)?.let { message ->
             _uiState.update { it.copy(error = message, fieldErrors = mapOf("full_name" to listOf(message))) }
@@ -156,9 +196,21 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(error = message, fieldErrors = mapOf("email" to listOf(message))) }
             return
         }
+        if (isEmailSignUp) {
+            Validators.mobile(phoneNumber)?.let { message ->
+                _uiState.update { it.copy(error = message, fieldErrors = mapOf("phone_number" to listOf(message))) }
+                return
+            }
+        }
 
         viewModelScope.launch {
-            authRepository.completeProfile(fullName, email, referralCode, profilePhoto).collect { result ->
+            authRepository.completeProfile(
+                fullName = fullName,
+                email = email,
+                referralCode = referralCode,
+                profilePhoto = profilePhoto,
+                phoneNumber = phoneNumber.takeIf { isEmailSignUp }
+            ).collect { result ->
                 when (result) {
                     is NetworkResult.Loading -> {
                         _uiState.update {
@@ -255,7 +307,12 @@ class AuthViewModel @Inject constructor(
     }
 
     fun setPhoneNumber(phoneNumber: String) {
-        currentPhoneNumber = phoneNumber
+        currentIdentifier = LoginIdentifier.phone(phoneNumber)
+    }
+
+    /** The OTP screen hands over what the code was sent to — phone or email. */
+    fun setIdentifier(identifier: LoginIdentifier) {
+        currentIdentifier = identifier
     }
 
     // Phone and email rules now live in Validators so the screens, the ViewModel

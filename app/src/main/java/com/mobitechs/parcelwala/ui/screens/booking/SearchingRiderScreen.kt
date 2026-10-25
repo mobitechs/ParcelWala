@@ -118,6 +118,8 @@ import com.mobitechs.parcelwala.data.model.realtime.BookingStatusType
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.formatRupee
+import com.mobitechs.parcelwala.data.model.response.toAbsoluteAssetUrl
+import com.mobitechs.parcelwala.ui.components.VehicleImage
 import com.mobitechs.parcelwala.data.repository.RouteInfo
 import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -148,6 +150,15 @@ fun SearchingRiderScreen(
     val activeBooking by bookingViewModel.activeBooking.collectAsStateWithLifecycle()
     val bookingUiState by bookingViewModel.uiState.collectAsStateWithLifecycle()
     val trackingUiState by riderTrackingViewModel.ui.collectAsStateWithLifecycle()
+    val vehicleTypes by bookingViewModel.vehicleTypes.collectAsStateWithLifecycle()
+
+    // The vehicle photo from /vehicles/types (the fare API's own image can be a
+    // stale path); the emoji stays as the fallback.
+    LaunchedEffect(Unit) { bookingViewModel.ensureVehicleTypes() }
+    val vehicleImageUrl = remember(vehicleTypes, selectedFareDetails.vehicleTypeId) {
+        (vehicleTypes.firstOrNull { it.vehicleTypeId == selectedFareDetails.vehicleTypeId }?.imageUrl
+            ?: selectedFareDetails.imageUrl).toAbsoluteAssetUrl()
+    }
     // The ViewModel now exposes a TrackingPhase rather than a raw status enum.
     // SEARCHING is the only phase this screen cares about; anything else means
     // a driver was found and NavGraph is already moving us on.
@@ -321,6 +332,7 @@ fun SearchingRiderScreen(
                             pickupAddress = pickupAddress,
                             dropAddress = dropAddress,
                             selectedFareDetails = selectedFareDetails,
+                            vehicleImageUrl = vehicleImageUrl,
                             fare = fare,
                             routeInfo = routeInfo,
                             isSearching = isSearching,
@@ -501,6 +513,7 @@ private fun SearchingSheetBody(
     pickupAddress: SavedAddress,
     dropAddress: SavedAddress,
     selectedFareDetails: FareDetails,
+    vehicleImageUrl: String?,
     fare: Double, // ✅ Int → Double
     routeInfo: RouteInfo?,
     isSearching: Boolean,
@@ -620,9 +633,12 @@ private fun SearchingSheetBody(
                             .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            selectedFareDetails.vehicleTypeIcon ?: "🚚",
-                            fontSize = 28.sp
+                        VehicleImage(
+                            imageUrl = vehicleImageUrl,
+                            emoji = selectedFareDetails.vehicleTypeIcon,
+                            emojiSize = 28.sp,
+                            glyphSize = 28.dp,
+                            modifier = Modifier.size(width = 72.dp, height = 44.dp)
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(

@@ -4,7 +4,9 @@ import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.PlaceAutocomplete
 import com.mobitechs.parcelwala.data.model.request.SearchHistory
-import com.mobitechs.parcelwala.utils.Constants
+import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleVariants
+import com.mobitechs.parcelwala.data.model.response.toAbsoluteAssetUrl
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -34,38 +36,57 @@ import com.mobitechs.parcelwala.utils.Constants
 fun FareDetails.toVehicleOption(
     isRecommended: Boolean = false,
     recommendLabel: String = "Popular",
-    disabledReason: String? = null
-) = VehicleOption(
-    id = vehicleTypeId.toString(),
-    name = vehicleTypeName,
-    capacityLabel = capacity,
-    etaMinutes = estimatedDurationMinutes.takeIf { it > 0 },
-    fare = roundedFare,
-    iconUrl = imageUrl.toAbsoluteAssetUrl(),
-    iconEmoji = vehicleTypeIcon.takeIf { it.isNotBlank() },
-    isRecommended = isRecommended,
-    recommendLabel = recommendLabel,
-    disabledReason = disabledReason
-)
+    disabledReason: String? = null,
+    /**
+     * This fare's entry from `/vehicles/types`, matched by id. It carries the
+     * variant (`vehicle_sub_type` / `vehicle_body_type`) and the canonical
+     * `image_url`, which the fare API does not send today. Null is fine: the
+     * row then shows whatever the fare API itself provided.
+     */
+    vehicleType: VehicleTypeResponse? = null
+): VehicleOption {
+    // The fare API's own values win when it sends them; /vehicles/types fills
+    // the gaps. `orEmpty()` because Gson can leave "non-null" Strings null.
+    val subType = vehicleSubType.nonBlank() ?: vehicleType?.vehicleSubType.nonBlank()
+    val bodyType = vehicleBodyType.nonBlank() ?: vehicleType?.vehicleBodyType.nonBlank()
+    return VehicleOption(
+        id = vehicleTypeId.toString(),
+        name = vehicleTypeName.orEmpty().ifBlank { vehicleType?.name.orEmpty() },
+        capacityLabel = capacity.orEmpty().ifBlank { vehicleType?.capacity.orEmpty() },
+        etaMinutes = estimatedDurationMinutes.takeIf { it > 0 },
+        fare = roundedFare,
+        // `image_url` from /vehicles/types first — it is the photo the admin
+        // panel manages — then whatever the fare API sent.
+        iconUrl = vehicleType?.imageUrl.toAbsoluteAssetUrl() ?: imageUrl.toAbsoluteAssetUrl(),
+        iconEmoji = vehicleTypeIcon.nonBlank() ?: vehicleType?.icon.nonBlank(),
+        isRecommended = isRecommended,
+        recommendLabel = recommendLabel,
+        disabledReason = disabledReason,
+        subType = subType,
+        bodyType = bodyType,
+        variantLabel = VehicleVariants.label(subType, bodyType),
+        description = vehicleTypeDescription.nonBlank() ?: vehicleType?.description.nonBlank()
+    )
+}
+
+private fun String?.nonBlank(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
 /**
- * Turn a server asset path into something an image loader can actually fetch.
+ * Group vehicle options into one [VehicleFamily] per vehicle.
  *
- * The vehicles endpoint returns `"/images/vehicles/bike.png"` — root-relative,
- * with no host. Handing that straight to Coil silently fails: there is nothing
- * to resolve it against, so no request is made, no error surfaces, and the row
- * renders a blank space where the vehicle should be. Joining it onto the API
- * base is the whole fix.
- *
- * Absolute URLs are passed through untouched, so this keeps working if the
- * backend starts returning full URLs or moves the assets to a CDN.
+ * Variants of the same vehicle share a `name` ("3 Wheeler") and differ in
+ * id, fare, photo and sub/body type. Families keep the server's order (by
+ * first appearance); variants inside a family are sorted cheapest first.
  */
-private fun String?.toAbsoluteAssetUrl(): String? {
-    val path = this?.trim().orEmpty()
-    if (path.isBlank()) return null
-    if (path.startsWith("http://", true) || path.startsWith("https://", true)) return path
-    return Constants.BASE_URL.trimEnd('/') + "/" + path.trimStart('/')
-}
+fun List<VehicleOption>.toVehicleFamilies(): List<VehicleFamily> =
+    groupBy { VehicleVariants.familyKey(it.name) }
+        .map { (key, members) ->
+            VehicleFamily(
+                key = key,
+                name = members.first().name,
+                variants = members.sortedBy { it.fare }
+            )
+        }
 
 /**
  * Decides which row gets the highlight pill, and what it says.
@@ -109,9 +130,16 @@ fun List<FareDetails>.toVehicleOptions(
      * Taking the engine's ANSWER instead of re-deriving it from one of its
      * inputs means this screen and the recommendation cannot disagree.
      */
-    eligibleVehicleTypeIds: Set<Int> = emptySet()
+    eligibleVehicleTypeIds: Set<Int> = emptySet(),
+    /**
+     * `/vehicles/types`, for the variant and photo of each fare. Empty is fine —
+     * the rows then simply show no variant and use the fare API's image.
+     */
+    vehicleTypes: List<VehicleTypeResponse> = emptyList()
 ): List<VehicleOption> {
     if (isEmpty()) return emptyList()
+
+    val vehicleTypesById = vehicleTypes.associateBy { it.vehicleTypeId }
 
     val matchedRecommendation = recommendedVehicleTypeId
         ?.takeIf { id -> any { it.vehicleTypeId == id } }
@@ -141,7 +169,8 @@ fun List<FareDetails>.toVehicleOptions(
         it.toVehicleOption(
             isRecommended = it.vehicleTypeId == highlightId,
             recommendLabel = label,
-            disabledReason = disabledReasonFor(it.vehicleTypeId)
+            disabledReason = disabledReasonFor(it.vehicleTypeId),
+            vehicleType = vehicleTypesById[it.vehicleTypeId]
         )
     }
 }

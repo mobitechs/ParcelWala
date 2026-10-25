@@ -1,5 +1,17 @@
 package com.mobitechs.parcelwala.ui.screens.auth
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import com.mobitechs.parcelwala.ui.components.PhoneNumberField
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,10 +89,22 @@ fun CompleteProfileScreen(
 
     // ── the form ─────────────────────────────────────────────────────────────
     // Each field owns its value, whether it's been touched, and any server error.
+    // Customers who logged in by EMAIL have no mobile number yet. For them the
+    // optional email field is swapped for a REQUIRED mobile number: drivers
+    // call it at pickup and drop, and bookings need it. Read once — it cannot
+    // change while this screen is open.
+    val isEmailSignUp = remember { viewModel.isEmailSignUp }
+    val signedInEmail = remember { viewModel.signedInEmail }
+
     val name = rememberField(validate = Validators::fullName)
     val email = rememberField(required = false, validate = Validators::emailOptional)
+    // Only validated when it is shown; for phone sign-ups it stays empty and valid.
+    val phone = rememberField(
+        required = isEmailSignUp,
+        validate = { if (isEmailSignUp) Validators.mobile(it) else null }
+    )
     val referral = rememberField(required = false, validate = Validators::referralCode)
-    val form = rememberForm(name, email, referral)
+    val form = rememberForm(name, email, phone, referral)
 
     // ── success ──────────────────────────────────────────────────────────────
     LaunchedEffect(uiState.profileCompleted) {
@@ -99,6 +123,7 @@ fun CompleteProfileScreen(
                     bindings = mapOf(
                         "full_name" to name,
                         "email" to email,
+                        "phone_number" to phone,
                         "referral_code" to referral
                     )
                 )
@@ -167,6 +192,11 @@ fun CompleteProfileScreen(
                 color = AppColors.TextSecondary
             )
 
+            if (isEmailSignUp && signedInEmail != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SignedInWithEmail(signedInEmail)
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // ── Full name (required) ─────────────────────────────────────────
@@ -188,26 +218,76 @@ fun CompleteProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Email (optional, but must be valid if filled) ────────────────
-            AppTextField(
-                value = email.value,
-                onValueChange = email::onChange,
-                label = stringResource(R.string.label_email_optional),
-                placeholder = stringResource(R.string.hint_enter_email),
-                leadingIcon = Icons.Default.Email,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { if (!it.isFocused) email.markTouched() },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                ),
-                isError = email.errorToShow != null,
-                errorMessage = email.errorToShow.orEmpty()
-            )
+            if (isEmailSignUp) {
+                // ── Mobile number (required for email sign-ups) ──────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .width(72.dp)
+                            .padding(top = 8.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = AppColors.Surface,
+                        border = BorderStroke(1.dp, AppColors.Border)
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.label_country_code),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = AppColors.TextPrimary
+                            )
+                        }
+                    }
+                    PhoneNumberField(
+                        value = phone.value,
+                        onValueChange = { phone.onChange(it.filter(Char::isDigit).take(10)) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .onFocusChanged { if (!it.isFocused) phone.markTouched() },
+                        isError = phone.errorToShow != null,
+                        errorMessage = phone.errorToShow.orEmpty(),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        )
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.label_mobile_driver_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, start = 4.dp)
+                )
+            } else {
+                // ── Email (optional, but must be valid if filled) ────────────────
+                AppTextField(
+                    value = email.value,
+                    onValueChange = email::onChange,
+                    label = stringResource(R.string.label_email_optional),
+                    placeholder = stringResource(R.string.hint_enter_email),
+                    leadingIcon = Icons.Default.Email,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { if (!it.isFocused) email.markTouched() },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    isError = email.errorToShow != null,
+                    errorMessage = email.errorToShow.orEmpty()
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -241,8 +321,10 @@ fun CompleteProfileScreen(
 
                     viewModel.completeProfile(
                         fullName = name.trimmed,
-                        email = email.orNull(),
-                        referralCode = referral.orNull()
+                        // An email sign-up's login email is fixed; it is not sent here.
+                        email = if (isEmailSignUp) null else email.orNull(),
+                        referralCode = referral.orNull(),
+                        phoneNumber = if (isEmailSignUp) phone.orNull() else null
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -254,12 +336,16 @@ fun CompleteProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            TextButton(onClick = onNavigateToHome) {
-                Text(
-                    text = stringResource(R.string.label_skip_for_now),
-                    color = AppColors.TextSecondary,
-                    fontWeight = FontWeight.Medium
-                )
+            // No skipping for email sign-ups: without a mobile number a driver
+            // has nobody to call, so the first booking would fail at pickup.
+            if (!isEmailSignUp) {
+                TextButton(onClick = onNavigateToHome) {
+                    Text(
+                        text = stringResource(R.string.label_skip_for_now),
+                        color = AppColors.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -270,5 +356,30 @@ fun CompleteProfileScreen(
                 color = AppColors.TextHint
             )
         }
+    }
+}
+
+/** "Signed in with name@example.com" — confirms which account they are completing. */
+@Composable
+private fun SignedInWithEmail(email: String) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(AppColors.SecondaryLight)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null,
+            tint = AppColors.SecondaryDark,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = stringResource(R.string.label_signed_in_with, email),
+            style = MaterialTheme.typography.bodySmall,
+            color = AppColors.SecondaryDark
+        )
     }
 }

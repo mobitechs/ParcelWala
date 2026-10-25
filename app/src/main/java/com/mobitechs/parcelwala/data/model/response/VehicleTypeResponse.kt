@@ -100,7 +100,33 @@ data class VehicleTypeResponse(
     val imageUrl: String? = null,
 
     @SerializedName("surge_enabled")
-    val surgeEnabled: Boolean = false
+    val surgeEnabled: Boolean = false,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VARIANTS — see VehicleVariants.kt
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Both optional and usually only one is set: a 2 wheeler has a sub-type,
+    // a 3 wheeler or truck has a body type. Each variant is its own vehicle
+    // type (own id, fare and image_url); variants of one vehicle share `name`.
+
+    /**
+     * "scooter" | "bike". The alternates cover the spellings a .NET backend
+     * produces for `VehicleSubType` under different serializer settings, so a
+     * casing change on the server cannot silently erase every variant.
+     */
+    @SerializedName(
+        value = "vehicle_sub_type",
+        alternate = ["vehicle_subtype", "vehicleSubType", "VehicleSubType", "sub_type", "subType"]
+    )
+    val vehicleSubType: String? = null,
+
+    /** "open_body" | "closed_body". Alternates as above. */
+    @SerializedName(
+        value = "vehicle_body_type",
+        alternate = ["vehicle_bodytype", "vehicleBodyType", "VehicleBodyType", "body_type", "bodyType"]
+    )
+    val vehicleBodyType: String? = null
 )
 
 

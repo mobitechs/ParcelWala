@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,10 +14,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,26 +28,30 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
 import com.mobitechs.parcelwala.data.model.moving.LoadEstimate
 import com.mobitechs.parcelwala.data.model.moving.MovingDraft
 import com.mobitechs.parcelwala.data.model.moving.VehicleLoadProfile
+import com.mobitechs.parcelwala.data.model.response.VehicleVariants
 import com.mobitechs.parcelwala.ui.booking2.SendParcelBottomBar
 import com.mobitechs.parcelwala.ui.booking2.SendParcelScaffold
+import com.mobitechs.parcelwala.ui.components.VehicleImage
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.utils.MovingRecommendationEngine
 import kotlin.math.roundToInt
@@ -132,7 +140,7 @@ fun MovingRecommendationScreen(
                 onClick = if (recommendation == null && draft.error != null) onRetry
                 else onContinue,
                 helperLabel = recommendation?.let { "Selected" },
-                helperValue = recommendation?.vehicle?.name
+                helperValue = recommendation?.vehicle?.displayName
             )
         }
     ) {
@@ -175,16 +183,29 @@ fun MovingRecommendationScreen(
 
                         Spacer(Modifier.height(14.dp))
 
+                        // Scooter / bike, open / closed body: the selected
+                        // vehicle's variants that also fit are chosen INSIDE the
+                        // card, and the rest of the fleet is listed below it.
+                        val variantOptions = remember(recommendation) {
+                            MovingRecommendationEngine.variantOptions(recommendation)
+                        }
+                        val otherVehicles = remember(recommendation) {
+                            MovingRecommendationEngine.otherVehicles(recommendation)
+                        }
+
                         RecommendedVehicleCard(
                             vehicle = recommendation.vehicle,
                             estimate = draft.estimate,
-                            utilizationPercent = recommendation.utilizationPercent
+                            utilizationPercent = recommendation.utilizationPercent,
+                            variantOptions = variantOptions,
+                            bestFitVehicleTypeId = recommendation.engineVehicleTypeId,
+                            onChooseVehicle = onChooseVehicle
                         )
 
                         // ── Other vehicles that also fit ───────────────────
                         //
                         // Directly under the card, open. See the file header.
-                        if (recommendation.alternatives.isNotEmpty()) {
+                        if (otherVehicles.isNotEmpty()) {
                             Spacer(Modifier.height(18.dp))
 
                             SectionLabel(
@@ -196,7 +217,7 @@ fun MovingRecommendationScreen(
                             Spacer(Modifier.height(10.dp))
 
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                recommendation.alternatives.forEach { alt ->
+                                otherVehicles.forEach { alt ->
                                     AlternativeVehicleRow(
                                         vehicle = alt,
                                         estimate = draft.estimate,
@@ -332,7 +353,12 @@ private fun EstimateCompleteBanner(itemCount: Int, summary: String) {
 private fun RecommendedVehicleCard(
     vehicle: VehicleLoadProfile,
     estimate: LoadEstimate,
-    utilizationPercent: Int
+    utilizationPercent: Int,
+    /** This vehicle's variants that fit, itself included; null = no choice. */
+    variantOptions: List<VehicleLoadProfile>?,
+    /** The engine's own pick, marked "Best fit" among the variants. */
+    bestFitVehicleTypeId: Int,
+    onChooseVehicle: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -371,7 +397,7 @@ private fun RecommendedVehicleCard(
                         .padding(start = 14.dp)
                 ) {
                     Text(
-                        text = vehicle.name,
+                        text = vehicle.displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.TextPrimary
@@ -386,6 +412,16 @@ private fun RecommendedVehicleCard(
                 }
             }
 
+            if (variantOptions != null) {
+                Spacer(Modifier.height(14.dp))
+                MovingVariantChooser(
+                    selected = vehicle,
+                    options = variantOptions,
+                    bestFitVehicleTypeId = bestFitVehicleTypeId,
+                    onChooseVehicle = onChooseVehicle
+                )
+            }
+
             Spacer(Modifier.height(14.dp))
 
             CapacityFacts(vehicle = vehicle, estimate = estimate)
@@ -393,6 +429,151 @@ private fun RecommendedVehicleCard(
             Spacer(Modifier.height(14.dp))
 
             MovingLoadMeter(utilizationPercent = utilizationPercent)
+        }
+    }
+}
+
+/**
+ * "VEHICLE TYPE  [Scooter] [Bike]" / "BODY TYPE  [Open body] [Closed body]"
+ * inside the recommended card — every variant of this vehicle that fits the
+ * load, each with its own photo and weight limit, then one line on what the
+ * selected one is good for.
+ *
+ * Choosing a chip goes through the same `onChooseVehicle` as the "Choose"
+ * buttons below, so the card, the load meter and "Why this vehicle?" are all
+ * recomputed for the variant actually picked. The engine's own pick is marked
+ * "Best fit" so switching away from it is an informed choice.
+ */
+@Composable
+private fun MovingVariantChooser(
+    selected: VehicleLoadProfile,
+    options: List<VehicleLoadProfile>,
+    bestFitVehicleTypeId: Int,
+    onChooseVehicle: (Int) -> Unit
+) {
+    val title = VehicleVariants.choiceTitle(
+        subTypes = options.map { it.subType },
+        bodyTypes = options.map { it.bodyType }
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.6.sp,
+            color = AppColors.TextSecondary
+        )
+
+        if (options.size <= 3) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                options.forEach { option ->
+                    MovingVariantChip(
+                        option = option,
+                        isSelected = option.vehicleTypeId == selected.vehicleTypeId,
+                        isBestFit = option.vehicleTypeId == bestFitVehicleTypeId,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onChooseVehicle(option.vehicleTypeId) }
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                options.forEach { option ->
+                    MovingVariantChip(
+                        option = option,
+                        isSelected = option.vehicleTypeId == selected.vehicleTypeId,
+                        isBestFit = option.vehicleTypeId == bestFitVehicleTypeId,
+                        modifier = Modifier.width(150.dp),
+                        onClick = { onChooseVehicle(option.vehicleTypeId) }
+                    )
+                }
+            }
+        }
+
+        VehicleVariants.hint(selected.subType, selected.bodyType)?.let { hint ->
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = AppColors.Gray600,
+                    modifier = Modifier
+                        .padding(top = 1.dp)
+                        .size(14.dp)
+                )
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.Gray600
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovingVariantChip(
+    option: VehicleLoadProfile,
+    isSelected: Boolean,
+    isBestFit: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(shape)
+            .border(
+                BorderStroke(
+                    if (isSelected) 2.dp else 1.dp,
+                    if (isSelected) AppColors.Primary else AppColors.Border
+                ),
+                shape
+            )
+            .background(if (isSelected) Color.White else AppColors.Gray50)
+            .selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        VehicleImage(
+            imageUrl = option.imageUrl,
+            emoji = option.icon,
+            emojiSize = 18.sp,
+            glyphSize = 18.dp,
+            modifier = Modifier.size(width = 42.dp, height = 28.dp)
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = option.variantLabel ?: "Standard",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = AppColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (isBestFit) "Best fit · ${kgLabel(option.capacityKg)}"
+                else "Up to ${kgLabel(option.capacityKg)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isBestFit) AppColors.AccentDark else AppColors.Gray600,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -539,15 +720,17 @@ private fun AlternativeVehicleRow(
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        VehicleImage(
+            imageUrl = vehicle.imageUrl,
+            emoji = vehicle.icon,
+            emojiSize = 19.sp,
+            glyphSize = 20.dp,
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(11.dp))
-                .background(AppColors.SurfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = vehicle.icon.ifBlank { "🚚" }, fontSize = 19.sp)
-        }
+                .background(AppColors.SurfaceVariant)
+                .padding(3.dp)
+        )
 
         Column(
             modifier = Modifier
@@ -555,7 +738,7 @@ private fun AlternativeVehicleRow(
                 .padding(start = 12.dp)
         ) {
             Text(
-                text = vehicle.name,
+                text = vehicle.displayName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.TextPrimary,
@@ -606,44 +789,27 @@ private fun AlternativeVehicleRow(
 }
 
 /**
- * Vehicle artwork with the same three-tier fallback the fare sheet uses:
- * real image → the server's emoji → a generic truck glyph.
+ * Vehicle artwork: the `image_url` photo, then the server's emoji, then a
+ * generic truck glyph — via the shared [VehicleImage].
  *
- * Rendering the emoji until the image reports Success (rather than only while it
- * is Loading) is what keeps the slot from flashing empty on a slow connection.
+ * The previous version only drew the Coil painter after it reported Success,
+ * but a Coil 2 painter with no explicit size waits for its first draw before
+ * loading, so the photo never appeared. [VehicleImage] fixes that for every
+ * screen at once.
  */
 @Composable
 private fun VehicleArtwork(vehicle: VehicleLoadProfile) {
-    // One value, not a painter plus a boolean about it: `hasArtwork` implied a
-    // non-null painter, so the `&& painter != null` the branch below needed to
-    // satisfy the compiler was dead code the compiler then warned about.
-    val artwork = vehicle.imageUrl
-        ?.takeIf { it.startsWith("http", ignoreCase = true) }
-        ?.let { rememberAsyncImagePainter(model = it) }
-        ?.takeIf { it.state is AsyncImagePainter.State.Success }
-
-    Box(
+    VehicleImage(
+        imageUrl = vehicle.imageUrl,
+        emoji = vehicle.icon,
+        emojiSize = 30.sp,
+        glyphSize = 28.dp,
         modifier = Modifier
             .size(64.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(AppColors.SurfaceVariant),
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            artwork != null -> Image(
-                painter = artwork,
-                contentDescription = null,
-                modifier = Modifier.size(52.dp)
-            )
-            vehicle.icon.isNotBlank() -> Text(text = vehicle.icon, fontSize = 30.sp)
-            else -> Icon(
-                Icons.Default.LocalShipping,
-                contentDescription = null,
-                tint = AppColors.Primary,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-    }
+            .background(AppColors.SurfaceVariant)
+            .padding(6.dp)
+    )
 }
 
 @Composable

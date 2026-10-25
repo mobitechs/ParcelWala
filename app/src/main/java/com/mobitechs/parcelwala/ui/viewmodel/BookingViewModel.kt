@@ -193,11 +193,15 @@ class BookingViewModel @Inject constructor(
                                 hasFaresLoaded = true
                             )
                         }
-                        _uiState.value.preferredVehicleTypeId?.let { prefId ->
-                            selectFareDetailsById(
-                                prefId
-                            )
-                        }
+                        // The customer's own pick first (Home card or a fare-sheet
+                        // tap), then the Smart Shifting / Book Again preference —
+                        // whichever of them this route actually quoted.
+                        val fares = _vehicleFares.value
+                        listOfNotNull(
+                            _uiState.value.chosenVehicleTypeId,
+                            _uiState.value.preferredVehicleTypeId
+                        ).firstOrNull { id -> fares.any { it.vehicleTypeId == id } }
+                            ?.let { selectFareDetailsById(it) }
                     }
 
                     is NetworkResult.Error -> {
@@ -225,6 +229,16 @@ class BookingViewModel @Inject constructor(
                 finalFare = calculateFinalFare(fareDetails.roundedFare)
             )
         }
+    }
+
+    /**
+     * Remember the vehicle type the customer picked (see
+     * [BookingUiState.chosenVehicleTypeId]). If fares are already on screen it
+     * is selected straight away; otherwise it is applied when they arrive.
+     */
+    fun setChosenVehicle(vehicleTypeId: Int?) {
+        _uiState.update { it.copy(chosenVehicleTypeId = vehicleTypeId) }
+        vehicleTypeId?.let { selectFareDetailsById(it) }
     }
 
     private fun selectFareDetailsById(vehicleTypeId: Int) {
@@ -318,6 +332,29 @@ class BookingViewModel @Inject constructor(
     }
 
     // ============ LOAD STATIC DATA ============
+
+    private var vehicleTypesJob: Job? = null
+
+    /**
+     * Make sure `/vehicles/types` is loaded, QUIETLY.
+     *
+     * The fare sheet and confirm screen need it for each vehicle's variant
+     * (scooter / bike, open / closed body) and its `image_url` — the fare API
+     * sends neither today. Unlike [loadVehicleTypes] this never touches
+     * `isLoading` or `error`: those drive the confirm button's spinner and the
+     * error line, and a background lookup must not flash either. The repository
+     * caches the list (Home already loaded it), so this is normally instant.
+     */
+    fun ensureVehicleTypes() {
+        if (_vehicleTypes.value.isNotEmpty() || vehicleTypesJob?.isActive == true) return
+        vehicleTypesJob = viewModelScope.launch {
+            bookingRepository.getVehicleTypes().collect { result ->
+                if (result is NetworkResult.Success) {
+                    _vehicleTypes.value = result.data ?: emptyList()
+                }
+            }
+        }
+    }
 
     fun loadVehicleTypes(forceRefresh: Boolean = false) {
         viewModelScope.launch {
@@ -520,6 +557,9 @@ class BookingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 preferredVehicleTypeId = preferred ?: it.preferredVehicleTypeId,
+                // A move's vehicle comes from the recommendation screen; a pick
+                // left over from an earlier parcel booking must not override it.
+                chosenVehicleTypeId = null,
                 selectedGoodsTypeName = label,
                 goodsWeight = context.totalWeightKg.takeIf { w -> w > 0.0 } ?: it.goodsWeight,
                 goodsPackages = context.itemCount.takeIf { p -> p > 0 } ?: it.goodsPackages,
@@ -711,6 +751,11 @@ class BookingViewModel @Inject constructor(
                 return@launch
             }
 
+            // The variant actually booked. The fare API's own value wins when it
+            // sends one; otherwise it comes from /vehicles/types by id.
+            val vehicleMeta = _vehicleTypes.value
+                .firstOrNull { it.vehicleTypeId == selectedFare.vehicleTypeId }
+
             // ✅ Pass road distance/ETA override from Google Directions
             val request = CreateBookingRequestBuilder.build(
                 fareDetails = selectedFare,
@@ -753,7 +798,11 @@ class BookingViewModel @Inject constructor(
                 fitsInOneTrip = state.movingContext?.let { ctx ->
                     if (ctx.eligibleVehicleTypeIds.isEmpty()) false
                     else selectedFare.vehicleTypeId in ctx.eligibleVehicleTypeIds
-                }
+                },
+                vehicleSubType = selectedFare.vehicleSubType?.takeIf { it.isNotBlank() }
+                    ?: vehicleMeta?.vehicleSubType,
+                vehicleBodyType = selectedFare.vehicleBodyType?.takeIf { it.isNotBlank() }
+                    ?: vehicleMeta?.vehicleBodyType
             )
 
             bookingRepository.createBooking(request).collect { result ->
@@ -970,6 +1019,18 @@ data class BookingUiState(
     val isBookAgain: Boolean = false,
     val originalOrderId: Int? = null,
     val preferredVehicleTypeId: Int? = null,
+
+    /**
+     * The vehicle type the CUSTOMER picked — on a Home card (with its variant)
+     * or by tapping a row on the fare sheet.
+     *
+     * Separate from [preferredVehicleTypeId] on purpose: that one also drives
+     * the "Recommended" badge, and a vehicle the customer chose themselves is
+     * not a recommendation. Both pre-select a fare when prices arrive; this one
+     * wins, so changing an address (which re-prices everything) keeps the
+     * vehicle and variant the customer chose instead of resetting to cheapest.
+     */
+    val chosenVehicleTypeId: Int? = null,
 
     /**
      * True when this booking came through Smart Shifting rather than the parcel

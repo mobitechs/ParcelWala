@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
@@ -164,6 +165,11 @@ fun LocationPickerScreen(
      */
     title: String = "Pickup & drop",
     subtitle: String? = null,
+    /**
+     * Why address search failed, when it did. Shown in place of "No places
+     * found" so a broken search does not look like a place that doesn't exist.
+     */
+    searchError: String? = null,
     modifier: Modifier = Modifier
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -289,6 +295,7 @@ fun LocationPickerScreen(
             isSearching = isSearching,
             query = query,
             isSavedFilterOn = isSavedFilterOn,
+            searchError = searchError,
             onSuggestionClick = onSuggestionClick,
             onSaveSuggestion = onSaveSuggestion,
             modifier = Modifier.weight(1f)
@@ -750,6 +757,7 @@ private fun SuggestionList(
     isSearching: Boolean,
     query: String,
     isSavedFilterOn: Boolean,
+    searchError: String?,
     onSuggestionClick: (PlaceSuggestion) -> Unit,
     onSaveSuggestion: (PlaceSuggestion) -> Unit,
     modifier: Modifier = Modifier
@@ -759,6 +767,33 @@ private fun SuggestionList(
             .fillMaxWidth()
             .background(Color.White)
     ) {
+        if (searchError != null && !isSearching) {
+            item(key = "search_error") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.ErrorLight)
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = AppColors.Error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        searchError,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.TextPrimary
+                    )
+                }
+            }
+        }
+
         items(suggestions, key = { it.placeId }) { suggestion ->
             SuggestionRow(
                 suggestion = suggestion,
@@ -771,7 +806,8 @@ private fun SuggestionList(
             )
         }
 
-        if (suggestions.isEmpty()) {
+        // With a search error showing, "No places found" would contradict it.
+        if (suggestions.isEmpty() && !(searchError != null && !isSearching)) {
             item {
                 Box(
                     modifier = Modifier

@@ -13,6 +13,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.mobitechs.parcelwala.data.model.response.variantHint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -86,6 +91,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -108,7 +114,11 @@ import com.mobitechs.parcelwala.data.manager.ActiveBookingManager
 import com.mobitechs.parcelwala.data.manager.BookingStatus
 import com.mobitechs.parcelwala.data.model.moving.MovingCategory
 import com.mobitechs.parcelwala.data.model.response.VehicleTypeResponse
+import com.mobitechs.parcelwala.data.model.response.VehicleVariants
+import com.mobitechs.parcelwala.data.model.response.toAbsoluteAssetUrl
+import com.mobitechs.parcelwala.data.model.response.variantLabel
 import com.mobitechs.parcelwala.ui.components.AddressesCard
+import com.mobitechs.parcelwala.ui.components.VehicleImage
 import com.mobitechs.parcelwala.ui.components.EmptyState
 import com.mobitechs.parcelwala.ui.components.LoadingIndicator
 import com.mobitechs.parcelwala.ui.components.SeeAllLink
@@ -133,6 +143,12 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 @Composable
 fun HomeScreen(
     onNavigateToLocationSearch: () -> Unit,
+    /**
+     * A vehicle card was tapped and, for a vehicle with variants, the variant
+     * chosen. Starts the booking with that vehicle type pre-selected. Defaults
+     * to the plain location search so other callers keep working.
+     */
+    onStartBookingWithVehicle: (vehicleTypeId: Int) -> Unit = { onNavigateToLocationSearch() },
     /**
      * Smart Shifting. A different question from the parcel flow's — "what are
      * you moving?" rather than "where to?" — and therefore a different entry
@@ -217,6 +233,12 @@ fun HomeScreen(
                                 activeBooking?.let { booking ->
                                     ActiveBookingCard(
                                         activeBooking = booking,
+                                        // The fare API's image can be a stale path;
+                                        // /vehicles/types holds the real photo.
+                                        vehicleImageUrl = uiState.vehicleTypes
+                                            .firstOrNull { it.vehicleTypeId == booking.fareDetails.vehicleTypeId }
+                                            ?.imageUrl
+                                            ?: booking.fareDetails.imageUrl,
                                         onClick = { onNavigateToActiveBooking(booking) },
                                         onRetry = { viewModel.retrySearch() }
                                     )
@@ -237,7 +259,11 @@ fun HomeScreen(
                             if (uiState.vehicleTypes.isNotEmpty()) {
                                 VehicleTypesGrid(
                                     vehicleTypes = uiState.vehicleTypes,
-                                    onVehicleSelected = {
+                                    // Called with the EXACT vehicle type — after
+                                    // the Open / Closed or Scooter / Bike sheet
+                                    // when the vehicle has variants — so the fare
+                                    // sheet opens with that one already selected.
+                                    onVehicleSelected = { vehicle ->
                                         if (hasActiveBooking) {
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
@@ -246,7 +272,7 @@ fun HomeScreen(
                                                 )
                                             }
                                         } else {
-                                            onNavigateToLocationSearch()
+                                            onStartBookingWithVehicle(vehicle.vehicleTypeId)
                                         }
                                     },
                                     isDisabled = hasActiveBooking
@@ -621,6 +647,7 @@ private fun ActiveBookingBlockingBanner(
 @Composable
 private fun ActiveBookingCard(
     activeBooking: ActiveBooking,
+    vehicleImageUrl: String?,
     onClick: () -> Unit,
     onRetry: () -> Unit
 ) {
@@ -972,9 +999,12 @@ private fun ActiveBookingCard(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = activeBooking.fareDetails.vehicleTypeIcon ?: "🚚",
-                            style = MaterialTheme.typography.titleMedium
+                        VehicleImage(
+                            imageUrl = vehicleImageUrl.toAbsoluteAssetUrl(),
+                            emoji = activeBooking.fareDetails.vehicleTypeIcon,
+                            emojiSize = 18.sp,
+                            glyphSize = 20.dp,
+                            modifier = Modifier.size(34.dp)
                         )
                     }
                     Column {
@@ -1136,7 +1166,35 @@ private fun VehicleTypesGrid(
     isDisabled: Boolean = false
 ) {
     var showAll by remember { mutableStateOf(false) }
-    val displayedVehicles = if (showAll) vehicleTypes else vehicleTypes.take(3)
+    // One card per VEHICLE. Variants of the same vehicle (scooter / bike,
+    // open / closed body) share a name and collapse into a single card that
+    // names them.
+    val families = remember(vehicleTypes) { vehicleTypes.toHomeVehicleFamilies() }
+    val displayedVehicles = if (showAll) families else families.take(3)
+
+    // ── The variant choice, BEFORE the addresses ──────────────────────────
+    //
+    // Tapping "3 Wheeler · Open · Closed" used to go straight to the location
+    // picker, so the card advertised a choice the customer was never given
+    // until the fare sheet, three screens later. A vehicle with variants now
+    // asks first; one without goes straight on. Either way the exact vehicle
+    // type rides into the booking and is pre-selected on the fare sheet, where
+    // it can still be changed with the real price in view.
+    var choosingFamily by remember { mutableStateOf<HomeVehicleFamily?>(null) }
+    val onCardClick: (HomeVehicleFamily) -> Unit = { family ->
+        if (family.variants.size > 1) choosingFamily = family
+        else onVehicleSelected(family.primary)
+    }
+    choosingFamily?.let { family ->
+        VehicleVariantSheet(
+            family = family,
+            onPick = { variant ->
+                choosingFamily = null
+                onVehicleSelected(variant)
+            },
+            onDismiss = { choosingFamily = null }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -1158,7 +1216,7 @@ private fun VehicleTypesGrid(
                 color = if (isDisabled) AppColors.TextHint else AppColors.Heading
             )
 
-            if (vehicleTypes.size > 3) {
+            if (families.size > 3) {
                 SeeAllLink(
                     text = if (showAll) stringResource(R.string.show_less)
                     else stringResource(R.string.see_all),
@@ -1180,10 +1238,10 @@ private fun VehicleTypesGrid(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    rowVehicles.forEach { vehicle ->
+                    rowVehicles.forEach { family ->
                         VehicleCard(
-                            vehicle = vehicle,
-                            onClick = onVehicleSelected,
+                            family = family,
+                            onClick = { onCardClick(family) },
                             modifier = Modifier.weight(1f),
                             isDisabled = isDisabled
                         )
@@ -1199,17 +1257,71 @@ private fun VehicleTypesGrid(
     }
 }
 
+/**
+ * A vehicle on the Home grid with all its variants. [primary] is the cheapest
+ * variant — its photo and price represent the card.
+ */
+private data class HomeVehicleFamily(
+    val primary: VehicleTypeResponse,
+    val variants: List<VehicleTypeResponse>
+) {
+    val minBasePrice: Int get() = variants.minOf { it.basePrice }
+
+    /**
+     * The card's "Up to …" line. Variants can differ a lot (an open 3 wheeler
+     * rated 100 kg, a closed one 500 kg), and "up to" means the most the
+     * vehicle can take — so it is the largest variant's figure, not whichever
+     * variant happens to be cheapest.
+     */
+    val capacityLabel: String
+        get() = variants.maxByOrNull { it.maxCapacityKg }?.capacity.orEmpty()
+
+    /** "Body type" / "Vehicle type" — the heading of the choice sheet. */
+    val choiceTitle: String
+        get() = VehicleVariants.choiceTitle(
+            subTypes = variants.map { it.vehicleSubType },
+            bodyTypes = variants.map { it.vehicleBodyType }
+        )
+
+    /**
+     * "Scooter · Bike", "Open · Closed", or the single variant's own label
+     * ("Scooter", "Open body"). Null when the vehicle has no variant at all.
+     */
+    val variantSummary: String?
+        get() {
+            val labels = variants.mapNotNull { it.variantLabel }.distinct()
+            return when {
+                labels.isEmpty() -> null
+                labels.size == 1 -> labels.first()
+                labels.all { it.endsWith(" body", ignoreCase = true) } ->
+                    labels.joinToString(" · ") { it.dropLast(" body".length) }
+                else -> labels.joinToString(" · ")
+            }
+        }
+}
+
+private fun List<VehicleTypeResponse>.toHomeVehicleFamilies(): List<HomeVehicleFamily> =
+    groupBy { VehicleVariants.familyKey(it.name) }
+        .values
+        .map { members ->
+            val sorted = members.sortedBy { it.basePrice }
+            HomeVehicleFamily(primary = sorted.first(), variants = sorted)
+        }
+
 @Composable
 private fun VehicleCard(
-    vehicle: VehicleTypeResponse,
-    onClick: (VehicleTypeResponse) -> Unit,
+    family: HomeVehicleFamily,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isDisabled: Boolean = false
 ) {
+    val vehicle = family.primary
     Card(
+        // No fixed aspect ratio any more: the photo and the variant line need
+        // the height, and every card reserves the variant line's space so the
+        // cards in a row still line up.
         modifier = modifier
-            .aspectRatio(0.85f)
-            .clickable(enabled = !isDisabled) { onClick(vehicle) },
+            .clickable(enabled = !isDisabled, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = AppColors.White
@@ -1225,27 +1337,28 @@ private fun VehicleCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // ── Vehicle Emoji in tinted container ──
-            Box(
+            // ── Vehicle photo (image_url), emoji only as a fallback ──
+            VehicleImage(
+                imageUrl = vehicle.imageUrl.toAbsoluteAssetUrl(),
+                emoji = vehicle.icon,
+                emojiSize = 26.sp,
+                glyphSize = 26.dp,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (isDisabled) AppColors.Border.copy(alpha = 0.15f)
-                        else AppColors.Primary.copy(alpha = 0.06f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = vehicle.icon,
-                    fontSize = 26.sp
-                )
-            }
+                        else AppColors.Primary.copy(alpha = 0.05f)
+                    )
+                    .alpha(if (isDisabled) 0.5f else 1f)
+                    .padding(4.dp)
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -1262,12 +1375,33 @@ private fun VehicleCard(
 
             // ── Capacity ──
             Text(
-                text = vehicle.capacity ?: "",
+                text = family.capacityLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = AppColors.TextHint,
                 fontSize = 10.sp,
                 maxLines = 1
             )
+
+            // ── Variants: "Scooter · Bike", "Open · Closed" ──
+            // Space is reserved even when there is none, so cards line up.
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(modifier = Modifier.height(18.dp), contentAlignment = Alignment.Center) {
+                family.variantSummary?.let { summary ->
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isDisabled) AppColors.TextHint else AppColors.Gray700,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.Gray100)
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -1283,12 +1417,140 @@ private fun VehicleCard(
                     modifier = Modifier.size(13.dp)
                 )
                 Text(
-                    text = "${vehicle.basePrice}",
+                    text = "${family.minBasePrice}",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = if (isDisabled) AppColors.TextHint else AppColors.Primary
                 )
             }
+        }
+    }
+}
+
+/**
+ * "3 Wheeler — choose body type": one row per variant with its own photo,
+ * capacity, size, what it is good for and starting price. Tapping a row starts
+ * the booking with that exact vehicle type.
+ *
+ * Prices here are the variant's `base_price` ("from ₹80"); the real fare for
+ * the route comes on the fare sheet, which is said in the footer so the number
+ * is not mistaken for a quote.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VehicleVariantSheet(
+    family: HomeVehicleFamily,
+    onPick: (VehicleTypeResponse) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = AppColors.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
+        ) {
+            Text(
+                text = family.primary.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Heading
+            )
+            Text(
+                text = "Choose ${family.choiceTitle.lowercase()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.TextSecondary
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            family.variants.forEach { variant ->
+                VariantOptionRow(variant = variant, onClick = { onPick(variant) })
+                Spacer(Modifier.height(10.dp))
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Exact fare is shown after you add pickup and drop. You can still switch there.",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun VariantOptionRow(variant: VehicleTypeResponse, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .border(BorderStroke(1.dp, AppColors.Border), shape)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        VehicleImage(
+            imageUrl = variant.imageUrl.toAbsoluteAssetUrl(),
+            emoji = variant.icon,
+            emojiSize = 26.sp,
+            glyphSize = 26.dp,
+            modifier = Modifier
+                .size(width = 84.dp, height = 60.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(AppColors.SurfaceVariant)
+                .padding(4.dp)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = variant.variantLabel ?: variant.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.TextPrimary
+            )
+            Text(
+                text = listOfNotNull(
+                    variant.capacity.takeIf { it.isNotBlank() },
+                    variant.dimensions?.takeIf { it.isNotBlank() }
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            variant.variantHint?.let { hint ->
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.Gray600,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "from",
+                style = MaterialTheme.typography.labelSmall,
+                color = AppColors.TextSecondary
+            )
+            Text(
+                text = "₹${variant.basePrice}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Primary
+            )
         }
     }
 }

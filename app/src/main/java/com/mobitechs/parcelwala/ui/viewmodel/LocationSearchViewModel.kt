@@ -1,8 +1,12 @@
 // ui/viewmodel/LocationSearchViewModel.kt - Updated
 package com.mobitechs.parcelwala.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.common.api.ApiException
+import com.google.android.libraries.places.api.net.PlacesStatusCodes
+import com.mobitechs.parcelwala.BuildConfig
 import com.mobitechs.parcelwala.data.local.PreferencesManager
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.request.SearchHistory
@@ -100,7 +104,7 @@ class LocationSearchViewModel @Inject constructor(
         searchQueryFlow.value = query
 
         if (query.isEmpty()) {
-            _uiState.update { it.copy(predictions = emptyList()) }
+            _uiState.update { it.copy(predictions = emptyList(), searchError = null) }
         }
     }
 
@@ -129,14 +133,18 @@ class LocationSearchViewModel @Inject constructor(
                     it.copy(
                         predictions = predictions,
                         isLoadingPredictions = false,
-                        error = null
+                        error = null,
+                        searchError = null
                     )
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _uiState.update {
                     it.copy(
                         isLoadingPredictions = false,
-                        error = "Failed to search places: ${e.message}"
+                        predictions = emptyList(),
+                        error = "Failed to search places: ${e.message}",
+                        searchError = describePlacesFailure(e)
                     )
                 }
             }
@@ -242,10 +250,12 @@ class LocationSearchViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = "Failed to select place: ${e.message}"
+                        error = "Failed to select place: ${e.message}",
+                        searchError = describePlacesFailure(e)
                     )
                 }
             }
@@ -318,5 +328,40 @@ data class LocationSearchUiState(
     val recentPickups: List<SavedAddress> = emptyList(),
     val searchHistory: List<SearchHistory> = emptyList(), // ✅ Added
     val selectedAddress: SavedAddress? = null,
-    val error: String? = null
+    val error: String? = null,
+    /**
+     * Why the last address search or place lookup failed, ready to show.
+     *
+     * Kept apart from [error], which GPS also writes to: the picker shows this
+     * one in place of "No places found", and a GPS hiccup must not appear
+     * there as if the search had failed.
+     */
+    val searchError: String? = null
 )
+
+/**
+ * Turn a Places failure into one sentence for the screen.
+ *
+ * Before, every failure — a missing key, a key Google rejects, no network —
+ * left the list empty under "No places found. Try a nearby landmark", which
+ * reads as "there is no such place" rather than "search is broken". Debug builds
+ * append Google's own reason (e.g. "You must enable Billing on the Google Cloud
+ * Project…") so a developer sees the real cause on the screen, not only in
+ * Logcat.
+ */
+internal fun describePlacesFailure(e: Throwable): String {
+    Log.e("ParcelWalaMaps", "Place search failed", e)
+    val reason = e.message.orEmpty()
+    val isKeyProblem = (e as? ApiException)?.statusCode == PlacesStatusCodes.REQUEST_DENIED ||
+        reason.contains("MAPS_API_KEY") ||
+        reason.contains("REQUEST_DENIED", ignoreCase = true) ||
+        reason.contains("billing", ignoreCase = true) ||
+        reason.contains("API key", ignoreCase = true) ||
+        reason.contains("not authorized", ignoreCase = true)
+    val friendly = if (isKeyProblem) {
+        "Address search isn't available right now. Please try again later."
+    } else {
+        "Couldn't search addresses. Check your internet connection and try again."
+    }
+    return if (BuildConfig.DEBUG && reason.isNotBlank()) "$friendly\n\nDebug: $reason" else friendly
+}

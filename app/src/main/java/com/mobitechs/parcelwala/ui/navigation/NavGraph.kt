@@ -37,6 +37,7 @@ import com.mobitechs.parcelwala.data.model.response.OrderResponse
 import com.mobitechs.parcelwala.ui.screens.account.AddressSearchScreen
 import com.mobitechs.parcelwala.ui.screens.account.ProfileDetailsScreen
 import com.mobitechs.parcelwala.ui.screens.account.SavedAddressesScreen
+import com.mobitechs.parcelwala.data.model.request.LoginIdentifier
 import com.mobitechs.parcelwala.ui.screens.auth.CompleteProfileScreen
 import com.mobitechs.parcelwala.ui.screens.auth.LoginScreen
 import com.mobitechs.parcelwala.ui.screens.auth.OtpScreen
@@ -118,6 +119,14 @@ fun NavGraph(
      * (see [isMovingFlow]) and the argument would have nowhere to ride along.
      */
     var movingStartCategory by remember { mutableStateOf<MovingCategory?>(null) }
+
+    /**
+     * The exact vehicle type picked on a Home card (after its Open / Closed or
+     * Scooter / Bike sheet), if the booking started that way. Handed to the
+     * booking's ViewModel once by `booking_entry`, then cleared — same pattern
+     * and same reason as [movingStartCategory].
+     */
+    var homeChosenVehicleTypeId by remember { mutableStateOf<Int?>(null) }
     var addressToEdit by remember { mutableStateOf<SavedAddress?>(null) }
     var pendingAccountAddress by remember { mutableStateOf<SavedAddress?>(null) }
     var activeBookingToResume by remember { mutableStateOf<ActiveBooking?>(null) }
@@ -146,26 +155,33 @@ fun NavGraph(
         // ============ AUTH FLOW ============
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToOtp = { phoneNumber, otp ->
-                    val encodedOtp = otp?.let { Uri.encode(it) } ?: "null"
-                    navController.navigate("otp/$phoneNumber?otp=$encodedOtp")
+                onNavigateToOtp = { identifier, otp ->
+                    // Mobile or email — the method rides along so the code
+                    // screen sends, resends and verifies the right one.
+                    navController.navigate(
+                        Screen.Otp.createRoute(identifier.value, identifier.method.name, otp)
+                    )
                 }
             )
         }
 
         composable(
-            route = "otp/{phoneNumber}?otp={otp}",
+            route = Screen.Otp.route,
             arguments = listOf(
-                navArgument("phoneNumber") { type = NavType.StringType },
-                navArgument("otp") { type = NavType.StringType; defaultValue = "null" }
+                navArgument("identifier") { type = NavType.StringType },
+                navArgument("otp") { type = NavType.StringType; defaultValue = "null" },
+                navArgument("method") { type = NavType.StringType; defaultValue = "PHONE" }
             )
         ) { backStackEntry ->
-            val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+            val identifier = LoginIdentifier.fromRoute(
+                method = backStackEntry.arguments?.getString("method"),
+                value = backStackEntry.arguments?.getString("identifier") ?: ""
+            )
             val receivedOtp = backStackEntry.arguments?.getString("otp")?.let {
                 if (it == "null") null else it
             }
             OtpScreen(
-                phoneNumber = phoneNumber,
+                identifier = identifier,
                 receivedOtp = receivedOtp,
                 onNavigateToHome = {
                     navController.navigate(Screen.Main.route) {
@@ -173,8 +189,10 @@ fun NavGraph(
                     }
                 },
                 onNavigateToCompleteProfile = {
+                    // Logged in now: Back from Complete profile must not return
+                    // to the code screen or the login screen.
                     navController.navigate(Screen.CompleteProfile.route) {
-                        popUpTo(Screen.Otp.route) { inclusive = true }
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
                 onNavigateBack = { navController.popBackStack() }
@@ -209,12 +227,23 @@ fun NavGraph(
                     isMovingFlow = true
                     movingStartCategory = category
                     orderForBookAgain = null
+                    homeChosenVehicleTypeId = null
+                    navController.navigate("booking_flow")
+                },
+                onStartBookingWithVehicle = { vehicleTypeId ->
+                    // Same entry as the plain search below, plus the vehicle the
+                    // customer already picked on Home.
+                    isBookAgainFlow = false
+                    isMovingFlow = false
+                    orderForBookAgain = null
+                    homeChosenVehicleTypeId = vehicleTypeId
                     navController.navigate("booking_flow")
                 },
                 onNavigateToLocationSearch = {
                     isBookAgainFlow = false
                     isMovingFlow = false
                     orderForBookAgain = null
+                    homeChosenVehicleTypeId = null
                     // Enter through the GRAPH, not straight at the picker.
                     //
                     // Navigating directly to a destination inside a nested graph
@@ -235,6 +264,7 @@ fun NavGraph(
                 onBookAgain = { order ->
                     orderForBookAgain = order
                     isBookAgainFlow = true
+                    homeChosenVehicleTypeId = null
                     navController.navigate("booking_flow")
                 },
                 onNavigateToActiveBooking = { activeBooking ->
@@ -473,6 +503,10 @@ fun NavGraph(
                         orderForBookAgain = null; isBookAgainFlow = false
                         navController.navigate("sendparcel_fare") { popUpTo("booking_entry") { inclusive = true } }
                     } else {
+                        // Vehicle picked on Home: pre-select it so the fare sheet
+                        // opens on exactly that vehicle and variant.
+                        homeChosenVehicleTypeId?.let { viewModel.setChosenVehicle(it) }
+                        homeChosenVehicleTypeId = null
                         navController.navigate("sendparcel_destination/DROP") { popUpTo("booking_entry") { inclusive = true } }
                     }
                 }

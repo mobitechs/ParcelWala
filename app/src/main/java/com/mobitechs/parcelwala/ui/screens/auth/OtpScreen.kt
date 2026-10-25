@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -52,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.data.model.request.LoginIdentifier
 import com.mobitechs.parcelwala.ui.components.IconButtonWithBackground
 import com.mobitechs.parcelwala.ui.components.PrimaryButton
 import com.mobitechs.parcelwala.ui.theme.AppColors
@@ -64,7 +66,8 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OtpScreen(
-    phoneNumber: String,
+    /** What the code was sent to: a mobile number (SMS) or an email address. */
+    identifier: LoginIdentifier,
     receivedOtp: String? = null,
     onNavigateToHome: () -> Unit,
     onNavigateToCompleteProfile: () -> Unit,
@@ -87,13 +90,13 @@ fun OtpScreen(
     LaunchedEffect(otp) {
         val otpString = otp.joinToString("")
         if (otpString.length == 4) {
-            viewModel.verifyOtp(otpString, phoneNumber)
+            viewModel.verifyOtp(otpString, identifier)
         }
     }
 
-    // Set phone number when screen loads
-    LaunchedEffect(phoneNumber) {
-        viewModel.setPhoneNumber(phoneNumber)
+    // Hand the identifier (phone or email) to this screen's ViewModel
+    LaunchedEffect(identifier) {
+        viewModel.setIdentifier(identifier)
     }
 
     // Auto-focus first box
@@ -195,7 +198,8 @@ fun OtpScreen(
 
             // Icon
             IconButtonWithBackground(
-                icon = androidx.compose.material.icons.Icons.Default.Message,
+                icon = if (identifier.isEmail) Icons.Default.Email
+                else androidx.compose.material.icons.Icons.Default.Message,
                 contentDescription = stringResource(R.string.content_desc_otp),
                 onClick = { },
                 size = 80.dp,
@@ -207,7 +211,9 @@ fun OtpScreen(
 
             // Title
             Text(
-                text = stringResource(R.string.title_verify_otp),
+                text = stringResource(
+                    if (identifier.isEmail) R.string.title_check_email else R.string.title_verify_otp
+                ),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppColors.Heading
@@ -223,10 +229,13 @@ fun OtpScreen(
             )
 
             Text(
-                text = stringResource(R.string.label_phone_with_code, phoneNumber),
+                // "+91 9876543210" for SMS, the address itself for email.
+                text = if (identifier.isEmail) identifier.normalized
+                else stringResource(R.string.label_phone_with_code, identifier.value),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = AppColors.Primary
+                color = AppColors.Primary,
+                textAlign = TextAlign.Center
             )
 
             // Display OTP for testing
@@ -290,7 +299,7 @@ fun OtpScreen(
                 onClick = {
                     val otpString = otp.joinToString("")
                     if (otpString.length == 4) {
-                        viewModel.verifyOtp(otpString, phoneNumber)
+                        viewModel.verifyOtp(otpString, identifier)
                     } else {
                         errorMessage = errorCompleteOtp
                         showError = true
@@ -317,7 +326,7 @@ fun OtpScreen(
                 TextButton(
                     onClick = {
                         viewModel.resetOtpState()
-                        viewModel.sendOtp(phoneNumber)
+                        viewModel.sendOtp(identifier)
                         resendTimer = 60
                         canResend = false
                         otp = List(4) { "" }
@@ -334,6 +343,17 @@ fun OtpScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+            }
+
+            // Email codes land in Spam / Promotions often enough to say so.
+            if (identifier.isEmail) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.hint_check_spam),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppColors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

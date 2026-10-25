@@ -33,7 +33,24 @@ class LocationService(
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
 
-    private val placesClient: PlacesClient = Places.createClient(context)
+    /**
+     * Null when Places was never initialised (no MAPS_API_KEY in the build —
+     * see ParcelWalaApplication).
+     *
+     * Lazy on purpose: Places.createClient() throws IllegalStateException when
+     * Places is not initialised, and Hilt constructs this class as soon as a
+     * location screen opens. An eager field would turn the missing key into a
+     * second crash one screen later.
+     */
+    private val placesClient: PlacesClient? by lazy {
+        if (Places.isInitialized()) Places.createClient(context) else null
+    }
+
+    /** Callers already catch exceptions and show an error state. */
+    private fun requirePlacesClient(): PlacesClient =
+        placesClient ?: throw IllegalStateException(
+            "Place search is unavailable: MAPS_API_KEY is missing from this build."
+        )
 
     private val geocoder: Geocoder = Geocoder(context, Locale.getDefault())
 
@@ -114,6 +131,7 @@ class LocationService(
         biasLocation: LatLng? = null
     ): List<PlaceAutocomplete> {
         if (query.isBlank()) return emptyList()
+        val client = requirePlacesClient()
 
         return suspendCancellableCoroutine { continuation ->
             val requestBuilder = FindAutocompletePredictionsRequest.builder()
@@ -130,7 +148,7 @@ class LocationService(
 
             val request = requestBuilder.build()
 
-            placesClient.findAutocompletePredictions(request)
+            client.findAutocompletePredictions(request)
                 .addOnSuccessListener { response ->
                     val predictions = response.autocompletePredictions.map { prediction ->
                         PlaceAutocomplete(
@@ -149,6 +167,7 @@ class LocationService(
     }
 
     suspend fun getPlaceDetails(placeId: String): PlaceDetails? {
+        val client = requirePlacesClient()
         return suspendCancellableCoroutine { continuation ->
             val placeFields = listOf(
                 Place.Field.ID,
@@ -162,7 +181,7 @@ class LocationService(
                 .setSessionToken(sessionToken)
                 .build()
 
-            placesClient.fetchPlace(request)
+            client.fetchPlace(request)
                 .addOnSuccessListener { response ->
                     val place = response.place
                     val latLng = place.latLng

@@ -1,6 +1,7 @@
 package com.mobitechs.parcelwala.ui.booking2
 
 import com.mobitechs.parcelwala.data.model.request.SavedAddress
+import com.mobitechs.parcelwala.data.model.response.VehicleVariants
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -111,9 +112,94 @@ data class VehicleOption(
      * that question before it is asked, and doubles as a quiet justification for
      * the price they are about to pay.
      */
-    val disabledReason: String? = null
+    val disabledReason: String? = null,
+    /** Raw `vehicle_sub_type` — "scooter" / "bike". Null when none. */
+    val subType: String? = null,
+    /** Raw `vehicle_body_type` — "open_body" / "closed_body". Null when none. */
+    val bodyType: String? = null,
+    /** Display label for the variant — "Scooter", "Closed body". */
+    val variantLabel: String? = null,
+    /** The server's description of this vehicle type. */
+    val description: String? = null
 ) {
     val isSelectable: Boolean get() = disabledReason == null
+
+    /**
+     * One line on what this variant is good for, shown under the variant
+     * chooser. Known variants get written copy; anything else falls back to the
+     * server's description so a new variant still says something useful.
+     */
+    val hint: String?
+        get() = VehicleVariants.hint(subType, bodyType)
+            ?: description?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+/**
+ * One vehicle as the customer thinks of it — "3 Wheeler" — holding every
+ * variant the backend offers of it (open body, closed body), each a separate
+ * vehicle type with its own id and fare.
+ *
+ * Built by [toVehicleFamilies]; [variants] is never empty and is sorted by fare
+ * so the cheapest is first.
+ */
+data class VehicleFamily(
+    val key: String,
+    val name: String,
+    val variants: List<VehicleOption>
+) {
+    /** More than one variant: the row gets a chooser. */
+    val hasChoice: Boolean get() = variants.size > 1
+
+    /** At least one variant can be booked (Smart Shifting can lock some). */
+    val isSelectable: Boolean get() = variants.any { it.isSelectable }
+
+    val minFare: Double get() = variants.minOf { it.fare }
+
+    val isRecommended: Boolean get() = variants.any { it.isRecommended && it.isSelectable }
+
+    val recommendLabel: String
+        get() = variants.firstOrNull { it.isRecommended }?.recommendLabel ?: "Popular"
+
+    /**
+     * The variant a tap on the collapsed row selects: the highlighted one if it
+     * is in this family, otherwise the cheapest one that can be booked.
+     */
+    val defaultVariant: VehicleOption
+        get() = variants.firstOrNull { it.isRecommended && it.isSelectable }
+            ?: variants.firstOrNull { it.isSelectable }
+            ?: variants.first()
+
+    /** Only when EVERY variant is locked does the whole row lock. */
+    val disabledReason: String?
+        get() = if (isSelectable) null else variants.firstNotNullOfOrNull { it.disabledReason }
+
+    /** Heading over the chooser: "Vehicle type" for scooter/bike, "Body type" for open/closed. */
+    val choiceTitle: String
+        get() = VehicleVariants.choiceTitle(
+            subTypes = variants.map { it.subType },
+            bodyTypes = variants.map { it.bodyType }
+        )
+
+    /**
+     * The collapsed row's summary of the choice: "Scooter or bike",
+     * "Open or closed body".
+     */
+    val choiceSummary: String
+        get() {
+            val labels = variants.map { it.variantLabel ?: "Standard" }.distinct()
+            if (labels.size < 2) return labels.firstOrNull().orEmpty()
+            val suffix = " body"
+            return if (labels.all { it.endsWith(suffix, ignoreCase = true) }) {
+                joinWithOr(labels.map { it.dropLast(suffix.length) }) + suffix
+            } else {
+                joinWithOr(labels)
+            }
+        }
+
+    private fun joinWithOr(parts: List<String>): String {
+        val cased = parts.mapIndexed { i, p -> if (i == 0) p else p.lowercase() }
+        return cased.dropLast(1).joinToString(", ") + " or " + cased.last()
+    }
 }
 
 /**
@@ -204,6 +290,10 @@ data class BookingDraft(
 ) {
     val selectedVehicle: VehicleOption?
         get() = vehicles.firstOrNull { it.id == selectedVehicleId }
+
+    /** [vehicles] grouped into one entry per vehicle, variants inside. */
+    val vehicleFamilies: List<VehicleFamily>
+        get() = vehicles.toVehicleFamilies()
 
     val subtotal: Double get() = selectedVehicle?.fare ?: 0.0
 
