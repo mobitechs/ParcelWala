@@ -65,6 +65,7 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.mobitechs.parcelwala.data.model.response.GoodsTypeResponse
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.tracking.MapGeometry
 import com.mobitechs.parcelwala.ui.tracking.VehicleMarkers
@@ -423,16 +424,12 @@ fun MapPinPickerScreen(
                     .fillMaxWidth()
                     .height(SendParcelTokens.ButtonHeight),
                 shape = RoundedCornerShape(SendParcelTokens.CornerRadius),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.Primary,
-                    disabledContainerColor = AppColors.DisabledBackground
-                )
+                colors = ctaButtonColors()
             ) {
                 Text(
                     "Confirm location",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.White
+                    fontSize = 16.sp
                 )
             }
         }

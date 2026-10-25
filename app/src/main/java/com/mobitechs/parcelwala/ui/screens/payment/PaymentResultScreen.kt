@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.mobitechs.parcelwala.R
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import java.text.NumberFormat
 import java.util.Locale
@@ -282,9 +283,10 @@ private fun PaymentResultContent(
                         .fillMaxWidth()
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (resultData.isSuccess) AppColors.Primary else AppColors.Error
-                    )
+                    // Success: the amber CTA. Failure keeps its red, so "Try
+                    // again" still reads as recovering from an error.
+                    colors = if (resultData.isSuccess) ctaButtonColors()
+                    else ButtonDefaults.buttonColors(containerColor = AppColors.Error)
                 ) {
                     Text(
                         text = if (resultData.isSuccess) stringResource(R.string.label_done)

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -204,23 +205,19 @@ fun SendParcelBottomBar(
                 .fillMaxWidth()
                 .height(SendParcelTokens.ButtonHeight),
             shape = RoundedCornerShape(SendParcelTokens.CornerRadius),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AppColors.Primary,
-                disabledContainerColor = AppColors.DisabledBackground
-            )
+            colors = ctaButtonColors()
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = Color.White
+                    color = AppColors.OnCta
                 )
             } else {
                 Text(
                     label,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.White
+                    fontSize = 16.sp
                 )
             }
         }

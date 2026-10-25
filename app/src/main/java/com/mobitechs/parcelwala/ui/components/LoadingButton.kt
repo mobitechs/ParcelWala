@@ -32,13 +32,17 @@ fun LoadingButton(
     isLoading: Boolean = false,
     enabled: Boolean = true,
     isOutlined: Boolean = false,
-    containerColor: Color = AppColors.Blue,
-    contentColor: Color = Color.White
+    containerColor: Color = AppColors.Cta,
+    contentColor: Color = AppColors.OnCta
 ) {
+    // Outlined is the SECONDARY style, which is navy. An amber outline with
+    // amber text on white would be unreadable, so the CTA default maps to navy
+    // here; a colour passed in explicitly is still honoured.
+    val outlineColor = if (containerColor == AppColors.Cta) AppColors.Primary else containerColor
     val buttonColors = if (isOutlined) {
         ButtonDefaults.outlinedButtonColors(
             containerColor = Color.Transparent,
-            contentColor = containerColor
+            contentColor = outlineColor
         )
     } else {
         ButtonDefaults.buttonColors(
@@ -51,7 +55,7 @@ fun LoadingButton(
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = if (isOutlined) containerColor else contentColor,
+                color = if (isOutlined) outlineColor else contentColor,
                 strokeWidth = 2.dp
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -67,7 +71,7 @@ fun LoadingButton(
                 .height(56.dp),
             enabled = enabled && !isLoading,
             colors = buttonColors,
-            border = BorderStroke(1.dp, containerColor),
+            border = BorderStroke(1.dp, outlineColor),
             shape = RoundedCornerShape(12.dp),
             content = buttonContent
         )

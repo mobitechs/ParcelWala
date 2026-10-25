@@ -65,6 +65,7 @@ import com.mobitechs.parcelwala.R
 import com.mobitechs.parcelwala.data.model.request.TransactionResponse
 import com.mobitechs.parcelwala.ui.components.AppTopBar
 import com.mobitechs.parcelwala.ui.components.StatusBarScaffold
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentEvent
 import com.mobitechs.parcelwala.ui.viewmodel.PaymentViewModel
@@ -374,10 +375,7 @@ private fun WalletExtraContent(
             onClick = onAddMoney,
             modifier = Modifier.fillMaxWidth().height(46.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = AppColors.Primary
-            ),
+            colors = ctaButtonColors(),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -414,7 +412,7 @@ private fun TransactionItem(
         "success"  -> AppColors.Pickup
         "failed"   -> AppColors.Drop
         "pending"  -> AppColors.Warning
-        "refunded" -> AppColors.Blue
+        "refunded" -> AppColors.Secondary
         else       -> AppColors.TextSecondary
     }
 
@@ -559,10 +557,10 @@ private fun WalletTopupSheet(
             enabled = amountValue >= 10 && !isLoading,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+            colors = ctaButtonColors()
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = AppColors.OnCta, strokeWidth = 2.dp)
             } else {
                 Text(
                     text = stringResource(R.string.label_add_amount, amount.ifEmpty { "0" }),

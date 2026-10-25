@@ -57,13 +57,13 @@ internal fun getStatusConfig(status: String): StatusConfig =
         )
         Constants.OrderStatus.ASSIGNED           -> StatusConfig(
             Icons.Filled.Person,
-            AppColors.Blue, AppColors.PrimaryLight,
+            AppColors.Secondary, AppColors.SecondaryLight,
             labelRes = R.string.status_assigned
         )
         Constants.OrderStatus.ARRIVING,
         Constants.OrderStatus.DRIVER_ARRIVING    -> StatusConfig(
             Icons.Filled.DirectionsCar,
-            AppColors.Blue, AppColors.PrimaryLight,
+            AppColors.Secondary, AppColors.SecondaryLight,
             labelRes = R.string.status_arriving
         )
         Constants.OrderStatus.PICKED_UP          -> StatusConfig(

@@ -41,6 +41,7 @@ import androidx.compose.foundation.Image
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.mobitechs.parcelwala.data.model.response.formatRupee
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 
 /**
@@ -206,18 +207,14 @@ fun VehicleFareSheet(
                 .fillMaxWidth()
                 .height(SendParcelTokens.ButtonHeight),
             shape = RoundedCornerShape(SendParcelTokens.CornerRadius),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AppColors.Primary,
-                disabledContainerColor = AppColors.DisabledBackground
-            )
+            colors = ctaButtonColors()
         ) {
             Text(
                 text = draft.selectedVehicle?.let {
                     "Book ${it.name.lowercase()} · ${formatRupee(draft.total)}"
                 } ?: "Select a vehicle",
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.White
+                fontSize = 16.sp
             )
         }
     }

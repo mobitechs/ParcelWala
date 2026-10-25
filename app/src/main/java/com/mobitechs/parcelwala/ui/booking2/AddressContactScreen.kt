@@ -371,7 +371,7 @@ private fun MapPin(icon: ImageVector, color: Color) {
         Box(
             modifier = Modifier
                 .size(width = 14.dp, height = 5.dp)
-                .background(Color.Black.copy(alpha = 0.18f), CircleShape)
+                .background(AppColors.TextPrimary.copy(alpha = 0.18f), CircleShape)
         )
     }
 }

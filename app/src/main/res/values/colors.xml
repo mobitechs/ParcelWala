@@ -13,6 +13,8 @@
     <color name="primary_dark">#FF1B1A47</color>
     <color name="primary_deep">#FF14133A</color>
     <color name="primary_light">#FFE9E9FA</color>
+    <!-- Mid indigo between navy and soft indigo (AppColors.PrimaryMuted). -->
+    <color name="primary_muted">#FF7C7BB8</color>
 
     <!-- ── Secondary: Teal ── -->
     <color name="secondary">#FF0F766E</color>

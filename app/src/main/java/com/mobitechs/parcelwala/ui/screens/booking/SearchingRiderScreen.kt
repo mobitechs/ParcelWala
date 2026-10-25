@@ -119,6 +119,7 @@ import com.mobitechs.parcelwala.data.model.request.SavedAddress
 import com.mobitechs.parcelwala.data.model.response.FareDetails
 import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.data.repository.RouteInfo
+import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
 import com.mobitechs.parcelwala.ui.tracking.TrackingPhase
 import com.mobitechs.parcelwala.ui.viewmodel.BookingViewModel
@@ -785,15 +786,14 @@ private fun SearchingAnimationCard(
                 onClick = onRetry,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+                colors = ctaButtonColors()
             ) {
-                Icon(Icons.Default.Refresh, null, Modifier.size(19.dp), tint = Color.White)
+                Icon(Icons.Default.Refresh, null, Modifier.size(19.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "Search again",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.White
+                    fontSize = 16.sp
                 )
             }
         } else {

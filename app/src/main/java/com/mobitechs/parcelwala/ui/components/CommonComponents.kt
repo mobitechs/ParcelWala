@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -49,7 +50,23 @@ import com.mobitechs.parcelwala.ui.theme.AppColors
  */
 
 /**
- * Primary Button - Orange theme
+ * Colours for every filled call-to-action button: Amber with Dark Navy text.
+ *
+ * One function so every CTA in the app — shared components and the one-off
+ * `Button`s on individual screens — shares the same enabled AND disabled
+ * look. A spinner shown inside a CTA should use [AppColors.OnCta]; it stays
+ * visible on both the amber and the grey disabled fill.
+ */
+@Composable
+fun ctaButtonColors(): ButtonColors = ButtonDefaults.buttonColors(
+    containerColor = AppColors.Cta,
+    contentColor = AppColors.OnCta,
+    disabledContainerColor = AppColors.DisabledBackground,
+    disabledContentColor = AppColors.DisabledContent
+)
+
+/**
+ * Primary Button — the screen's call to action. Amber, Dark Navy text.
  */
 @Composable
 fun PrimaryButton(
@@ -64,10 +81,7 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled && !isLoading,
         modifier = modifier.height(56.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = AppColors.Primary,
-            disabledContainerColor = AppColors.Border
-        ),
+        colors = ctaButtonColors(),
         shape = RoundedCornerShape(16.dp),
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 0.dp,
@@ -77,7 +91,7 @@ fun PrimaryButton(
         if (isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(24.dp),
-                color = Color.White,
+                color = AppColors.OnCta,
                 strokeWidth = 2.dp
             )
         } else {
@@ -104,7 +118,8 @@ fun PrimaryButton(
 }
 
 /**
- * Secondary Button - Outlined orange theme
+ * Secondary Button — outlined Deep Navy. The quieter partner to the amber
+ * [PrimaryButton]; never amber itself, or two buttons compete for the tap.
  */
 @Composable
 fun SecondaryButton(

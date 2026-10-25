@@ -12,12 +12,12 @@
         android:fillColor="#FFFFFFFF"
         android:pathData="M24,44C12.95,44 4,35.05 4,24S12.95,4 24,4s20,8.95 20,20S35.05,44 24,44z" />
     <path
-        android:fillColor="#FF2D2B69"
+        android:fillColor="@color/primary"
         android:pathData="M17.4,9.8h13.2c1.2,0 2.2,1 2.2,2.2v24c0,1.2 -1,2.2 -2.2,2.2H17.4c-1.2,0 -2.2,-1 -2.2,-2.2V12C15.2,10.8 16.2,9.8 17.4,9.8z" />
     <path
-        android:fillColor="#FF8FA3D9"
+        android:fillColor="@color/primary_muted"
         android:pathData="M18.4,12.6h11.2v5.2H18.4z" />
     <path
-        android:fillColor="#FFEEF2FF"
+        android:fillColor="@color/primary_light"
         android:pathData="M18.4,20.8h11.2v14.4H18.4z" />
 </vector>

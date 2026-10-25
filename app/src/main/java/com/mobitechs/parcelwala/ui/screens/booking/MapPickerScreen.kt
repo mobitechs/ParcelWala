@@ -197,7 +197,7 @@ fun MapPickerScreen(
                                 .width(10.dp)
                                 .height(3.dp)
                                 .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.15f))
+                                .background(AppColors.TextPrimary.copy(alpha = 0.15f))
                         )
                     }
                 }

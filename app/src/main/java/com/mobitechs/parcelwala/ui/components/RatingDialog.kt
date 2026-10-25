@@ -267,15 +267,13 @@ fun RatingDialog(
                         },
                         modifier = Modifier.weight(1f),
                         enabled = rating > 0 && !isSubmitting,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.Primary
-                        ),
+                        colors = ctaButtonColors(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (isSubmitting) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = Color.White,
+                                color = AppColors.OnCta,
                                 strokeWidth = 2.dp
                             )
                         } else {
