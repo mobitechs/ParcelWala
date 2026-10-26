@@ -57,7 +57,6 @@ import com.mobitechs.parcelwala.data.model.response.formatRupee
 import com.mobitechs.parcelwala.ui.components.VehicleImage
 import com.mobitechs.parcelwala.ui.components.ctaButtonColors
 import com.mobitechs.parcelwala.ui.theme.AppColors
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import kotlinx.coroutines.delay
 
 /**
@@ -263,22 +262,39 @@ fun VehicleFareSheet(
             shape = RoundedCornerShape(SendParcelTokens.CornerRadius),
             colors = ctaButtonColors()
         ) {
-            Text(
-                text = draft.selectedVehicle?.let { vehicle ->
-                    buildString {
-                        append("Book ").append(vehicle.name.lowercase())
-                        vehicle.variantLabel
-                            ?.takeIf { selectedFamily?.hasChoice == true }
-                            ?.let { append(" · ").append(it.lowercase()) }
-                        append(" · ").append(formatRupee(draft.total))
-                    }
-                } ?: "Select a vehicle",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // No colour override on these Texts: ctaButtonColors() already gives
+            // OnCta (navy). White on the amber CTA is 2.2:1 contrast — hard to
+            // read in sunlight — which the theme guide rules out.
+            val vehicle = draft.selectedVehicle
+            if (vehicle == null) {
+                Text("Select a vehicle", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            } else {
+                // Two Texts so only the description can shrink. With one string,
+                // a long name or a larger phone font cut off the END — the price,
+                // which is the one thing this button promises to show.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = buildString {
+                            append("Book ").append(vehicle.name.lowercase())
+                            vehicle.variantLabel
+                                ?.takeIf { selectedFamily?.hasChoice == true }
+                                ?.let { append(" · ").append(it.lowercase()) }
+                        },
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Text(
+                        text = " · " + formatRupee(draft.total),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
         }
     }
 }
@@ -317,7 +333,12 @@ private fun VehicleFamilyRow(
             bringIntoView.bringIntoView()
         }
     }
-    Row(
+    // The card is a COLUMN: the vehicle line on top, the variant chooser
+    // underneath. It used to be a Row — the vehicle line (fillMaxWidth) took
+    // all the width, the chooser was squeezed to 0dp beside it, and its text
+    // wrapped one letter per line. That made the card very tall with nothing
+    // visible in it: the "empty space" under a selected Tata Ace / 3 Wheeler.
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoView)
@@ -458,6 +479,7 @@ private fun VariantChooser(
                 family.variants.forEach { variant ->
                     VariantChip(
                         variant = variant,
+                        label = family.chipLabel(variant),
                         isSelected = variant.id == selected.id,
                         modifier = Modifier.weight(1f),
                         onClick = { onSelectVehicle(variant.id) }
@@ -476,6 +498,7 @@ private fun VariantChooser(
                 family.variants.forEach { variant ->
                     VariantChip(
                         variant = variant,
+                        label = family.chipLabel(variant),
                         isSelected = variant.id == selected.id,
                         modifier = Modifier.width(150.dp),
                         onClick = { onSelectVehicle(variant.id) }
@@ -507,9 +530,23 @@ private fun VariantChooser(
     }
 }
 
+/**
+ * The chip's label. Under a "BODY TYPE" heading the chips say "Open" and
+ * "Closed" — the heading already says "body", and the full "Closed body" next
+ * to the photo cut off as "Closed bo…" on a 360dp phone. Same suffix rule as
+ * [VehicleFamily.choiceSummary]. Other labels ("Scooter", "Bike") are kept.
+ */
+private fun VehicleFamily.chipLabel(variant: VehicleOption): String {
+    val label = variant.variantLabel ?: "Standard"
+    val suffix = " body"
+    val allBody = variants.all { it.variantLabel?.endsWith(suffix, ignoreCase = true) == true }
+    return if (allBody) label.dropLast(suffix.length) else label
+}
+
 @Composable
 private fun VariantChip(
     variant: VehicleOption,
+    label: String,
     isSelected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
@@ -553,7 +590,7 @@ private fun VariantChip(
         )
         Column(Modifier.weight(1f)) {
             Text(
-                variant.variantLabel ?: "Standard",
+                label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = AppColors.TextPrimary,
@@ -612,9 +649,11 @@ private fun OptionChip(
             .then(
                 if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            // 8dp, not 10: three chips share ~100dp each on a 360dp phone, and
+            // "Documents" needs the extra 4dp to show in full.
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Icon(
             icon, null,
@@ -625,7 +664,10 @@ private fun OptionChip(
             label,
             style = MaterialTheme.typography.labelMedium,
             color = if (isAccent) AppColors.Primary else AppColors.TextSecondary,
-            maxLines = 1
+            maxLines = 1,
+            // A long goods type ("Electronics", "Furniture") used to be cut
+            // mid-letter at the chip edge; an ellipsis at least reads as "more".
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
